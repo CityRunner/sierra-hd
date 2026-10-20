@@ -1,0 +1,33 @@
+# Code style of sierra-hd. Checked in CI by scripts/check-format.sh with the
+# clang-format of the pinned toolchain (docker/Dockerfile).
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: c++20
+IndentWidth: 4
+ColumnLimit: 120
+AccessModifierOffset: -4
+IndentCaseLabels: false
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AlwaysBreakTemplateDeclarations: Yes
+BreakBeforeBraces: Attach
+PointerAlignment: Left
+ReferenceAlignment: Left
+QualifierAlignment: Left
+InsertBraces: true
+InsertNewlineAtEOF: true
+SeparateDefinitionBlocks: Always
+FixNamespaceComments: true
+NamespaceIndentation: None
+SpacesBeforeTrailingComments: 1
+IncludeBlocks: Regroup
+IncludeCategories:
+  # The header of this file's own unit and project headers first, then the
+  # standard library.
+  - Regex: '^"'
+    Priority: 1
+  - Regex: '^<'
+    Priority: 2
+SortIncludes: CaseSensitive
