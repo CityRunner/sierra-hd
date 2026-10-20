@@ -61,6 +61,13 @@ Result<std::uint8_t> u8_at(std::span<const std::uint8_t> data, std::size_t offse
 // its low nibble the colour. The bitmap starts as colour 0.
 Result<std::vector<std::uint8_t>> unpack_ega_cel(std::span<const std::uint8_t> data, std::size_t offset,
                                                  std::size_t pixel_count) {
+    // A run covers at most 15 pixels. Checking this first keeps a corrupt
+    // size (up to 65535 x 65535) from allocating gigabytes; ScummVM would
+    // allocate it and then read past the resource.
+    constexpr std::size_t max_run = 15;
+    if (offset > data.size() || pixel_count > max_run * (data.size() - offset)) {
+        return make_error(ErrorCode::InvalidData, "view cel is larger than its data can describe");
+    }
     std::vector<std::uint8_t> pixels(pixel_count, 0);
     std::size_t pixel = 0;
     while (pixel < pixel_count) {
