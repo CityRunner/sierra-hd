@@ -1,0 +1,275 @@
+# sierra-hd: dump pictures, views and fonts as ScummVM's SCI engine draws them.
+#
+# With SIERRA_HD_DUMP_GRAPHICS=<directory> set, the engine draws every picture
+# in several variants into cleared maps and writes the visual, priority and
+# control maps, writes every view cel bitmap and every font glyph
+# (engines/sci/sierra_hd_dump_graphics.cpp), then exits. Used by
+# tools/graphics-compare to check sci-pic, sci-view and the fonts in sci-text
+# (milestone 2).
+diff -ruN a/engines/sci/module.mk b/engines/sci/module.mk
+--- a/engines/sci/module.mk	2026-10-20 19:04:27.570762525 +0000
++++ b/engines/sci/module.mk	2026-10-20 19:04:27.586956863 +0000
+@@ -7,6 +7,7 @@
+ 	event.o \
+ 	metaengine.o \
+ 	sci.o \
++	sierra_hd_dump_graphics.o \
+ 	util.o \
+ 	engine/features.o \
+ 	engine/file.o \
+diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
+--- a/engines/sci/sci.cpp	2026-10-20 19:04:27.566383495 +0000
++++ b/engines/sci/sci.cpp	2026-10-20 19:04:27.587761090 +0000
+@@ -63,6 +63,7 @@
+ #include "sci/graphics/picture.h"
+ #include "sci/graphics/ports.h"
+ #include "sci/graphics/palette16.h"
++#include "sci/sierra_hd_dump_graphics.h"
+ #include "sci/graphics/remap.h"
+ #include "sci/graphics/screen.h"
+ #include "sci/graphics/text16.h"
+@@ -387,6 +388,10 @@
+ 	// Initialize all graphics related subsystems
+ 	initGraphics();
+ 
++	// sierra-hd reference tooling: dump pictures, views and fonts and exit.
++	if (sierraHdDumpGraphicsDirectory())
++		sierraHdDumpGraphicsAndExit();
++
+ 	// Sound must be initialized after graphics because SysEx transfers at the
+ 	// start of the game must pump the event loop to avoid making the OS think
+ 	// that ScummVM is hanged, and pumping the event loop requires GfxCursor to
+diff -ruN a/engines/sci/sierra_hd_dump_graphics.cpp b/engines/sci/sierra_hd_dump_graphics.cpp
+--- a/engines/sci/sierra_hd_dump_graphics.cpp	1970-01-01 00:00:00.000000000 +0000
++++ b/engines/sci/sierra_hd_dump_graphics.cpp	2026-10-20 19:04:27.593835404 +0000
+@@ -0,0 +1,200 @@
++/* sierra-hd reference tooling for ScummVM's SCI engine.
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * Output, all little-endian, one file per resource and variant:
++ *
++ *   pic.<nnn>.<variant>   the visual, priority and control maps (320x200 bytes
++ *                         each, in that order) after drawing the picture into
++ *                         cleared maps through the picture port, as kDrawPic
++ *                         does. Variants: normal, mirrored, palette1..3 (EGA
++ *                         palette number), overlay (the previous picture in
++ *                         number order drawn first, this one added on top).
++ *   view.<nnn>            u8 loop count; per loop u16 cel count; per cel
++ *                         u16 width, u16 height, i16 displaceX, u16 displaceY,
++ *                         u8 clearKey, then width*height bytes from getBitmap().
++ *   font.<nnn>            u16 char count, u8 height; per char u8 width,
++ *                         u8 height, then width*height bytes (1 = set) from
++ *                         drawToBuffer().
++ *   manifest.txt          one line per file written.
++ */
++
++#define FORBIDDEN_SYMBOL_ALLOW_ALL
++
++#include <stdio.h>
++#include <stdlib.h>
++
++#include "common/algorithm.h"
++#include "common/array.h"
++
++#include "sci/sci.h"
++#include "sci/sierra_hd_dump_graphics.h"
++#include "sci/resource/resource.h"
++#include "sci/graphics/cache.h"
++#include "sci/graphics/paint16.h"
++#include "sci/graphics/ports.h"
++#include "sci/graphics/scifont.h"
++#include "sci/graphics/screen.h"
++#include "sci/graphics/view.h"
++
++namespace Sci {
++
++namespace {
++
++class Writer {
++public:
++	explicit Writer(const char *directory) : _directory(directory), _ok(true) {
++		Common::String path = Common::String::format("%s/manifest.txt", directory);
++		_manifest = fopen(path.c_str(), "w");
++		if (!_manifest)
++			_ok = false;
++	}
++
++	void write(const Common::String &name, const Common::Array<byte> &bytes) {
++		Common::String path = Common::String::format("%s/%s", _directory, name.c_str());
++		FILE *file = fopen(path.c_str(), "wb");
++		if (!file || (bytes.size() > 0 && fwrite(bytes.data(), 1, bytes.size(), file) != bytes.size()))
++			_ok = false;
++		if (file)
++			fclose(file);
++		if (_manifest)
++			fprintf(_manifest, "%s %u\n", name.c_str(), bytes.size());
++	}
++
++	bool finish() {
++		if (_manifest && fclose(_manifest) != 0)
++			_ok = false;
++		return _ok;
++	}
++
++private:
++	const char *_directory;
++	FILE *_manifest;
++	bool _ok;
++};
++
++void put16(Common::Array<byte> &out, uint16 value) {
++	out.push_back(value & 0xFF);
++	out.push_back(value >> 8);
++}
++
++Common::Array<uint16> sortedIds(ResourceType type) {
++	Common::List<ResourceId> list = g_sci->getResMan()->listResources(type);
++	Common::Array<uint16> ids;
++	for (Common::List<ResourceId>::const_iterator it = list.begin(); it != list.end(); ++it)
++		ids.push_back(it->getNumber());
++	Common::sort(ids.begin(), ids.end());
++	return ids;
++}
++
++void drawPicture(uint16 id, bool mirrored, bool addTo, int16 palette) {
++	Port *oldPort = g_sci->_gfxPorts->setPort((Port *)g_sci->_gfxPorts->_picWind);
++	g_sci->_gfxPaint16->drawPicture(id, mirrored, addTo, palette);
++	g_sci->_gfxPorts->setPort(oldPort);
++}
++
++Common::Array<byte> screenMaps() {
++	GfxScreen *screen = g_sci->_gfxScreen;
++	Common::Array<byte> out;
++	for (int map = 0; map < 3; map++) {
++		for (int16 y = 0; y < 200; y++) {
++			for (int16 x = 0; x < 320; x++) {
++				switch (map) {
++				case 0: out.push_back(screen->getVisual(x, y)); break;
++				case 1: out.push_back(screen->getPriority(x, y)); break;
++				default: out.push_back(screen->getControl(x, y)); break;
++				}
++			}
++		}
++	}
++	return out;
++}
++
++void dumpPictures(Writer &writer) {
++	struct Variant { const char *name; bool mirrored; int16 palette; };
++	static const Variant variants[] = {
++		{"normal", false, 0}, {"mirrored", true, 0},
++		{"palette1", false, 1}, {"palette2", false, 2}, {"palette3", false, 3}
++	};
++	Common::Array<uint16> ids = sortedIds(kResourceTypePic);
++	for (uint i = 0; i < ids.size(); i++) {
++		for (uint v = 0; v < ARRAYSIZE(variants); v++) {
++			g_sci->_gfxScreen->clearForRestoreGame();
++			drawPicture(ids[i], variants[v].mirrored, false, variants[v].palette);
++			writer.write(Common::String::format("pic.%03u.%s", ids[i], variants[v].name), screenMaps());
++		}
++		if (i > 0) {
++			g_sci->_gfxScreen->clearForRestoreGame();
++			drawPicture(ids[i - 1], false, false, 0);
++			drawPicture(ids[i], false, true, 0);
++			writer.write(Common::String::format("pic.%03u.overlay", ids[i]), screenMaps());
++		}
++	}
++}
++
++void dumpViews(Writer &writer) {
++	Common::Array<uint16> ids = sortedIds(kResourceTypeView);
++	for (uint i = 0; i < ids.size(); i++) {
++		GfxView *view = g_sci->_gfxCache->getView(ids[i]);
++		Common::Array<byte> out;
++		out.push_back(view->getLoopCount());
++		for (int16 loop = 0; loop < view->getLoopCount(); loop++) {
++			put16(out, view->getCelCount(loop));
++			for (int16 cel = 0; cel < view->getCelCount(loop); cel++) {
++				const CelInfo *info = view->getCelInfo(loop, cel);
++				put16(out, info->width);
++				put16(out, info->height);
++				put16(out, (uint16)info->displaceX);
++				put16(out, (uint16)info->displaceY);
++				out.push_back(info->clearKey);
++				const SciSpan<const byte> &bitmap = view->getBitmap(loop, cel);
++				for (uint p = 0; p < bitmap.size(); p++)
++					out.push_back(bitmap[p]);
++			}
++		}
++		writer.write(Common::String::format("view.%03u", ids[i]), out);
++	}
++}
++
++void dumpFonts(Writer &writer) {
++	Common::Array<uint16> ids = sortedIds(kResourceTypeFont);
++	for (uint i = 0; i < ids.size(); i++) {
++		Resource *resource = g_sci->getResMan()->findResource(ResourceId(kResourceTypeFont, ids[i]), false);
++		const uint16 charCount = resource->getUint16LEAt(2);
++		GfxFont *font = g_sci->_gfxCache->getFont(ids[i]);
++		Common::Array<byte> out;
++		put16(out, charCount);
++		out.push_back(font->getHeight());
++		for (uint16 chr = 0; chr < charCount; chr++) {
++			const byte width = font->getCharWidth(chr);
++			const byte height = font->getCharHeight(chr);
++			out.push_back(width);
++			out.push_back(height);
++			Common::Array<byte> glyph(width * height, 0);
++			if (width && height)
++				font->drawToBuffer(chr, 0, 0, 1, false, glyph.data(), width, height);
++			for (uint p = 0; p < glyph.size(); p++)
++				out.push_back(glyph[p]);
++		}
++		writer.write(Common::String::format("font.%03u", ids[i]), out);
++	}
++}
++
++} // End of anonymous namespace
++
++const char *sierraHdDumpGraphicsDirectory() {
++	return getenv("SIERRA_HD_DUMP_GRAPHICS");
++}
++
++void sierraHdDumpGraphicsAndExit() {
++	Writer writer(sierraHdDumpGraphicsDirectory());
++	dumpPictures(writer);
++	dumpViews(writer);
++	dumpFonts(writer);
++	exit(writer.finish() ? 0 : 1);
++}
++
++} // End of namespace Sci
+diff -ruN a/engines/sci/sierra_hd_dump_graphics.h b/engines/sci/sierra_hd_dump_graphics.h
+--- a/engines/sci/sierra_hd_dump_graphics.h	1970-01-01 00:00:00.000000000 +0000
++++ b/engines/sci/sierra_hd_dump_graphics.h	2026-10-20 19:04:27.592214753 +0000
+@@ -0,0 +1,26 @@
++/* sierra-hd reference tooling for ScummVM's SCI engine.
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef SCI_SIERRA_HD_DUMP_GRAPHICS_H
++#define SCI_SIERRA_HD_DUMP_GRAPHICS_H
++
++namespace Sci {
++
++/** The directory named by SIERRA_HD_DUMP_GRAPHICS, or nullptr if it is not set. */
++const char *sierraHdDumpGraphicsDirectory();
++
++/**
++ * Draws every picture, decodes every view and font with the engine's own
++ * code, writes the results to sierraHdDumpGraphicsDirectory() and exits the
++ * process: status 0 on success, 1 if a file cannot be written.
++ */
++void sierraHdDumpGraphicsAndExit();
++
++} // End of namespace Sci
++
++#endif
