@@ -1,5 +1,11 @@
 # Build trees.
 /build/
+
+# libFuzzer artifacts written to the working directory by manual runs.
+/crash-*
+/leak-*
+/oom-*
+/timeout-*
 /out/
 compile_commands.json
 .cache/

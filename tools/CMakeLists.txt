@@ -2,7 +2,10 @@
 #
 # Development tools. Nothing here is linked into the program.
 
+add_subdirectory(common)
+add_subdirectory(graphics-dump)
 add_subdirectory(resource-dump)
+add_subdirectory(room-viewer)
 
 # The reference ScummVM (tools/reference-scummvm) is built by its own script
 # from a ScummVM checkout outside this repository; this target only wraps it,

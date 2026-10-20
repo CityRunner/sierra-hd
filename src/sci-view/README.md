@@ -1,11 +1,16 @@
 # sci-view
 
 VIEW resource decoding: loops, cels and their transparency and mirroring.
+Ported from ScummVM's `GfxView` (EGA views); the format is in
+`docs/formats/views-and-fonts.md`.
 
-Milestone 0 contains only the library skeleton; the content arrives with the
-milestones named below.
+`decode_view` returns a `View` with its loops and cels. Mirrored loops are
+decoded mirrored: rows reversed and the x displacement negated, as
+`GfxView::getBitmap` returns them.
 
 ## Invariants
 
-- Bounds-checked parsers with libFuzzer targets.
-- Decoded cels match ScummVM at the pinned revision (milestone 2).
+- Decoded cels match ScummVM at the pinned revision (364 of 364 views of the
+  tested release, `tools/graphics-compare`).
+- Bounds-checked parsing; a cel larger than its data could describe is
+  rejected before allocating (fuzz target `fuzz-view-font`).

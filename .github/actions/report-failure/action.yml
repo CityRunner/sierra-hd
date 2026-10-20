@@ -16,5 +16,11 @@ runs:
       run: |
         if [[ -f "$LOG" ]]; then
           # Workflow commands take one line: escape % and join lines with %0A.
-          tail -n 80 "$LOG" | tr -d '\r' | awk 'BEGIN { printf "::error title=Last lines of the log::" } { gsub(/%/, "%25"); printf "%s%%0A", $0 } END { print "" }'
+          # GitHub keeps only the first 4 KB of an annotation, so the error
+          # lines get one of their own before the tail of the log.
+          annotate() {
+            tr -d '\r' | awk -v title="$1" 'BEGIN { printf "::error title=%s::", title } { gsub(/%/, "%25"); printf "%s%%0A", $0 } END { print "" }'
+          }
+          grep -E -A3 'error|FAILED|Failed|failed' "$LOG" | grep -v '^\[[0-9]*/[0-9]*\] Building' | head -n 40 | annotate "Errors in the log" || true
+          tail -n 30 "$LOG" | annotate "Last lines of the log"
         fi
