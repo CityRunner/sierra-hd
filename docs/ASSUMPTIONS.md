@@ -498,9 +498,8 @@ decisions.
   meet are kept exactly; fits that would cross or enclose other geometry
   are rejected. 0.5 pixels is the lower end of spec section 6.3's range: at
   that tolerance every pixel of a fitted line is still touched by its
-  stroke. Rotated ellipses are fitted as splines. **Assumed**; the
-  threshold is open question 1 of spec section 15 and is offered to the
-  customer at this gate.
+  stroke. Rotated ellipses are fitted as splines. **Decided** (confirmed
+  at the milestone 3 gate).
 - **Acceptance definitions** (spec section 6.4, `sci/render/acceptance.hpp`).
   Pair classes compare pairs by the colour they blend to, so (a, b) and
   (b, a) are one class. The reduction to 1x takes, per pixel, the value
@@ -536,17 +535,34 @@ decisions.
   (path 1, both scenes, the HD frame and priority map) is measured at N = 10
   on the 4-core development container: see the milestone 3 report.
   Proposed budgets: room entry under 1 second at N = 10, and the first
-  launch's analysis of all rooms under 15 seconds. **Proposed**; the
-  customer confirms them.
+  launch's analysis of all rooms under 15 seconds. **Decided** (confirmed
+  at the milestone 3 gate).
 - **Threads in the tools.** `tools/common` implements the executor with
   `std::jthread`; app gets its own implementation with the window layer
   (milestone 3a). **Decided.**
 
+## Milestone 3 approval (2026-10-20)
+
+Milestone 3 was approved and merged
+([CityRunner/sierra-hd#4](https://github.com/CityRunner/sierra-hd/pull/4)).
+The customer decided:
+
+- **Fitting tolerance: 0.5 original pixels** (spec section 15, open question
+  1). A trial at 1 pixel on picture 44 changed little and left 840 line
+  pixels in 64 pictures untouched by their strokes. Rounder shapes are left
+  to the hints of milestone 3a. **Decided.**
+- **Edge blend space: sRGB**, as assumed (spec section 15). **Decided.**
+- **Reference machine and budgets** as proposed in "Milestone 3": a 4-core
+  x86-64 laptop of about 2020 with 8 GB of memory and integrated graphics;
+  room entry under 1 second at N = 10; the first launch's analysis of all
+  rooms under 15 seconds. **Decided.**
+- The manual side-by-side review continues with further rooms. **Open.**
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with
-  no linear-light conversion (spec section 6.5). **Assumed**; to be
-  confirmed after seeing results (spec section 15).
+  no linear-light conversion (spec section 6.5). **Decided** (confirmed at
+  the milestone 3 gate).
 - ScummVM's Event Recorder is evaluated as the basis of the replay format
   before that format is designed (spec section 7, needed from milestone 4a).
   **Pending.**
