@@ -20,6 +20,7 @@
 #include <format>
 #include <fstream>
 #include <iterator>
+#include <memory>
 #include <print>
 #include <span>
 #include <string>
@@ -61,9 +62,9 @@ std::vector<GameFile> read_game_folder(const fs::path& folder) {
 }
 
 bool write_file(const fs::path& path, std::span<const std::uint8_t> bytes) {
-    std::ofstream stream(path, std::ios::binary);
-    stream.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
-    return static_cast<bool>(stream);
+    const std::unique_ptr<std::FILE, decltype(&std::fclose)> file(std::fopen(path.string().c_str(), "wb"),
+                                                                  &std::fclose);
+    return file != nullptr && std::fwrite(bytes.data(), 1, bytes.size(), file.get()) == bytes.size();
 }
 
 int dump(const fs::path& game_folder, const fs::path& output) {
