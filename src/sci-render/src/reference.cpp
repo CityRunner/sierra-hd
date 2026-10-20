@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstddef>
 #include <optional>
+#include <ranges>
 #include <variant>
 
 namespace sci::render {
@@ -60,8 +61,8 @@ std::optional<std::uint8_t> layer_value(const vector::Layer& layer, Vec2 p) {
 } // namespace
 
 std::uint8_t reference_value(const vector::Scene& scene, Vec2 p) {
-    for (auto it = scene.layers.rbegin(); it != scene.layers.rend(); ++it) {
-        if (const auto value = layer_value(*it, p)) {
+    for (const vector::Layer& layer : std::views::reverse(scene.layers)) {
+        if (const auto value = layer_value(layer, p)) {
             return *value;
         }
     }

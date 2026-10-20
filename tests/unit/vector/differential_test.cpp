@@ -43,7 +43,7 @@ SCI_TEST(sampler_matches_the_reference) {
     int differences = 0;
     for (const int density : {16, 48}) {
         std::vector<std::uint8_t> values(static_cast<std::size_t>(sci::vector::picture_width * density));
-        for (int row = 0; row < sci::vector::picture_height * density; row += 13 * density + 5) {
+        for (int row = 0; row < sci::vector::picture_height * density; row += (13 * density) + 5) {
             const double y = (row + 0.5) / density;
             sampler.sample_row(y, density, values);
             for (std::size_t i = 0; i < values.size(); ++i) {
