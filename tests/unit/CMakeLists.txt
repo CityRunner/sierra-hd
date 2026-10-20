@@ -32,3 +32,12 @@ sci_add_unit_test(NAME sci-view-tests
 sci_add_unit_test(NAME sci-text-tests
     SOURCES text/font_test.cpp
     DEPENDS sci-text)
+
+sci_add_unit_test(NAME sci-vector-tests
+    SOURCES vector/build_scene_test.cpp
+    DEPENDS sci-vector sci-render)
+target_include_directories(sci-vector-tests PRIVATE pic)
+
+sci_add_unit_test(NAME sci-render-tests
+    SOURCES render/render_test.cpp
+    DEPENDS sci-render)

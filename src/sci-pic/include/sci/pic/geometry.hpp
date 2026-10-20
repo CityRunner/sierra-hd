@@ -55,7 +55,7 @@ struct ScreenPoint {
 // two screen points, after clipping them, in ScummVM's order. Pixels may be
 // visited twice.
 template <typename Visit>
-constexpr void for_each_line_pixel(ScreenPoint from, ScreenPoint to, Visit&& visit) {
+constexpr void for_each_line_pixel(ScreenPoint from, ScreenPoint to, Visit visit) {
     const ScreenPoint start = clip_to_screen(from);
     const ScreenPoint end = clip_to_screen(to);
     int left = start.x;
@@ -118,7 +118,7 @@ constexpr void for_each_line_pixel(ScreenPoint from, ScreenPoint to, Visit&& vis
 // The pattern code: pen size (bits 0-2), rectangle instead of circle (bit
 // 4), textured (bit 5).
 [[nodiscard]] constexpr int pattern_size(std::uint8_t code) noexcept {
-    return code & 0x07;
+    return static_cast<int>(code & 0x07U);
 }
 
 [[nodiscard]] constexpr bool pattern_is_rectangle(std::uint8_t code) noexcept {

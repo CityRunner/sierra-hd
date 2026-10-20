@@ -3,8 +3,6 @@
 // Milestone 0 stub of the program: it links every library and reports them.
 
 #include "sci/audio/component.hpp"
-#include "sci/render/component.hpp"
-#include "sci/vector/component.hpp"
 #include "sci/vm/component.hpp"
 
 #include <array>
@@ -17,9 +15,7 @@ namespace {
 void print_version() {
     std::println("sierra-hd {}", SCI_VERSION);
     const std::array components{
-        sci::vector::component_name(),
         sci::audio::component_name(),
-        sci::render::component_name(),
         sci::vm::component_name(),
     };
     for (const std::string_view name : components) {
