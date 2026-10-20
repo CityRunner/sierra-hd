@@ -90,8 +90,8 @@ releases are (spec section 10.2):
 - **Copy protection.** The game opens with the fingerprint identification
   screen; the reference ScummVM shows it unscaled at 1x after start-up. Both
   engines run it as game logic. Scenario recordings and the playthrough
-  answer it like a player would. **Assumed**, to be confirmed with the
-  customer before milestone 4.
+  answer it like a player would. **Decided** (approved by the customer on
+  2026-10-20).
 
 ## Toolchain (milestone 0)
 
@@ -242,10 +242,17 @@ Details: docs/ARCHITECTURE.md, "Error handling".
   - At this size the 2,000 minutes cover roughly 100 pushes plus a few
     gates a month. The numbers in each milestone report show how this
     develops.
-- **Decision.** Linux x86-64 and ARM64 run on every push. macOS and Windows
-  run on pull requests to `main` (the milestone gates) and on manual runs,
-  which can be limited to one platform. This is the option spec section
-  3.2 provides for. **Decided.**
+- **Decision.** Linux x86-64 and ARM64 run on every push. Windows runs on
+  pull requests to `main` (the milestone gates) and on manual runs.
+  **Decided.**
+- **macOS is optional** (customer decision, 2026-10-20, at the milestone 0
+  approval: "make macOS optional and concentrate on Windows and Linux for
+  now"). The macOS jobs run only when a manual run selects `macos`. They are
+  no longer part of the milestone gates. This saves about 60 of the roughly
+  90 included minutes a gate costs, and avoids the macOS runner queues seen
+  on 2026-10-20. macOS stays a supported platform (spec section 1.2). The
+  customer can ask for a macOS run at any gate. **Decided**, approved by the
+  customer as a deviation from spec section 3.2.
 - Push, pull request and manual runs are in separate concurrency groups, so
   they do not cancel each other.
 - The tail of a failed step's log is published as an error annotation. It is
@@ -297,6 +304,82 @@ Details: docs/ARCHITECTURE.md, "Error handling".
   `tools/scummvm-patches/`), never through screenshots of the scaled window
   (spec section 6.2).
 
+## Milestone 0 approval (2026-10-20)
+
+Milestone 0 was approved and merged
+([CityRunner/sierra-hd#1](https://github.com/CityRunner/sierra-hd/pull/1)),
+together with the copy-protection approach and the change to make macOS CI
+optional (both above).
+
+## Milestone 1: resources (2026-10-20)
+
+- **Reference tooling: a patched ScummVM, not a harness.** The comparison
+  uses `tools/scummvm-patches/0001-dump-resources.patch`. It adds about 100
+  lines and makes the reference ScummVM dump every resource through its own
+  resource manager, then exit. A harness compiling ScummVM's resource code
+  was rejected for two reasons. It would need ScummVM's file system,
+  streams, archive search and configuration layers. And it would test less:
+  the patched engine runs the real start-up path, including source discovery,
+  format detection, the patch-file scan and the game-specific hooks.
+  **Decided** (spec section 12, milestone 1, leaves the choice to the agent).
+- **Result.** All 1068 resources of the tested release match ScummVM byte for
+  byte: data, size, source file and loaded id. That is 1066 from the volumes
+  and 2 from the patch files `SCRIPT.052` and `TEXT.052`. The comparison was
+  run with the native release build, an ASan+UBSan build, and the ARM64
+  cross build under qemu-user.
+- **Scope: SCI0 only.** The port covers what SCI0 needs: the SCI0 map and
+  volume formats, compression methods 0 to 2, and SCI0- and SCI1-style
+  patch-file names. Other formats (SCI01 maps, SCI1+ maps and volumes,
+  methods 3, 4, 18-20, base36 audio patches, WAVE patches, Mac resource
+  forks, message maps) are detected where ScummVM detects them and rejected
+  as `Unsupported`. ScummVM's game-specific resource hooks (the resource
+  patcher, the blacklisted patches, the General MIDI and D110 patch
+  additions) have no entries for this game; they are not ported. **Decided**
+  (spec section 1.3: other versions and other SCI games are out of scope).
+- **Where the port deliberately differs from ScummVM.** All differences are
+  for data the tested release does not contain; each is an error where
+  ScummVM has undefined or non-deterministic behaviour. **Decided.**
+  - Out-of-bounds reads or writes in the decompressors are reported as
+    errors. ScummVM writes past its buffer.
+  - A stored resource whose packed and unpacked sizes differ is rejected.
+    ScummVM overflows or leaves memory uninitialised.
+  - A packed-size field below 4 is rejected. ScummVM wraps it.
+  - A Huffman link to the node itself is rejected; ScummVM loops forever.
+    This was found by fuzzing.
+  - An LZW stream that ends early is zero-filled. ScummVM leaves that memory
+    uninitialised.
+  - A map without a terminator, or naming a missing volume while being read,
+    is an error. ScummVM keeps the entries read so far and warns.
+  - Patch files of one type and naming style are applied in file-name order.
+    ScummVM's order there depends on the directory listing.
+  - Only files directly in the game folder are read. ScummVM also searches
+    some subfolders (audio, movies), which this game does not have.
+- **ScummVM's read-ahead is kept.** ScummVM's decompressors read from the
+  open volume file. Their bit readers fetch bytes beyond the packed data and
+  read zeros past the end of the file, and the end condition depends on the
+  number of bytes fetched. The port reads the same way, so that every
+  decode, successful or not, has the same outcome. **Decided.**
+- **The volume header id.** When a volume header names another id than the
+  map, ScummVM adopts the header's id for the loaded resource. The port
+  reports it as `Resource::loaded_id` and keeps the map id as the key. In
+  the tested release all ids agree. **Decided.**
+- **Logging.** The logging facility of spec section 5.1 was added to
+  sci-core with this milestone. It has levels, categories (`General`,
+  `Resources`) and a sink installed by app or a tool. Resource warnings go
+  to the `Resources` category. **Decided.**
+- **Test harness.** `SCI_CHECK` is now variadic, so that conditions with
+  braced initialisers need no extra parentheses. **Decided.**
+- **Fuzz corpora.** 113 fuzzer-generated inputs were committed to
+  `tests/fuzz/corpus/byte_reader` by mistake at milestone 0 (synthetic data,
+  not game data). They were removed. Seed corpora hold only hand-made
+  inputs, and `tests/fuzz/make_seeds.py` regenerates the sci-resource ones.
+  The fuzz runner reports any single input that runs longer than 10 s.
+  **Decided.**
+- **clang-tidy.** `cppcoreguidelines-pro-bounds-constant-array-index` is
+  disabled for the same reason as the unchecked-container-access check:
+  standard-library hardening checks indices, and `.at()` would throw.
+  **Decided.**
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with
@@ -308,6 +391,7 @@ Details: docs/ARCHITECTURE.md, "Error handling".
 
 ## Milestone 0 placeholders
 
-- Each library except sci-core contains only a `component_name()` function,
-  which the program's `--version` output uses to show that everything links.
-  These functions are removed as soon as the library has real content.
+- Each library without real content contains only a `component_name()`
+  function, which the program's `--version` output uses to show that
+  everything links. These functions are removed as soon as the library has
+  real content (sci-resource: milestone 1).

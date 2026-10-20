@@ -1,10 +1,11 @@
 # Continuous integration (spec sections 3.2, 5.1, 5.2 and 11).
 #
 # Every push runs the Linux jobs (x86-64 and ARM64): build and tests in
-# release, ASan+UBSan and TSan, the style checks and the fuzzers. macOS and
-# Windows minutes cost more in a private repository, so those jobs run at the
-# milestone gates only: on pull requests to main and when started by hand
-# (docs/ASSUMPTIONS.md, "CI"). A manual run can be limited to one platform.
+# release, ASan+UBSan and TSan, the style checks and the fuzzers. Windows
+# minutes cost more in a private repository, so the Windows jobs run at the
+# milestone gates only: on pull requests to main and when started by hand.
+# macOS is optional (customer decision, docs/ASSUMPTIONS.md, "CI"): it runs
+# only when a manual run selects it.
 
 name: CI
 
@@ -16,10 +17,10 @@ on:
   workflow_dispatch:
     inputs:
       platforms:
-        description: Platforms to run (a manual run of one platform saves minutes)
+        description: Platforms to run ("default" is Linux and Windows; macOS runs only when selected)
         type: choice
-        options: [all, linux, macos, windows]
-        default: all
+        options: [default, linux, windows, macos]
+        default: default
 
 permissions:
   contents: read
@@ -33,7 +34,7 @@ concurrency:
 jobs:
   lint:
     name: style and static analysis
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON('["all", "linux"]'), inputs.platforms)
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON('["default", "linux"]'), inputs.platforms)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -51,7 +52,7 @@ jobs:
 
   linux:
     name: linux-${{ matrix.arch }} ${{ matrix.preset }}
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON('["all", "linux"]'), inputs.platforms)
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON('["default", "linux"]'), inputs.platforms)
     runs-on: ${{ matrix.arch == 'x64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
     strategy:
       fail-fast: false
@@ -75,7 +76,7 @@ jobs:
 
   fuzz:
     name: linux-x64 fuzz
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON('["all", "linux"]'), inputs.platforms)
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON('["default", "linux"]'), inputs.platforms)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -89,7 +90,7 @@ jobs:
 
   macos:
     name: macos-arm64 ${{ matrix.preset }}
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all", "macos"]'), inputs.platforms))
+    if: github.event_name == 'workflow_dispatch' && inputs.platforms == 'macos'
     runs-on: macos-15
     strategy:
       fail-fast: false
@@ -114,7 +115,7 @@ jobs:
 
   windows:
     name: windows-${{ matrix.arch }} ${{ matrix.preset }}
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["all", "windows"]'), inputs.platforms))
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["default", "windows"]'), inputs.platforms))
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false

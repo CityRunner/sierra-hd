@@ -31,17 +31,20 @@ fi
 
 tree="${build_dir}/src"
 stamp="${build_dir}/exported-revision"
+# The tree is exported again whenever the revision or any patch changes.
+shopt -s nullglob
+patches=("${patch_dir}"/*.patch)
+wanted="${revision} $(cat /dev/null "${patches[@]}" | sha256sum | cut -d' ' -f1)"
 mkdir -p "${build_dir}"
-if [[ ! -f "${stamp}" || "$(cat "${stamp}")" != "${revision}" ]]; then
+if [[ ! -f "${stamp}" || "$(cat "${stamp}")" != "${wanted}" ]]; then
     rm -rf "${tree}"
     mkdir -p "${tree}"
     git -C "${source_dir}" archive --format=tar "${revision}" | tar -x -C "${tree}"
-    shopt -s nullglob
-    for patch in "${patch_dir}"/*.patch; do
+    for patch in "${patches[@]}"; do
         echo "applying $(basename "${patch}")"
         git -C "${tree}" apply --verbose "${patch}"
     done
-    echo "${revision}" > "${stamp}"
+    echo "${wanted}" > "${stamp}"
 fi
 
 cd "${tree}"

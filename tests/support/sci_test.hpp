@@ -32,6 +32,7 @@ void report_failure(std::string_view expression, const std::source_location& loc
     static const ::sci::test::Registrar name##_registrar{#name, &(name)};                                              \
     static void name()
 
-#define SCI_CHECK(condition)                                                                                           \
-    ((condition) ? static_cast<void>(0) : ::sci::test::report_failure(#condition, std::source_location::current()))
+// Variadic, so that conditions with braced initialisers need no extra parentheses.
+#define SCI_CHECK(...)                                                                                                 \
+    ((__VA_ARGS__) ? static_cast<void>(0) : ::sci::test::report_failure(#__VA_ARGS__, std::source_location::current()))
 // NOLINTEND(cppcoreguidelines-macro-usage)

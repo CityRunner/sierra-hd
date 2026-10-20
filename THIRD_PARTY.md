@@ -17,8 +17,21 @@ None at milestone 0. Planned, with the pin recorded when each is added
 
 ## Ported code
 
-None yet. Code ported from ScummVM (GPL v3 or later) keeps its original
-licence header and names its source file and the pinned revision.
+Code ported from ScummVM (GPL v3 or later, pinned revision in
+docs/ASSUMPTIONS.md). Each file keeps ScummVM's licence notice and names the
+functions and source files it comes from.
+
+| Project file | ScummVM source |
+|---|---|
+| `src/sci-resource/src/resource_id.cpp` | `engines/sci/resource/resource.cpp` (type tables, `convertResType`) |
+| `src/sci-resource/src/resource_map.cpp` | `engines/sci/resource/resource.cpp` (`detectMapVersion`, `readResourceMapSCI0`) |
+| `src/sci-resource/src/volume.cpp` | `engines/sci/resource/resource.cpp` (`detectVolVersion`, `readResourceInfo`) |
+| `src/sci-resource/src/decompress.cpp` | `engines/sci/resource/decompressor.cpp` (`Decompressor`, `DecompressorHuffman`, `DecompressorLZW::unpackLZW`) |
+| `src/sci-resource/src/patch_file.cpp` | `engines/sci/resource/resource.cpp` (`readResourcePatches`, `processPatch`) |
+| `src/sci-resource/src/resource_manager.cpp` | `engines/sci/resource/resource.cpp` (sources, index and loading) |
+
+`tools/scummvm-patches/` holds patches to ScummVM itself (GPL v3 or later),
+used only for the reference build.
 
 ## Tools (not distributed)
 

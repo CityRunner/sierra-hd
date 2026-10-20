@@ -9,6 +9,16 @@ sci_add_fuzz_target(NAME fuzz-byte-reader
     DEPENDS sci-core
     CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/byte_reader)
 
+sci_add_fuzz_target(NAME fuzz-decompress
+    SOURCE fuzz_decompress.cpp
+    DEPENDS sci-resource
+    CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/decompress)
+
+sci_add_fuzz_target(NAME fuzz-game-folder
+    SOURCE fuzz_game_folder.cpp
+    DEPENDS sci-resource
+    CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/game_folder)
+
 # The list of fuzz targets and their seed corpora, for scripts/run-fuzzers.sh.
 if(SCI_FUZZ)
     get_property(targets GLOBAL PROPERTY SCI_FUZZ_TARGETS)

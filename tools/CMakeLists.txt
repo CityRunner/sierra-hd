@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Development tools. Nothing here is linked into the program.
-#
+
+add_subdirectory(resource-dump)
+
 # The reference ScummVM (tools/reference-scummvm) is built by its own script
 # from a ScummVM checkout outside this repository; this target only wraps it,
 # so it is available when SCI_SCUMMVM_SOURCE points at that checkout.
