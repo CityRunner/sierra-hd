@@ -25,8 +25,14 @@ inline constexpr std::size_t map_size = static_cast<std::size_t>(screen_width) *
 // visual map while drawing.
 using ColorPair = std::uint8_t;
 
+// Whether (x ^ y) is odd: the dither phase of a position.
+[[nodiscard]] constexpr bool odd_position(int x, int y) noexcept {
+    return ((static_cast<unsigned>(x) ^ static_cast<unsigned>(y)) & 1U) != 0;
+}
+
 [[nodiscard]] constexpr std::uint8_t pair_color_at(ColorPair pair, int x, int y) noexcept {
-    return static_cast<std::uint8_t>((((x ^ y) & 1) != 0) ? (pair >> 4U) : (pair & 0x0FU));
+    const unsigned value = pair;
+    return static_cast<std::uint8_t>(odd_position(x, y) ? (value >> 4U) : (value & 0x0FU));
 }
 
 struct PictureMaps {

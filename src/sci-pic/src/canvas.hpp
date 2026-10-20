@@ -15,20 +15,27 @@
 
 namespace sci::pic::detail {
 
-enum MapMask : std::uint8_t {
-    mask_visual = 1,
-    mask_priority = 2,
-    mask_control = 4,
-};
+// Which maps a drawing operation writes (GfxScreen's drawing mask).
+inline constexpr std::uint8_t mask_visual = 1;
+inline constexpr std::uint8_t mask_priority = 2;
+inline constexpr std::uint8_t mask_control = 4;
 
 // The value 255 disables drawing into a map (GfxScreen::getDrawingMask).
 inline constexpr std::uint8_t disabled = 255;
 
 [[nodiscard]] constexpr std::uint8_t drawing_mask(std::uint8_t color, std::uint8_t priority,
                                                   std::uint8_t control) noexcept {
-    return static_cast<std::uint8_t>((color != disabled ? mask_visual : 0) |
-                                     (priority != disabled ? mask_priority : 0) |
-                                     (control != disabled ? mask_control : 0));
+    unsigned mask = 0;
+    if (color != disabled) {
+        mask |= mask_visual;
+    }
+    if (priority != disabled) {
+        mask |= mask_priority;
+    }
+    if (control != disabled) {
+        mask |= mask_control;
+    }
+    return static_cast<std::uint8_t>(mask);
 }
 
 // The pair an encoded colour stands for.
@@ -43,13 +50,13 @@ inline constexpr std::uint8_t disabled = 255;
 // The colour an encoded value shows at (x, y): the visible EGA colour that
 // ScummVM compares in flood fills (vectorIsFillMatch for EGA).
 [[nodiscard]] constexpr std::uint8_t visible_color(std::uint8_t code, int x, int y) noexcept {
-    return (((x ^ y) & 1) != 0) ? static_cast<std::uint8_t>((code ^ (code >> 4U)) & 0x0FU)
-                                : static_cast<std::uint8_t>(code & 0x0FU);
+    const unsigned value = code;
+    return static_cast<std::uint8_t>(odd_position(x, y) ? ((value ^ (value >> 4U)) & 0x0FU) : (value & 0x0FU));
 }
 
 class Canvas {
 public:
-    explicit Canvas(PictureMaps& maps) noexcept : maps_(maps) {}
+    explicit Canvas(PictureMaps& maps) noexcept : maps_(&maps) {}
 
     [[nodiscard]] static constexpr bool on_screen(int x, int y) noexcept {
         return x >= 0 && x < screen_width && y >= 0 && y < screen_height;
@@ -60,24 +67,24 @@ public:
              std::uint8_t control) noexcept {
         const std::size_t i = PictureMaps::index(x, y);
         if ((mask & mask_visual) != 0) {
-            maps_.visual[i] = color;
-            maps_.pairs[i] = decode_pair(color);
+            maps_->visual[i] = color;
+            maps_->pairs[i] = decode_pair(color);
         }
         if ((mask & mask_priority) != 0) {
-            maps_.priority[i] = priority;
+            maps_->priority[i] = priority;
         }
         if ((mask & mask_control) != 0) {
-            maps_.control[i] = control;
+            maps_->control[i] = control;
         }
     }
 
-    [[nodiscard]] std::uint8_t code(int x, int y) const noexcept { return maps_.visual[PictureMaps::index(x, y)]; }
+    [[nodiscard]] std::uint8_t code(int x, int y) const noexcept { return maps_->visual[PictureMaps::index(x, y)]; }
 
     [[nodiscard]] std::uint8_t priority(int x, int y) const noexcept {
-        return maps_.priority[PictureMaps::index(x, y)];
+        return maps_->priority[PictureMaps::index(x, y)];
     }
 
-    [[nodiscard]] std::uint8_t control(int x, int y) const noexcept { return maps_.control[PictureMaps::index(x, y)]; }
+    [[nodiscard]] std::uint8_t control(int x, int y) const noexcept { return maps_->control[PictureMaps::index(x, y)]; }
 
     // GfxScreen::drawLine: Sierra's Bresenham variant, with both end points
     // clipped to the screen first.
@@ -88,7 +95,7 @@ public:
     void dither() noexcept;
 
 private:
-    PictureMaps& maps_;
+    PictureMaps* maps_; // Never null.
 };
 
 // GfxPicture::vectorFloodFill, for EGA pictures in the picture port. (x, y)

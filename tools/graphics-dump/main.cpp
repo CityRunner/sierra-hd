@@ -29,14 +29,16 @@ using sci::resource::ResourceId;
 using sci::resource::ResourceManager;
 using sci::resource::ResourceType;
 
+std::ofstream open_manifest(const fs::path& directory) {
+    std::error_code error;
+    fs::create_directories(directory, error);
+    return {directory / "manifest.txt"};
+}
+
 class Output {
 public:
-    explicit Output(const fs::path& directory) : directory_(directory) {
-        std::error_code error;
-        fs::create_directories(directory, error);
-        manifest_.open(directory / "manifest.txt");
-        ok_ = static_cast<bool>(manifest_);
-    }
+    explicit Output(const fs::path& directory)
+        : directory_(directory), manifest_(open_manifest(directory)), ok_(static_cast<bool>(manifest_)) {}
 
     void write(const std::string& name, std::span<const std::uint8_t> bytes) {
         ok_ = sci::tools::write_file(directory_ / name, bytes) && ok_;
@@ -56,7 +58,7 @@ public:
 private:
     fs::path directory_;
     std::ofstream manifest_;
-    bool ok_ = false;
+    bool ok_;
 };
 
 std::vector<std::uint16_t> numbers_of(const ResourceManager& manager, ResourceType type) {

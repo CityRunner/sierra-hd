@@ -31,6 +31,7 @@
 #include "pattern_tables.hpp"
 #include "sci/core/assert.hpp"
 
+#include <bit>
 #include <cstddef>
 
 namespace sci::pic::detail {
@@ -82,9 +83,10 @@ std::uint8_t swap_dither(std::uint8_t color) noexcept {
     if ((color & 0xF0U) == 0) {
         return color;
     }
-    auto value = static_cast<std::uint8_t>(color ^ (color << 4U));    // Decode.
-    value = static_cast<std::uint8_t>((value << 4U) | (value >> 4U)); // Swap.
-    return static_cast<std::uint8_t>(value ^ (value << 4U));          // Re-encode.
+    const unsigned code = color;
+    const auto pair = static_cast<std::uint8_t>((code ^ (code << 4U)) & 0xFFU); // Decode.
+    const unsigned swapped = std::rotl(pair, 4);                                // Swap the nibbles.
+    return static_cast<std::uint8_t>((swapped ^ (swapped << 4U)) & 0xFFU);      // Re-encode.
 }
 
 struct Stroke {
@@ -142,7 +144,7 @@ void draw_circle(Canvas& canvas, const Box& box, int size, const Stroke& stroke,
     for (int y = box.top; y < box.bottom; ++y) {
         for (int x = box.left; x < box.right; ++x, ++bit) {
             SCI_ASSERT(bit / 8 < bitmap.size());
-            if (((bitmap[bit / 8] >> (bit % 8)) & 1U) == 0) {
+            if (((unsigned{bitmap[bit / 8]} >> (bit % 8)) & 1U) == 0) {
                 continue;
             }
             if (textured && !bits.next()) {

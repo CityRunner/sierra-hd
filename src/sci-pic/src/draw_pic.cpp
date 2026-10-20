@@ -65,8 +65,7 @@ public:
         : canvas_(maps), palette_base_(options.ega_palette < palette_count ? options.ega_palette * palette_size : 0),
           mirrored_(options.mirrored) {
         for (std::size_t palette = 0; palette < palette_count; ++palette) {
-            std::ranges::copy(default_ega_palette,
-                              palettes_.begin() + static_cast<std::ptrdiff_t>(palette * palette_size));
+            set_palette(palette, default_ega_palette);
         }
     }
 
@@ -78,8 +77,8 @@ public:
             return make_error(ErrorCode::InvalidData,
                               std::format("colour index {} is beyond the EGA palette table", command.index));
         }
-        const std::uint8_t pair = palettes_[entry];
-        color_ = static_cast<std::uint8_t>(pair ^ (pair << 4U));
+        const unsigned pair = palettes_[entry];
+        color_ = static_cast<std::uint8_t>((pair ^ (pair << 4U)) & 0xFFU);
         return {};
     }
 
@@ -145,8 +144,7 @@ public:
     }
 
     Result<void> operator()(const SetPalette& command) {
-        std::ranges::copy(command.colors,
-                          palettes_.begin() + static_cast<std::ptrdiff_t>(command.number * palette_size));
+        set_palette(command.number, command.colors);
         return {};
     }
 
@@ -165,6 +163,12 @@ public:
     }
 
 private:
+    void set_palette(std::size_t number, const std::array<std::uint8_t, palette_size>& colors) noexcept {
+        for (std::size_t i = 0; i < palette_size; ++i) {
+            palettes_[(number * palette_size) + i] = colors[i];
+        }
+    }
+
     // Mirroring reflects x around the screen centre; every point the stream
     // holds is derived from an absolute one, so this matches ScummVM, which
     // mirrors while decoding coordinates.

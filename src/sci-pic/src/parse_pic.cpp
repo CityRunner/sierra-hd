@@ -40,36 +40,34 @@ using core::ErrorCode;
 using core::make_error;
 using core::Result;
 
-enum Opcode : std::uint8_t {
-    op_set_color = 0xF0,
-    op_disable_visual = 0xF1,
-    op_set_priority = 0xF2,
-    op_disable_priority = 0xF3,
-    op_short_patterns = 0xF4,
-    op_medium_lines = 0xF5,
-    op_long_lines = 0xF6,
-    op_short_lines = 0xF7,
-    op_fill = 0xF8,
-    op_set_pattern = 0xF9,
-    op_absolute_pattern = 0xFA,
-    op_set_control = 0xFB,
-    op_disable_control = 0xFC,
-    op_medium_patterns = 0xFD,
-    op_extended = 0xFE,
-    op_terminate = 0xFF,
-};
+// Picture opcodes.
+constexpr std::uint8_t op_set_color = 0xF0;
+constexpr std::uint8_t op_disable_visual = 0xF1;
+constexpr std::uint8_t op_set_priority = 0xF2;
+constexpr std::uint8_t op_disable_priority = 0xF3;
+constexpr std::uint8_t op_short_patterns = 0xF4;
+constexpr std::uint8_t op_medium_lines = 0xF5;
+constexpr std::uint8_t op_long_lines = 0xF6;
+constexpr std::uint8_t op_short_lines = 0xF7;
+constexpr std::uint8_t op_fill = 0xF8;
+constexpr std::uint8_t op_set_pattern = 0xF9;
+constexpr std::uint8_t op_absolute_pattern = 0xFA;
+constexpr std::uint8_t op_set_control = 0xFB;
+constexpr std::uint8_t op_disable_control = 0xFC;
+constexpr std::uint8_t op_medium_patterns = 0xFD;
+constexpr std::uint8_t op_extended = 0xFE;
+constexpr std::uint8_t op_terminate = 0xFF;
 
-enum ExtendedOpcode : std::uint8_t {
-    opx_set_palette_entries = 0,
-    opx_set_palette = 1,
-    opx_mono0 = 2,
-    opx_mono1 = 3,
-    opx_mono2 = 4,
-    opx_mono3 = 5,
-    opx_mono4 = 6,
-    opx_embedded_view = 7,
-    opx_set_priority_table = 8,
-};
+// Extended opcodes (after op_extended) of EGA pictures.
+constexpr std::uint8_t opx_set_palette_entries = 0;
+constexpr std::uint8_t opx_set_palette = 1;
+constexpr std::uint8_t opx_mono0 = 2;
+constexpr std::uint8_t opx_mono1 = 3;
+constexpr std::uint8_t opx_mono2 = 4;
+constexpr std::uint8_t opx_mono3 = 5;
+constexpr std::uint8_t opx_mono4 = 6;
+constexpr std::uint8_t opx_embedded_view = 7;
+constexpr std::uint8_t opx_set_priority_table = 8;
 
 constexpr std::uint8_t pattern_uses_texture = 0x20;
 constexpr std::size_t palette_table_size = 160;
@@ -114,7 +112,7 @@ private:
 
     // Whether the next byte is a coordinate byte rather than an opcode.
     // Reaching the end here is an error, as the data must end with 0xFF.
-    Result<bool> more_coordinates() const {
+    [[nodiscard]] Result<bool> more_coordinates() const {
         if (position_ >= data_.size()) {
             return truncated();
         }
@@ -138,9 +136,10 @@ private:
         if (!prefix || !x || !y) {
             return truncated();
         }
+        const unsigned high = *prefix;
         return Point{
-            .x = static_cast<std::int16_t>(*x + ((*prefix & 0xF0U) << 4U)),
-            .y = static_cast<std::int16_t>(*y + ((*prefix & 0x0FU) << 8U)),
+            .x = static_cast<std::int16_t>(*x + ((high & 0xF0U) << 4U)),
+            .y = static_cast<std::int16_t>(*y + ((high & 0x0FU) << 8U)),
         };
     }
 
@@ -152,8 +151,9 @@ private:
         if (!delta) {
             return truncated();
         }
-        const int dx = (*delta & 0x80U) != 0 ? -static_cast<int>((*delta >> 4U) & 7U) : static_cast<int>(*delta >> 4U);
-        const int dy = (*delta & 0x08U) != 0 ? -static_cast<int>(*delta & 7U) : static_cast<int>(*delta & 7U);
+        const unsigned value = *delta;
+        const int dx = (value & 0x80U) != 0 ? -static_cast<int>((value >> 4U) & 7U) : static_cast<int>(value >> 4U);
+        const int dy = (value & 0x08U) != 0 ? -static_cast<int>(value & 7U) : static_cast<int>(value & 7U);
         return Point{.x = static_cast<std::int16_t>(from.x + dx), .y = static_cast<std::int16_t>(from.y + dy)};
     }
 
@@ -165,9 +165,35 @@ private:
         if (!y_byte || !x_byte) {
             return truncated();
         }
-        const int dy = (*y_byte & 0x80U) != 0 ? -static_cast<int>(*y_byte & 0x7FU) : static_cast<int>(*y_byte);
-        const int dx = (*x_byte & 0x80U) != 0 ? -(128 - static_cast<int>(*x_byte & 0x7FU)) : static_cast<int>(*x_byte);
+        const unsigned y_value = *y_byte;
+        const unsigned x_value = *x_byte;
+        const int dy = (y_value & 0x80U) != 0 ? -static_cast<int>(y_value & 0x7FU) : static_cast<int>(y_value);
+        const int dx = (x_value & 0x80U) != 0 ? -(128 - static_cast<int>(x_value & 0x7FU)) : static_cast<int>(x_value);
         return Point{.x = static_cast<std::int16_t>(from.x + dx), .y = static_cast<std::int16_t>(from.y + dy)};
+    }
+
+    // The end point of a line segment: short and medium lines are relative to
+    // the previous point, long lines absolute.
+    Result<Point> next_line_point(std::uint8_t op, Point current) {
+        if (op == op_short_lines) {
+            return relative_short(current);
+        }
+        if (op == op_medium_lines) {
+            return relative_medium(current);
+        }
+        return absolute();
+    }
+
+    // A pattern point: the first one and those of absolute patterns are
+    // absolute, later short and medium ones relative to the previous point.
+    Result<Point> next_pattern_point(std::uint8_t op, std::optional<Point> current) {
+        if (!current || op == op_absolute_pattern) {
+            return absolute();
+        }
+        if (op == op_short_patterns) {
+            return relative_short(*current);
+        }
+        return relative_medium(*current);
     }
 
     void emit(std::uint32_t offset, PicOperation operation) {
@@ -256,9 +282,7 @@ Result<void> Parser::parse_lines(std::uint8_t op) {
             return {};
         }
         const std::uint32_t offset = position();
-        Result<Point> next_point = op == op_short_lines    ? relative_short(*current)
-                                   : op == op_medium_lines ? relative_medium(*current)
-                                                           : absolute();
+        Result<Point> next_point = next_line_point(op, *current);
         if (!next_point) {
             return std::unexpected(next_point.error());
         }
@@ -295,7 +319,7 @@ Result<void> Parser::read_texture() {
     if (!value) {
         return truncated();
     }
-    pattern_texture_ = static_cast<std::uint8_t>((*value >> 1U) & 0x7FU);
+    pattern_texture_ = static_cast<std::uint8_t>((unsigned{*value} >> 1U) & 0x7FU);
     return {};
 }
 
@@ -317,9 +341,7 @@ Result<void> Parser::parse_patterns(std::uint8_t op) {
         if (auto texture = read_texture(); !texture) {
             return std::unexpected(texture.error());
         }
-        Result<Point> at = !current || op == op_absolute_pattern ? absolute()
-                           : op == op_short_patterns             ? relative_short(*current)
-                                                                 : relative_medium(*current);
+        Result<Point> at = next_pattern_point(op, current);
         if (!at) {
             return std::unexpected(at.error());
         }
@@ -414,7 +436,7 @@ Result<void> Parser::parse_embedded_view(std::uint32_t start) {
     if (!at || !low || !high) {
         return truncated();
     }
-    const auto size = static_cast<std::uint16_t>(*low | (*high << 8U));
+    const auto size = static_cast<std::uint16_t>(unsigned{*low} | (unsigned{*high} << 8U));
     const std::uint32_t data_offset = position();
     if (size > data_.size() - position_) {
         return truncated();
