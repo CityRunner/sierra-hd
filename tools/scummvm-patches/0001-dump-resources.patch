@@ -1,0 +1,139 @@
+# sierra-hd: dump every resource as ScummVM's resource manager loads it.
+#
+# With SIERRA_HD_DUMP_RESOURCES=<directory> set, the SCI engine writes each
+# resource's data and a manifest (engines/sci/resource/sierra_hd_dump.cpp)
+# right after the resource manager is initialised, then stops. Used by
+# tools/resource-compare to check the sierra-hd resource loader (milestone 1).
+diff -ruN a/engines/sci/module.mk b/engines/sci/module.mk
+--- a/engines/sci/module.mk	2026-10-20 18:10:44.668579627 +0000
++++ b/engines/sci/module.mk	2026-10-20 18:10:44.686726639 +0000
+@@ -86,6 +86,7 @@
+ 	resource/resource.o \
+ 	resource/resource_audio.o \
+ 	resource/resource_patcher.o \
++	resource/sierra_hd_dump.o \
+ 	sound/audio.o \
+ 	sound/midiparser_sci.o \
+ 	sound/music.o \
+diff -ruN a/engines/sci/resource/resource.h b/engines/sci/resource/resource.h
+--- a/engines/sci/resource/resource.h	2026-10-20 18:10:44.671989361 +0000
++++ b/engines/sci/resource/resource.h	2026-10-20 18:13:40.255439714 +0000
+@@ -428,6 +428,19 @@
+ 	void addNewGMPatch(SciGameId gameId);
+ 	void addNewD110Patch(SciGameId gameId);
+ 
++	/**
++	 * sierra-hd reference tooling: the directory named by the environment
++	 * variable SIERRA_HD_DUMP_RESOURCES, or nullptr if it is not set.
++	 */
++	static const char *sierraHdDumpDirectory();
++
++	/**
++	 * sierra-hd reference tooling: loads every resource through this resource
++	 * manager, writes its data and a manifest to sierraHdDumpDirectory() and
++	 * exits the process: status 0 on success, 1 if a file cannot be written.
++	 */
++	void sierraHdDumpResourcesAndExit();
++
+ #ifdef ENABLE_SCI32
+ 	/**
+ 	 * Parses all resources from a SCI2.1 chunk resource and adds them to the
+diff -ruN a/engines/sci/resource/sierra_hd_dump.cpp b/engines/sci/resource/sierra_hd_dump.cpp
+--- a/engines/sci/resource/sierra_hd_dump.cpp	1970-01-01 00:00:00.000000000 +0000
++++ b/engines/sci/resource/sierra_hd_dump.cpp	2026-10-20 18:13:40.256738211 +0000
+@@ -0,0 +1,79 @@
++/* sierra-hd reference tooling for ScummVM's SCI engine.
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * Dumps every resource as ScummVM's resource manager loads it, so that the
++ * sierra-hd resource loader can be compared with it byte for byte. Output:
++ *
++ *   <dir>/<type>.<number>   the resource data, without patch headers
++ *   <dir>/manifest.txt      one line per resource, sorted by type and number:
++ *                           <type> <number> <size> <loaded type>.<loaded number> <source>
++ *                           or <type> <number> FAILED
++ *
++ * <loaded type/number> is the id after loading, which the volume header can
++ * override; <source> is the file name the data came from.
++ */
++
++#define FORBIDDEN_SYMBOL_ALLOW_ALL
++
++#include <stdio.h>
++#include <stdlib.h>
++
++#include "common/algorithm.h"
++#include "common/array.h"
++
++#include "sci/resource/resource.h"
++#include "sci/resource/resource_intern.h"
++
++namespace Sci {
++
++const char *ResourceManager::sierraHdDumpDirectory() {
++	return getenv("SIERRA_HD_DUMP_RESOURCES");
++}
++
++void ResourceManager::sierraHdDumpResourcesAndExit() {
++	const char *directory = sierraHdDumpDirectory();
++	Common::Array<ResourceId> ids;
++	for (int type = 0; type < kResourceTypeInvalid; ++type) {
++		Common::List<ResourceId> list = listResources((ResourceType)type);
++		for (Common::List<ResourceId>::const_iterator it = list.begin(); it != list.end(); ++it)
++			ids.push_back(*it);
++	}
++	Common::sort(ids.begin(), ids.end());
++
++	Common::String manifestPath = Common::String::format("%s/manifest.txt", directory);
++	FILE *manifest = fopen(manifestPath.c_str(), "w");
++	if (!manifest)
++		exit(1);
++
++	bool ok = true;
++	for (uint i = 0; i < ids.size(); ++i) {
++		const ResourceId &id = ids[i];
++		const char *typeName = getResourceTypeName(id.getType());
++		Resource *res = findResource(id, false);
++		if (!res) {
++			fprintf(manifest, "%s %u FAILED\n", typeName, id.getNumber());
++			continue;
++		}
++
++		Common::String dataPath = Common::String::format("%s/%s.%03u", directory, typeName, id.getNumber());
++		FILE *data = fopen(dataPath.c_str(), "wb");
++		if (!data || (res->size() > 0 && fwrite(res->data(), 1, res->size(), data) != res->size()))
++			ok = false;
++		if (data)
++			fclose(data);
++
++		fprintf(manifest, "%s %u %u %s.%u %s\n", typeName, id.getNumber(), res->size(),
++		        getResourceTypeName(res->getType()), res->getNumber(),
++		        res->getResourceLocation().baseName().c_str());
++	}
++
++	if (fclose(manifest) != 0)
++		ok = false;
++	exit(ok ? 0 : 1);
++}
++
++} // End of namespace Sci
+diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
+--- a/engines/sci/sci.cpp	2026-10-20 18:10:44.662892151 +0000
++++ b/engines/sci/sci.cpp	2026-10-20 18:13:40.254903181 +0000
+@@ -280,6 +280,12 @@
+ 	_resMan->addAppropriateSources();
+ 	_resMan->init();
+ 
++	// sierra-hd reference tooling: dump all resources and exit the process.
++	// Returning from run() here would crash in ~SciEngine, which expects a
++	// fully initialised engine.
++	if (ResourceManager::sierraHdDumpDirectory())
++		_resMan->sierraHdDumpResourcesAndExit();
++
+ 	// TODO: Add error handling. Check return values of addAppropriateSources
+ 	// and init. We first have to *add* sensible return values, though ;).
+ /*
