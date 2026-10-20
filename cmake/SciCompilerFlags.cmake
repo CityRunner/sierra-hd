@@ -69,11 +69,21 @@ if(SCI_SANITIZE)
             message(FATAL_ERROR "Only ASan is supported with clang-cl (spec section 5.2).")
         endif()
         add_compile_options(-fsanitize=address /Oy-)
-        # CMake runs lld-link directly, so the clang runtime directory that
-        # clang-cl would pass to the linker must be named here.
+        # CMake runs lld-link directly, so the ASan runtime that clang-cl
+        # would add when driving the link is named here, with the same
+        # arguments as clang-cl uses for the dynamic CRT (/MD).
         execute_process(COMMAND ${CMAKE_CXX_COMPILER} /clang:-print-resource-dir
                         OUTPUT_VARIABLE clang_resource_dir OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
-        add_link_options("/LIBPATH:${clang_resource_dir}/lib/windows")
+        # Release archives use either lib/windows/<name>-x86_64.lib or
+        # lib/x86_64-pc-windows-msvc/<name>.lib.
+        find_file(SCI_ASAN_RUNTIME NAMES clang_rt.asan_dynamic-x86_64.lib clang_rt.asan_dynamic.lib
+                  PATHS "${clang_resource_dir}/lib/windows" "${clang_resource_dir}/lib/x86_64-pc-windows-msvc"
+                  NO_DEFAULT_PATH REQUIRED)
+        find_file(SCI_ASAN_THUNK
+                  NAMES clang_rt.asan_dynamic_runtime_thunk-x86_64.lib clang_rt.asan_dynamic_runtime_thunk.lib
+                  PATHS "${clang_resource_dir}/lib/windows" "${clang_resource_dir}/lib/x86_64-pc-windows-msvc"
+                  NO_DEFAULT_PATH REQUIRED)
+        add_link_options("${SCI_ASAN_RUNTIME}" "/include:__asan_seh_interceptor" "/wholearchive:${SCI_ASAN_THUNK}")
     else()
         add_compile_options(-fsanitize=${sanitize_list} -fno-omit-frame-pointer -fno-sanitize-recover=all)
         add_link_options(-fsanitize=${sanitize_list})
