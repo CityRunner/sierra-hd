@@ -1,0 +1,30 @@
+# Build trees.
+/build/
+/out/
+compile_commands.json
+.cache/
+
+# Game resources are never committed (spec section 2). The patterns are
+# case-insensitive because DOS file names may come in either case.
+[Rr][Ee][Ss][Oo][Uu][Rr][Cc][Ee].*
+[Mm][Ee][Ss][Ss][Aa][Gg][Ee].*
+*.[Ss][Cc][Rr]
+*.[Hh][Ee][Pp]
+*.[Dd][Rr][Vv]
+*.[Pp]56
+*.[Vv]56
+*.[Ss][Cc][Ii]
+[Pp][Aa][Tt][Cc][Hh][Ee][Ss]/
+
+# MT-32 and CM-32L ROM files are never committed.
+*.[Rr][Oo][Mm]
+*.[Bb][Ii][Nn]
+
+# Images derived from the game art and resource dumps stay local.
+/reports/images/
+/reports/dumps/
+
+# Local configuration and caches of the program.
+sierra-hd.ini
+sierra-hd.toml
+analysis-cache/
