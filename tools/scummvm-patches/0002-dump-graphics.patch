@@ -41,8 +41,8 @@ diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
  	// that ScummVM is hanged, and pumping the event loop requires GfxCursor to
 diff -ruN a/engines/sci/sierra_hd_dump_graphics.cpp b/engines/sci/sierra_hd_dump_graphics.cpp
 --- a/engines/sci/sierra_hd_dump_graphics.cpp	1970-01-01 00:00:00.000000000 +0000
-+++ b/engines/sci/sierra_hd_dump_graphics.cpp	2026-10-20 19:04:27.593835404 +0000
-@@ -0,0 +1,200 @@
++++ b/engines/sci/sierra_hd_dump_graphics.cpp	2026-10-20 19:14:02.633612688 +0000
+@@ -0,0 +1,202 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -62,8 +62,8 @@ diff -ruN a/engines/sci/sierra_hd_dump_graphics.cpp b/engines/sci/sierra_hd_dump
 + *                         u16 width, u16 height, i16 displaceX, u16 displaceY,
 + *                         u8 clearKey, then width*height bytes from getBitmap().
 + *   font.<nnn>            u16 char count, u8 height; per char u8 width,
-+ *                         u8 height, then width*height bytes (1 = set) from
-+ *                         drawToBuffer().
++ *                         u8 height, then width*height bytes (1 = set),
++ *                         drawn by GfxFont::draw() onto the cleared screen.
 + *   manifest.txt          one line per file written.
 + */
 +
@@ -218,11 +218,13 @@ diff -ruN a/engines/sci/sierra_hd_dump_graphics.cpp b/engines/sci/sierra_hd_dump
 +			const byte height = font->getCharHeight(chr);
 +			out.push_back(width);
 +			out.push_back(height);
-+			Common::Array<byte> glyph(width * height, 0);
-+			if (width && height)
-+				font->drawToBuffer(chr, 0, 0, 1, false, glyph.data(), width, height);
-+			for (uint p = 0; p < glyph.size(); p++)
-+				out.push_back(glyph[p]);
++			// Drawn with GfxFont::draw, the path SCI0 games use, onto a cleared
++			// screen and read back (drawToBuffer only exists with SCI32).
++			g_sci->_gfxScreen->clearForRestoreGame();
++			font->draw(chr, 0, 0, 1, false);
++			for (int16 y = 0; y < height; y++)
++				for (int16 x = 0; x < width; x++)
++					out.push_back(g_sci->_gfxScreen->getVisual(x, y));
 +		}
 +		writer.write(Common::String::format("font.%03u", ids[i]), out);
 +	}
