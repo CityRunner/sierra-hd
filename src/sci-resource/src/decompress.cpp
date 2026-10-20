@@ -176,7 +176,8 @@ Result<std::vector<std::uint8_t>> unpack_stored(std::span<const std::uint8_t> in
 // nibbles give the distance to the next node for bit 0 (high nibble) and bit
 // 1 (low nibble), and a low nibble of zero escapes to a literal byte, which
 // is returned with bit 8 set. Returns nullopt where ScummVM would read
-// outside the node table.
+// outside the node table, and for a zero high nibble, on which ScummVM
+// stays on the same node and loops forever.
 std::optional<std::uint16_t> next_huffman_symbol(std::span<const std::uint8_t> nodes, BitReader& reader) {
     std::size_t node = 0;
     while (true) {
@@ -195,6 +196,9 @@ std::optional<std::uint16_t> next_huffman_symbol(std::span<const std::uint8_t> n
             }
         } else {
             next = static_cast<std::uint32_t>(links >> 4U);
+            if (next == 0) {
+                return std::nullopt;
+            }
         }
         node += std::size_t{next} * 2;
     }
@@ -217,7 +221,8 @@ Result<std::vector<std::uint8_t>> unpack_huffman(std::span<const std::uint8_t> i
     while (true) {
         const std::optional<std::uint16_t> symbol = next_huffman_symbol(*nodes, reader);
         if (!symbol) {
-            return make_error(ErrorCode::InvalidData, "Huffman code points outside the node table");
+            return make_error(ErrorCode::InvalidData,
+                              "Huffman tree is malformed (link outside the table or to itself)");
         }
         if (*symbol == terminator || output.finished(reader)) {
             break;
