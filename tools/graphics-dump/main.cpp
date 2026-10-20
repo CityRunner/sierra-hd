@@ -32,7 +32,7 @@ using sci::resource::ResourceType;
 std::ofstream open_manifest(const fs::path& directory) {
     std::error_code error;
     fs::create_directories(directory, error);
-    return {directory / "manifest.txt"};
+    return std::ofstream(directory / "manifest.txt");
 }
 
 class Output {
