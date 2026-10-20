@@ -29,14 +29,14 @@ sci_add_fuzz_target(NAME fuzz-view-font
     DEPENDS sci-text sci-view
     CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/view_font)
 
+sci_add_fuzz_target(NAME fuzz-vector
+    SOURCE fuzz_vector.cpp
+    DEPENDS sci-pic sci-vector sci-render
+    CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/pic)
+
 # The list of fuzz targets and their seed corpora, for scripts/run-fuzzers.sh.
 if(SCI_FUZZ)
     get_property(targets GLOBAL PROPERTY SCI_FUZZ_TARGETS)
     list(JOIN targets "\n" lines)
     file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/fuzz-targets.txt CONTENT "${lines}\n")
 endif()
-
-sci_add_fuzz_target(NAME fuzz-vector
-    SOURCE fuzz_vector.cpp
-    DEPENDS sci-pic sci-vector sci-render
-    CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/pic)
