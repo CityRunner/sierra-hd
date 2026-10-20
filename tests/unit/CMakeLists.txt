@@ -3,8 +3,10 @@ sci_add_unit_test(NAME sci-core-tests
     SOURCES
         core/byte_reader_test.cpp
         core/error_test.cpp
+        core/exact_test.cpp
         core/fp_profile_test.cpp
         core/log_test.cpp
+        core/sha256_test.cpp
     DEPENDS sci-core)
 
 sci_add_unit_test(NAME sci-resource-tests
