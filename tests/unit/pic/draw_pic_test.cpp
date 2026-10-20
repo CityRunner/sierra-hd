@@ -5,6 +5,8 @@
 #include "sci/pic/parse_pic.hpp"
 #include "sci_test.hpp"
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -59,9 +61,9 @@ SCI_TEST(lines_draw_in_the_picture_port) {
 SCI_TEST(sloped_lines_follow_sierras_bresenham) {
     const PictureMaps maps = draw(PicBuilder().color(red).line(0, 0, 4, 2).end());
     // dx 8, dy 4: the line steps down at x 1 and x 3.
-    const int expected_y[] = {0, 1, 1, 2, 2};
+    const std::array<int, 5> expected_y{0, 1, 1, 2, 2};
     for (int x = 0; x <= 4; ++x) {
-        SCI_CHECK(visual(maps, x, expected_y[x]) == 4);
+        SCI_CHECK(visual(maps, x, expected_y[static_cast<std::size_t>(x)]) == 4);
     }
     SCI_CHECK(visual(maps, 1, 0) == 15 && visual(maps, 3, 1) == 15);
 }

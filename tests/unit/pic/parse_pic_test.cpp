@@ -70,8 +70,8 @@ SCI_TEST(textured_patterns_read_a_texture_byte_per_point) {
     const auto commands = sci::pic::parse_pic(pic.end());
     SCI_CHECK(commands.has_value() && commands->size() == 3);
     if (commands && commands->size() == 3) {
-        const Pattern* first = as<Pattern>((*commands)[1]);
-        const Pattern* second = as<Pattern>((*commands)[2]);
+        const auto* first = as<Pattern>((*commands)[1]);
+        const auto* second = as<Pattern>((*commands)[2]);
         SCI_CHECK(first != nullptr && first->code == 0x23 && first->texture == 5 &&
                   first->at == Point{.x = 40, .y = 30});
         SCI_CHECK(second != nullptr && second->texture == 10);

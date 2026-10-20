@@ -19,8 +19,10 @@ public:
 
     // An absolute coordinate: x bits 8-11 and y bits 8-11 in the prefix.
     PicBuilder& absolute(int x, int y) {
-        const auto prefix = static_cast<std::uint8_t>(((x >> 4) & 0xF0) | ((y >> 8) & 0x0F));
-        return bytes({prefix, static_cast<std::uint8_t>(x & 0xFF), static_cast<std::uint8_t>(y & 0xFF)});
+        const auto ux = static_cast<unsigned>(x);
+        const auto uy = static_cast<unsigned>(y);
+        const auto prefix = static_cast<std::uint8_t>(((ux >> 4U) & 0xF0U) | ((uy >> 8U) & 0x0FU));
+        return bytes({prefix, static_cast<std::uint8_t>(ux & 0xFFU), static_cast<std::uint8_t>(uy & 0xFFU)});
     }
 
     PicBuilder& color(std::uint8_t index) { return bytes({0xF0, index}); }

@@ -25,7 +25,7 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size
     const sci::pic::DrawOptions options{
         .mirrored = (input[0] & 1U) != 0,
         .add_to = (input[0] & 2U) != 0,
-        .ega_palette = static_cast<std::uint8_t>((input[0] >> 2U) & 3U),
+        .ega_palette = static_cast<std::uint8_t>((unsigned{input[0]} >> 2U) & 3U),
     };
     sci::pic::PictureMaps maps;
     if (!sci::pic::draw_picture(*commands, maps, options)) {
