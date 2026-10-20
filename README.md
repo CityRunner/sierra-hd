@@ -5,9 +5,9 @@ on its own SCI0 interpreter written in C++23. The vector backgrounds are
 re-rendered at high resolution; sprites stay original and are scaled by an
 integer factor. Game logic behaves exactly as in the original.
 
-**Status: milestone 2.** Resources load, and pictures, views and fonts
-decode and draw at 1x exactly as in ScummVM. The interpreter itself does
-not exist yet.
+**Status: milestone 3.** Resources load; pictures, views and fonts draw at 1x
+exactly as in ScummVM; and pictures render as HD vector backgrounds at any
+integer scale. The interpreter itself does not exist yet.
 
 You need your own copy of the game (English DOS EGA release). No game files
 are included, and none are ever committed.
@@ -46,6 +46,7 @@ The room viewer, a development tool, draws pictures, views and fonts from
 your game folder into PNG files (`tools/room-viewer/README.md`):
 
     build/release/tools/room-viewer/sci-room-viewer /path/to/game pic 1 --map all --scale 2 build/pic1.png
+    build/release/tools/room-viewer/sci-room-viewer /path/to/game pic 1 --hd --scale 5 build/pic1-hd.png
 
 Pointing the program at the game folder, the configuration options and
 MT-32 ROM support arrive with later milestones; this section will describe
@@ -63,6 +64,7 @@ them.
 - `docs/ASSUMPTIONS.md`: every assumption and decision, including the pinned
   ScummVM revision
 - `docs/formats/`: the resource, picture, view and font formats
+- `docs/hd-pipeline.md`: how pictures become HD backgrounds
 - `tools/reference-scummvm/README.md`: the reference ScummVM build
 - `reports/`: milestone reports
 - `THIRD_PARTY.md`: third-party components and their licences

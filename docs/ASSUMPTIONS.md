@@ -416,7 +416,7 @@ Milestone 1 was approved and merged
   dithered from. Clearing the picture port sets it to 0xFF, solid white,
   like the cleared visual map. `sci-graphics-dump` checks on
   every picture that dithering the pair map gives the visual map. The pair
-  map is the input sci-vector needs at milestone 3a (spec section 6.3).
+  map is the input sci-vector needs at milestone 3 (spec section 6.3).
   **Decided.**
 - **Where the port deliberately differs from ScummVM.** Again only for data
   the tested release does not contain. **Decided.**
@@ -443,11 +443,126 @@ Milestone 1 was approved and merged
   deflate) PNG files, so the tools need no zlib. The files are larger, which
   does not matter for development output. **Decided.**
 
+## Milestone 2 approval (2026-10-20)
+
+Milestone 2 was approved and merged
+([CityRunner/sierra-hd#3](https://github.com/CityRunner/sierra-hd/pull/3)).
+The milestone 2 report and docs had called the vector path "milestone 3a";
+it is milestone 3 (the HD picture pipeline), and 3a is the separate gate
+after it (hints, release v0.1 with the window). The labels are corrected.
+The customer confirmed the order: milestone 3 first, then 3a. **Decided.**
+
+## Milestone 3: HD picture pipeline (2026-10-20)
+
+The pipeline is described in `docs/hd-pipeline.md`; these are its
+decisions.
+
+- **Path 2 reads path 1's trace.** `draw_picture` can record every drawn
+  primitive and, per pixel, which one wrote the visual and priority maps
+  last. The vector path takes its geometry (after mirroring and clipping)
+  and its values from there, so the two paths cannot disagree about what was
+  drawn. **Decided.**
+- **Faces take their values from the final map.** Instead of replaying the
+  fills geometrically, every face of the planar graph takes the value of the
+  path-1 pixels it contains (those owned by fills or left as cleared). A
+  fill that leaked through a gap at 1x thus gives both faces the same value,
+  which keeps the leak as the player saw it (spec section 6.3), and closing
+  a gap can never change a colour. **Decided.**
+- **Gaps are closed where path 1's line pixels touch.** Fills spread to the
+  four neighbours of a pixel, so lines whose pixels touch stop them. Line
+  ends whose pixels (within 2 pixels of the end) touch another line's pixels
+  are extended to it, joined to its end point or connected square to it,
+  within 2 pixels; dots and the picture's border take part. This is the
+  "near end points (1 to 2 px) and T-junctions" rule of spec section 6.3,
+  with path 1's pixels deciding which gaps exist. **Decided.**
+- **Exact topology in doubled coordinates.** Pixel centres are integers at
+  doubled coordinates, and the arrangement uses int64 rationals whose
+  products stay below 2^60 (checked). Holes are not located: each connected
+  component's outer cycle is a face of its own and takes its value from its
+  pixels like any other face. **Decided.**
+- **Fallback rule.** A face falls back to 1x blocks when its region pixels
+  disagree outside the edge band (mixed) or when it contains none (thin:
+  slivers along lines, mostly under strokes). Textured brushes are drawn as
+  the 1x pixels they own (spec section 6.3: textures by definition). The
+  report lists every mixed face with its pixels and bounding box; thin faces
+  are counted. **Decided.**
+- **Strokes and brushes.** Visible lines are strokes 1 original pixel wide
+  with round ends; lines overdrawn completely are left out, white lines are
+  kept. A solid circle brush is the ellipse inscribed in its pattern box,
+  a rectangle brush the box. The column a pattern may draw beyond the right
+  edge (path 1 wraps it to the next row) is not drawn in HD. **Decided.**
+- **Curve fitting.** Chains of visible lines up to 12 pixels long, turning by
+  at most 50 degrees per vertex, are fitted with a line, a circular arc, a
+  cubic spline or (closed and unpinned) an axis-aligned ellipse, within
+  **0.5 original pixels** of the chain both ways; vertices where other edges
+  meet are kept exactly; fits that would cross or enclose other geometry
+  are rejected. 0.5 pixels is the lower end of spec section 6.3's range: at
+  that tolerance every pixel of a fitted line is still touched by its
+  stroke. Rotated ellipses are fitted as splines. **Decided** (confirmed
+  at the milestone 3 gate).
+- **Acceptance definitions** (spec section 6.4, `sci/render/acceptance.hpp`).
+  Pair classes compare pairs by the colour they blend to, so (a, b) and
+  (b, a) are one class. The reduction to 1x takes, per pixel, the value
+  covering most of its 16 x 16 samples. The edge band is every pixel with a
+  neighbour of another class among its eight. A swap is a group of four or
+  more 4-connected differing pixels outside the band. The line check
+  requires every pixel a visible line owns at 1x to be touched by the line's
+  stroke; pixels covered completely by later layers are reported separately
+  (drawing order, not a missing line). **Decided.**
+- **Colours.** HD colours are the plain sRGB average of the pair (spec
+  section 6.5), computed in 16 bits per channel with one final rounding.
+  ScummVM's own EGA undithering (`GfxPalette::setEGA`, `blendColors`)
+  averages in gamma 2.2 instead: black and white blend to 186 there and to
+  128 here. The difference is intended by the spec. **Decided.**
+- **Sampling.** 16 x 16 samples per HD pixel at the cell centres; a sample on
+  a face boundary belongs to the face after it; of edges through the same
+  point, the one closest to +x decides. The HD priority map takes the value
+  at each HD pixel's centre, so occlusion follows the vectors; the switch to
+  snap it to the sprite grid comes with the sprites (milestone 5).
+  **Decided.**
+- **Golden hashes.** SHA-256 of the HD frame's picture area (320N x 190N,
+  RGBA) at N = 1, 2, 5, 10 and of the original frame at N = 1, for every
+  picture drawn on its own (`tests/golden/pictures.txt`). Overlays are added
+  when the scripts tell which rooms draw them (milestone 4). Synthetic
+  scenes have golden hashes in CI (`tests/golden/synthetic_test.cpp`).
+  **Decided.**
+- **Debug highlighting** (spec section 6.3) is the CMake option
+  `SCI_DEBUG_HIGHLIGHT` (off by default); the room viewer's `--highlight`
+  then shows fitted strokes and fallback blocks. **Decided.**
+- **Reference machine and budgets (proposal, spec section 10.3).** A laptop
+  with a 4-core x86-64 CPU of about 2020 (for example an Intel Core i5-1135G7
+  or AMD Ryzen 5 4500U), 8 GB of memory and integrated graphics. Room entry
+  (path 1, both scenes, the HD frame and priority map) is measured at N = 10
+  on the 4-core development container: see the milestone 3 report.
+  Proposed budgets: room entry under 1 second at N = 10, and the first
+  launch's analysis of all rooms under 15 seconds. **Decided** (confirmed
+  at the milestone 3 gate).
+- **Threads in the tools.** `tools/common` implements the executor with
+  `std::jthread`; app gets its own implementation with the window layer
+  (milestone 3a). **Decided.**
+
+## Milestone 3 approval (2026-10-20)
+
+Milestone 3 was approved and merged
+([CityRunner/sierra-hd#4](https://github.com/CityRunner/sierra-hd/pull/4)).
+The customer decided:
+
+- **Fitting tolerance: 0.5 original pixels** (spec section 15, open question
+  1). A trial at 1 pixel on picture 44 changed little and left 840 line
+  pixels in 64 pictures untouched by their strokes. Rounder shapes are left
+  to the hints of milestone 3a. **Decided.**
+- **Edge blend space: sRGB**, as assumed (spec section 15). **Decided.**
+- **Reference machine and budgets** as proposed in "Milestone 3": a 4-core
+  x86-64 laptop of about 2020 with 8 GB of memory and integrated graphics;
+  room entry under 1 second at N = 10; the first launch's analysis of all
+  rooms under 15 seconds. **Decided.**
+- The manual side-by-side review continues with further rooms. **Open.**
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with
-  no linear-light conversion (spec section 6.5). **Assumed**; to be
-  confirmed after seeing results (spec section 15).
+  no linear-light conversion (spec section 6.5). **Decided** (confirmed at
+  the milestone 3 gate).
 - ScummVM's Event Recorder is evaluated as the basis of the replay format
   before that format is designed (spec section 7, needed from milestone 4a).
   **Pending.**
@@ -457,4 +572,5 @@ Milestone 1 was approved and merged
 - Each library without real content contains only a `component_name()`
   function, which the program's `--version` output uses to show that
   everything links. These functions are removed as soon as the library has
-  real content (sci-resource: milestone 1; sci-pic, sci-view and sci-text: milestone 2).
+  real content (sci-resource: milestone 1; sci-pic, sci-view and sci-text: milestone 2;
+  sci-core, sci-vector and sci-render: milestone 3).

@@ -29,6 +29,9 @@ public:
     // Pixels outside the image are ignored.
     void set(int x, int y, Rgb color);
 
+    // The pixel at (x, y), which must lie inside the image.
+    [[nodiscard]] Rgb at(int x, int y) const;
+
     [[nodiscard]] bool write_png(const std::filesystem::path& path) const;
 
 private:

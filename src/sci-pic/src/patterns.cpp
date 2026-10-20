@@ -30,6 +30,7 @@
 
 #include "pattern_tables.hpp"
 #include "sci/core/assert.hpp"
+#include "sci/pic/geometry.hpp"
 
 #include <bit>
 #include <cstddef>
@@ -37,46 +38,6 @@
 namespace sci::pic::detail {
 
 namespace {
-
-constexpr std::uint8_t pattern_rectangle = 0x10;
-constexpr std::uint8_t pattern_textured = 0x20;
-constexpr std::uint8_t pattern_pen_size = 0x07;
-
-// A pattern box in screen coordinates: [left, right) x [top, bottom).
-struct Box {
-    int left = 0;
-    int top = 0;
-    int right = 0;
-    int bottom = 0;
-};
-
-// Where the pattern is drawn: centred on the point and one pixel wider than
-// high, moved inside the left and top edges of the picture, offset into the
-// picture port, then moved inside the screen. On the right, the box may keep
-// its last column beyond the edge (one pixel), as in ScummVM; that column is
-// handled by draw_box_pixel.
-Box pattern_box(int x, int y, int size) {
-    const int width = (2 * size) + 2;
-    const int height = (2 * size) + 1;
-    Box box{.left = x - size, .top = y - size, .right = x + size + 2, .bottom = y + size + 1};
-    if (box.left < 0) {
-        box = Box{.left = 0, .top = box.top, .right = width, .bottom = box.bottom};
-    }
-    if (box.top < 0) {
-        box = Box{.left = box.left, .top = 0, .right = box.right, .bottom = height};
-    }
-    box.top += picture_top;
-    box.bottom += picture_top;
-    if (box.right > screen_width + 1) {
-        box.left = screen_width + 1 - width;
-        box.right = screen_width + 1;
-    }
-    if (box.bottom > screen_height) {
-        box.top = screen_height - height;
-        box.bottom = screen_height;
-    }
-    return box;
-}
 
 // The dither code with its two colours swapped.
 std::uint8_t swap_dither(std::uint8_t color) noexcept {
@@ -124,7 +85,7 @@ private:
     std::size_t position_;
 };
 
-void draw_box(Canvas& canvas, const Box& box, const Stroke& stroke, bool textured, std::uint8_t texture) {
+void draw_box(Canvas& canvas, const PixelBox& box, const Stroke& stroke, bool textured, std::uint8_t texture) {
     TextureBits bits(texture);
     for (int y = box.top; y < box.bottom; ++y) {
         for (int x = box.left; x < box.right; ++x) {
@@ -137,7 +98,8 @@ void draw_box(Canvas& canvas, const Box& box, const Stroke& stroke, bool texture
 
 // Circles: the size's bitmap gives one bit per box pixel. For textured
 // circles the texture advances only on the circle's pixels.
-void draw_circle(Canvas& canvas, const Box& box, int size, const Stroke& stroke, bool textured, std::uint8_t texture) {
+void draw_circle(Canvas& canvas, const PixelBox& box, int size, const Stroke& stroke, bool textured,
+                 std::uint8_t texture) {
     const auto& bitmap = circle_bitmaps[static_cast<std::size_t>(size)];
     std::size_t bit = 0;
     TextureBits bits(texture);
@@ -161,16 +123,16 @@ void draw_circle(Canvas& canvas, const Box& box, int size, const Stroke& stroke,
 
 void draw_pattern(Canvas& canvas, int x, int y, std::uint8_t color, std::uint8_t priority, std::uint8_t control,
                   std::uint8_t code, std::uint8_t texture) {
-    const int size = code & pattern_pen_size;
-    const Box box = pattern_box(x, y, size);
+    const int size = pattern_size(code);
+    const PixelBox box = pattern_box(x, y, size);
     const Stroke stroke{
         .mask = drawing_mask(color, priority, control),
         .color = color,
         .priority = priority,
         .control = control,
     };
-    const bool textured = (code & pattern_textured) != 0;
-    if ((code & pattern_rectangle) != 0) {
+    const bool textured = pattern_is_textured(code);
+    if (pattern_is_rectangle(code)) {
         draw_box(canvas, box, stroke, textured, texture);
     } else {
         draw_circle(canvas, box, size, stroke, textured, texture);

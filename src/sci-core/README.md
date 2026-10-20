@@ -1,10 +1,11 @@
 # sci-core
 
 Shared foundations for every other library: the error type, invariant checks,
-bounds-checked binary reading and the floating-point profile check. Later
-milestones add exact integer predicates and rationals, rounding helpers,
-hashing, deterministic replacements for platform-dependent standard library
-facilities, and the logging facility.
+bounds-checked binary reading, the floating-point profile check, the logging
+facility, checked integer arithmetic with rationals and the orientation
+predicate (`exact.hpp`), explicit rounding (`rounding.hpp`), SHA-256, and the
+task-execution interface (`executor.hpp`). Deterministic replacements for
+platform-dependent standard library facilities come when needed.
 
 ## Invariants
 

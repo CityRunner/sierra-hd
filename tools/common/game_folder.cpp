@@ -2,6 +2,7 @@
 
 #include "game_folder.hpp"
 
+#include "sci/core/assert.hpp"
 #include "sci/core/log.hpp"
 
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include <iterator>
 #include <memory>
 #include <print>
+#include <source_location>
 #include <string_view>
 
 namespace sci::tools {
@@ -18,6 +20,10 @@ namespace {
 
 void print_log(core::LogLevel level, core::LogCategory category, std::string_view message) noexcept {
     std::println(stderr, "[{}:{}] {}", core::to_string(category), core::to_string(level), message);
+}
+
+void print_assertion(std::string_view expression, const std::source_location& location) noexcept {
+    std::println(stderr, "assertion failed: {} ({}:{})", expression, location.file_name(), location.line());
 }
 
 } // namespace
@@ -61,6 +67,7 @@ bool write_file(const std::filesystem::path& path, std::span<const std::uint8_t>
 }
 
 void install_stderr_log() {
+    core::set_assertion_handler(&print_assertion);
     core::set_log_sink(&print_log);
     core::set_log_category_enabled(core::LogCategory::Resources, true);
 }

@@ -8,6 +8,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <variant>
 #include <vector>
 
 using sci::core::ErrorCode;
@@ -169,4 +170,68 @@ SCI_TEST(drawing_errors) {
         SCI_CHECK(sci::pic::draw_picture(*beyond, maps, {.ega_palette = 2}).has_value());
         SCI_CHECK(!sci::pic::draw_picture(*beyond, maps, {.ega_palette = 3}));
     }
+}
+
+SCI_TEST(traces_record_primitives_and_owners) {
+    const auto commands = sci::pic::parse_pic(PicBuilder()
+                                                  .color(red)
+                                                  .priority(7)
+                                                  .rectangle(10, 20, 30, 40)
+                                                  .no_priority()
+                                                  .color(blue_black)
+                                                  .fill(20, 30)
+                                                  .end());
+    SCI_CHECK(commands.has_value());
+    if (!commands) {
+        return;
+    }
+    PictureMaps maps;
+    PictureMaps untraced;
+    sci::pic::DrawTrace trace;
+    SCI_CHECK(sci::pic::draw_picture(*commands, maps, {}, &trace).has_value());
+    SCI_CHECK(sci::pic::draw_picture(*commands, untraced, {}).has_value());
+    SCI_CHECK(maps.visual == untraced.visual && maps.priority == untraced.priority && maps.pairs == untraced.pairs);
+
+    SCI_CHECK(trace.pictures == 1 && trace.primitives.size() == 5);
+    const auto& fill = trace.primitives[4];
+    SCI_CHECK(std::holds_alternative<sci::pic::Fill>(fill.shape));
+    SCI_CHECK(fill.state.planes == sci::pic::plane_visual && fill.state.pair == 0x01);
+    SCI_CHECK(trace.primitives[0].state.planes == (sci::pic::plane_visual | sci::pic::plane_priority));
+    SCI_CHECK(trace.primitives[0].state.pair == 0x44 && trace.primitives[0].state.priority == 7);
+    const auto& first = std::get<sci::pic::Line>(trace.primitives[0].shape);
+    SCI_CHECK(first.from == sci::pic::Point{.x = 10, .y = 20} && first.to == sci::pic::Point{.x = 30, .y = 20});
+
+    const auto owner = [&](const std::vector<std::int32_t>& map, int x, int y) {
+        return map[PictureMaps::index(x, y + top)];
+    };
+    SCI_CHECK(owner(trace.visual_owner, 20, 30) == 4); // The fill.
+    SCI_CHECK(owner(trace.visual_owner, 20, 20) == 0); // The top edge.
+    SCI_CHECK(owner(trace.visual_owner, 30, 30) == 1); // The right edge.
+    SCI_CHECK(owner(trace.visual_owner, 5, 5) == sci::pic::no_owner);
+    SCI_CHECK(owner(trace.priority_owner, 20, 30) == sci::pic::no_owner); // Priority was off for the fill.
+    SCI_CHECK(owner(trace.priority_owner, 10, 30) == 3);
+}
+
+SCI_TEST(traces_follow_mirroring_and_overlays) {
+    const auto base = sci::pic::parse_pic(PicBuilder().color(red).line(0, 5, 9, 5).end());
+    const auto overlay = sci::pic::parse_pic(PicBuilder().color(blue_black).line(0, 6, 9, 6).end());
+    SCI_CHECK(base.has_value() && overlay.has_value());
+    if (!base || !overlay) {
+        return;
+    }
+    PictureMaps maps;
+    sci::pic::DrawTrace trace;
+    SCI_CHECK(sci::pic::draw_picture(*base, maps, {.mirrored = true}, &trace).has_value());
+    SCI_CHECK(sci::pic::draw_picture(*overlay, maps, {.add_to = true}, &trace).has_value());
+    SCI_CHECK(trace.pictures == 2 && trace.primitives.size() == 2);
+    const auto& mirrored = std::get<sci::pic::Line>(trace.primitives[0].shape);
+    SCI_CHECK(mirrored.from.x == 319 && mirrored.to.x == 310);
+    SCI_CHECK(trace.primitives[1].picture == 1 && trace.primitives[1].command == 1);
+    SCI_CHECK(trace.visual_owner[PictureMaps::index(315, 5 + top)] == 0);
+    SCI_CHECK(trace.visual_owner[PictureMaps::index(5, 6 + top)] == 1);
+
+    // A picture drawn without add_to starts the trace afresh.
+    SCI_CHECK(sci::pic::draw_picture(*overlay, maps, {}, &trace).has_value());
+    SCI_CHECK(trace.pictures == 1 && trace.primitives.size() == 1);
+    SCI_CHECK(trace.visual_owner[PictureMaps::index(315, 5 + top)] == sci::pic::no_owner);
 }

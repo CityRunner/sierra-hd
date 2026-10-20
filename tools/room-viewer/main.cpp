@@ -10,6 +10,10 @@
 //       previous (an overlay, as kDrawPic with the add flag).
 //       --map visual|priority|control|all   (default visual; all = side by side)
 //       --mirrored  --palette <0-3>  --scale <k>
+//       --hd: through the vector path (milestone 3): the HD frame at scale
+//       k, or with --map priority the HD priority map
+//       --highlight (with --hd, in builds with SCI_DEBUG_HIGHLIGHT): fitted
+//       strokes in light magenta, fallback blocks in yellow
 //   sci-room-viewer <game> view <n> [--scale <k>] <out.png>
 //       All loops (rows) and cels; transparent pixels show the background.
 //   sci-room-viewer <game> font <n> [--scale <k>] <out.png>
@@ -21,11 +25,16 @@
 // git-ignored).
 
 #include "game_folder.hpp"
+#include "picture.hpp"
 #include "png.hpp"
 #include "sci/pic/draw_pic.hpp"
 #include "sci/pic/parse_pic.hpp"
+#include "sci/render/original.hpp"
+#include "sci/render/rasterize.hpp"
 #include "sci/text/font.hpp"
+#include "sci/vector/build_scene.hpp"
 #include "sci/view/view.hpp"
+#include "thread_executor.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -58,6 +67,8 @@ struct Options {
     MapChoice map = MapChoice::Visual;
     sci::pic::DrawOptions draw;
     int scale = 1;
+    bool hd = false;        // Through the vector path instead of the 1x maps.
+    bool highlight = false; // With --hd: show replacements (SCI_DEBUG_HIGHLIGHT builds only).
 };
 
 std::optional<int> parse_int(std::string_view text) {
@@ -90,25 +101,35 @@ std::optional<sci::resource::Resource> load(const ResourceManager& manager, Reso
 }
 
 std::optional<sci::pic::PictureMaps> draw_pictures(const ResourceManager& manager, const Options& options) {
-    sci::pic::PictureMaps maps;
-    bool first = true;
-    for (const std::uint16_t number : options.pictures) {
-        const auto resource = load(manager, ResourceType::Pic, number);
-        if (!resource) {
-            return std::nullopt;
-        }
-        const auto commands = sci::pic::parse_pic(resource->data);
-        sci::pic::DrawOptions draw = options.draw;
-        draw.add_to = !first;
-        const auto drawn = commands ? sci::pic::draw_picture(*commands, maps, draw)
-                                    : sci::core::Result<sci::pic::DrawResult>(std::unexpected(commands.error()));
-        if (!drawn) {
-            std::println(stderr, "pic.{}: {}", number, drawn.error().message);
-            return std::nullopt;
-        }
-        first = false;
+    auto drawn = sci::tools::draw_pictures(manager, options.pictures, options.draw);
+    if (!drawn) {
+        return std::nullopt;
     }
-    return maps;
+    return std::move(drawn->maps);
+}
+
+// The pictures through the vector path at the chosen scale: the HD frame,
+// or with --map priority the HD priority map in EGA colours.
+std::optional<Image> render_hd_pictures(const ResourceManager& manager, const Options& options) {
+    const auto drawn = sci::tools::draw_pictures(manager, options.pictures, options.draw);
+    if (!drawn) {
+        return std::nullopt;
+    }
+    sci::tools::ThreadExecutor executor;
+    if (options.map == MapChoice::Priority) {
+        const auto scene = sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Priority);
+        const auto map = sci::render::render_priority(scene.scene, options.scale, executor);
+        return sci::tools::to_image(sci::render::indices_to_rgba(map, sci::vector::picture_width * options.scale,
+                                                                 sci::vector::picture_height * options.scale));
+    }
+    const auto scene = sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual);
+#ifdef SCI_DEBUG_HIGHLIGHT
+    if (options.highlight) {
+        return sci::tools::to_image(
+            sci::render::render_hd(sci::vector::highlight_replacements(scene.scene), options.scale, executor));
+    }
+#endif
+    return sci::tools::to_image(sci::render::render_hd(scene.scene, options.scale, executor));
 }
 
 Image render_maps(const sci::pic::PictureMaps& maps, MapChoice choice, int scale) {
@@ -219,16 +240,6 @@ std::optional<Image> render_font(const ResourceManager& manager, std::uint16_t n
     return image;
 }
 
-std::vector<std::uint16_t> numbers_of(const ResourceManager& manager, ResourceType type) {
-    std::vector<std::uint16_t> numbers;
-    for (const ResourceId id : manager.list()) {
-        if (id.type == type) {
-            numbers.push_back(id.number);
-        }
-    }
-    return numbers;
-}
-
 bool save(const std::optional<Image>& image, const fs::path& path) {
     if (!image || !image->write_png(path)) {
         std::println(stderr, "cannot write {}", path.string());
@@ -241,7 +252,7 @@ int render_all(const ResourceManager& manager, const fs::path& directory) {
     std::error_code error;
     fs::create_directories(directory, error);
     bool ok = true;
-    for (const std::uint16_t number : numbers_of(manager, ResourceType::Pic)) {
+    for (const std::uint16_t number : sci::tools::numbers_of(manager, ResourceType::Pic)) {
         Options options;
         options.pictures = {number};
         const auto maps = draw_pictures(manager, options);
@@ -249,10 +260,10 @@ int render_all(const ResourceManager& manager, const fs::path& directory) {
                   directory / std::format("pic.{:03}.png", number)) &&
              ok;
     }
-    for (const std::uint16_t number : numbers_of(manager, ResourceType::View)) {
+    for (const std::uint16_t number : sci::tools::numbers_of(manager, ResourceType::View)) {
         ok = save(render_view(manager, number, 2), directory / std::format("view.{:03}.png", number)) && ok;
     }
-    for (const std::uint16_t number : numbers_of(manager, ResourceType::Font)) {
+    for (const std::uint16_t number : sci::tools::numbers_of(manager, ResourceType::Font)) {
         ok = save(render_font(manager, number, 2), directory / std::format("font.{:03}.png", number)) && ok;
     }
     return ok ? 0 : 1;
@@ -295,6 +306,12 @@ bool parse_options(std::span<char*> args, Options& options) {
         const bool has_value = i + 1 < args.size();
         if (arg == "--mirrored") {
             options.draw.mirrored = true;
+        } else if (arg == "--hd") {
+            options.hd = true;
+#ifdef SCI_DEBUG_HIGHLIGHT
+        } else if (arg == "--highlight") {
+            options.highlight = true;
+#endif
         } else if (arg == "--map" && has_value) {
             const auto map = parse_map(args[++i]);
             if (!map) {
@@ -323,7 +340,7 @@ bool parse_options(std::span<char*> args, Options& options) {
 
 void print_usage() {
     std::println(stderr, "usage: sci-room-viewer <game> pic <n>[+<n>...] [--map visual|priority|control|all]\n"
-                         "                       [--mirrored] [--palette <0-3>] [--scale <k>] <out.png>\n"
+                         "                       [--mirrored] [--palette <0-3>] [--scale <k>] [--hd] <out.png>\n"
                          "       sci-room-viewer <game> view|font <n> [--scale <k>] <out.png>\n"
                          "       sci-room-viewer <game> all <directory>");
 }
@@ -357,6 +374,13 @@ int main(int argc, char** argv) {
     }
     options.pictures = *pictures;
     const fs::path output = args.back();
+    if (command == "pic" && options.hd) {
+        if (options.map != MapChoice::Visual && options.map != MapChoice::Priority) {
+            print_usage();
+            return 2;
+        }
+        return save(render_hd_pictures(*manager, options), output) ? 0 : 1;
+    }
     if (command == "pic") {
         const auto maps = draw_pictures(*manager, options);
         return maps && save(render_maps(*maps, options.map, options.scale), output) ? 0 : 1;
