@@ -476,7 +476,7 @@ void colour_faces(const std::vector<std::int32_t>& labels, const PlaneView& view
     }
     // Sorted by face and value; the pixel of each sample goes along.
     std::vector<std::size_t> order(samples.size());
-    std::iota(order.begin(), order.end(), std::size_t{0});
+    std::ranges::iota(order, std::size_t{0});
     std::ranges::stable_sort(order, {}, [&](std::size_t i) { return samples[i]; });
     std::vector<Sample> sorted(samples.size());
     std::vector<std::size_t> sample_pixels(samples.size());

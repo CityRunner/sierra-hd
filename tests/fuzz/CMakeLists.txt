@@ -35,3 +35,8 @@ if(SCI_FUZZ)
     list(JOIN targets "\n" lines)
     file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/fuzz-targets.txt CONTENT "${lines}\n")
 endif()
+
+sci_add_fuzz_target(NAME fuzz-vector
+    SOURCE fuzz_vector.cpp
+    DEPENDS sci-pic sci-vector sci-render
+    CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/pic)

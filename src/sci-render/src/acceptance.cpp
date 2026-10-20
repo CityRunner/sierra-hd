@@ -131,7 +131,7 @@ std::vector<std::int32_t> stroke_layers(const vector::Scene& scene, std::size_t 
     std::vector<std::int32_t> layers(primitives, -1);
     for (std::size_t i = 0; i < scene.layers.size(); ++i) {
         if (const auto* stroke = std::get_if<vector::Stroke>(&scene.layers[i]);
-            stroke != nullptr && stroke->source >= 0 && static_cast<std::size_t>(stroke->source) < primitives) {
+            stroke != nullptr && stroke->source >= 0 && std::cmp_less(stroke->source, primitives)) {
             layers[static_cast<std::size_t>(stroke->source)] = static_cast<std::int32_t>(i);
         }
     }
