@@ -145,6 +145,26 @@ void layer_spans(const vector::Layer& layer, double y, Emit emit) {
     }
 }
 
+// Adds the colours of one row of a pixel's samples to its sums. Rows of a
+// single value, the common case, take one addition.
+void add_samples(std::span<const std::uint8_t> samples, std::array<std::uint32_t, 3>& sum) {
+    const std::uint8_t first = samples[0];
+    if (std::ranges::all_of(samples, [first](std::uint8_t value) { return value == first; })) {
+        const PairSum& color = pair_sums[first];
+        const auto n = static_cast<std::uint32_t>(samples.size());
+        sum[0] += color.r * n;
+        sum[1] += color.g * n;
+        sum[2] += color.b * n;
+        return;
+    }
+    for (const std::uint8_t value : samples) {
+        const PairSum& color = pair_sums[value];
+        sum[0] += color.r;
+        sum[1] += color.g;
+        sum[2] += color.b;
+    }
+}
+
 // The rows a layer can touch.
 std::pair<int, int> layer_rows(const vector::Layer& layer) {
     if (const auto* stroke = std::get_if<vector::Stroke>(&layer)) {
@@ -223,20 +243,46 @@ void SceneSampler::crossings(double y, std::vector<Crossing>& found) const {
     });
 }
 
-void SceneSampler::sample_faces(double y, int density, std::span<std::int32_t> faces) const {
+// The first sample index i, at or after `from`, whose point (i + 0.5) /
+// density lies at or after x.
+std::size_t SceneSampler::first_sample_at(double x, int density, std::size_t from, std::size_t count) {
+    const auto at = [&](std::size_t i) { return x <= (static_cast<double>(i) + 0.5) / density; };
+    auto i = static_cast<std::size_t>(std::clamp<std::int64_t>(
+        core::ceil_to_int((x * density) - 0.5), static_cast<std::int64_t>(from), static_cast<std::int64_t>(count)));
+    while (i > from && at(i - 1)) {
+        --i;
+    }
+    while (i < count && !at(i)) {
+        ++i;
+    }
+    return i;
+}
+
+void SceneSampler::face_runs(double y, int density, std::size_t count, std::vector<FaceRun>& runs) const {
     SCI_ASSERT(y >= 0 && y < picture_height);
-    SCI_ASSERT(faces.size() == static_cast<std::size_t>(picture_width) * static_cast<std::size_t>(density));
+    SCI_ASSERT(count == static_cast<std::size_t>(picture_width) * static_cast<std::size_t>(density));
     std::vector<Crossing> found;
     crossings(y, found);
-    std::size_t next = 0;
-    std::int32_t face = -1;
-    for (std::size_t i = 0; i < faces.size(); ++i) {
-        const double x = (static_cast<double>(i) + 0.5) / density;
-        while (next < found.size() && found[next].x <= x) {
-            face = found[next].face;
-            ++next;
+    runs.clear();
+    std::size_t start = 0;
+    for (const Crossing& crossing : found) {
+        start = first_sample_at(crossing.x, density, start, count);
+        if (!runs.empty() && runs.back().start == start) {
+            runs.back().face = crossing.face; // The later crossing decides.
+        } else {
+            runs.push_back(FaceRun{.start = start, .face = crossing.face});
         }
-        faces[i] = face;
+    }
+    SCI_ASSERT(!runs.empty() && runs.front().start == 0);
+}
+
+void SceneSampler::sample_faces(double y, int density, std::span<std::int32_t> faces) const {
+    std::vector<FaceRun> runs;
+    face_runs(y, density, faces.size(), runs);
+    for (std::size_t k = 0; k < runs.size(); ++k) {
+        const std::size_t end = k + 1 < runs.size() ? runs[k + 1].start : faces.size();
+        std::fill(faces.begin() + static_cast<std::ptrdiff_t>(runs[k].start),
+                  faces.begin() + static_cast<std::ptrdiff_t>(end), runs[k].face);
     }
 }
 
@@ -259,24 +305,27 @@ void SceneSampler::sample_sources(double y, int density, std::span<std::int32_t>
 
 void SceneSampler::sample_row(double y, int density, std::span<std::uint8_t> values) const {
     const std::size_t count = values.size();
-    std::vector<std::int32_t> faces(count);
-    sample_faces(y, density, faces);
+    std::vector<FaceRun> runs;
+    face_runs(y, density, count, runs);
     const auto row = static_cast<std::size_t>(core::floor_to_int(y));
-    for (std::size_t i = 0; i < count; ++i) {
-        SCI_ASSERT(faces[i] >= 0);
-        const vector::Face& face = scene_->faces[static_cast<std::size_t>(faces[i])];
+    const auto per_pixel = static_cast<std::size_t>(density);
+    for (std::size_t k = 0; k < runs.size(); ++k) {
+        const std::size_t end = k + 1 < runs.size() ? runs[k + 1].start : count;
+        const vector::Face& face = scene_->faces[static_cast<std::size_t>(runs[k].face)];
         if (face.fill == vector::FaceFill::Uniform) {
-            values[i] = face.value;
-        } else {
-            const std::size_t column = i / static_cast<std::size_t>(density);
-            values[i] = scene_->block_values[(row * picture_width) + column];
+            std::fill(values.begin() + static_cast<std::ptrdiff_t>(runs[k].start),
+                      values.begin() + static_cast<std::ptrdiff_t>(end), face.value);
+            continue;
+        }
+        for (std::size_t i = runs[k].start; i < end; ++i) {
+            values[i] = scene_->block_values[(row * picture_width) + (i / per_pixel)];
         }
     }
     for (const std::uint32_t index : layers_by_row_[row]) {
         layer_spans(scene_->layers[index], y, [&](const Span& span, std::uint8_t value) {
             const auto [first, last] = sample_range(span, density, static_cast<std::int64_t>(count));
-            for (std::int64_t i = first; i <= last; ++i) {
-                values[static_cast<std::size_t>(i)] = value;
+            if (first <= last) {
+                std::fill(values.begin() + first, values.begin() + last + 1, value);
             }
         });
     }
@@ -297,13 +346,7 @@ RgbaImage render_hd(const vector::Scene& visual, int scale, core::Executor& exec
                 ((static_cast<double>(row) * samples_per_pixel) + sub + 0.5) / static_cast<double>(density);
             sampler.sample_row(y, density, values);
             for (std::size_t x = 0; x < width; ++x) {
-                auto& sum = sums[x];
-                for (std::size_t s = 0; s < samples_per_pixel; ++s) {
-                    const PairSum& color = pair_sums[values[(x * samples_per_pixel) + s]];
-                    sum[0] += color.r;
-                    sum[1] += color.g;
-                    sum[2] += color.b;
-                }
+                add_samples(std::span(values).subspan(x * samples_per_pixel, samples_per_pixel), sums[x]);
             }
         }
         // Each sum covers 256 samples of two colours: divide by 512, halves

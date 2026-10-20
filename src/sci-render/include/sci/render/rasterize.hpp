@@ -10,6 +10,7 @@
 #include "sci/core/executor.hpp"
 #include "sci/vector/scene.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -39,7 +40,15 @@ private:
         std::int32_t face = 0;
     };
 
+    // From each run's start (a sample index) on, the face of the run.
+    struct FaceRun {
+        std::size_t start = 0;
+        std::int32_t face = 0;
+    };
+
     void crossings(double y, std::vector<Crossing>& found) const;
+    void face_runs(double y, int density, std::size_t count, std::vector<FaceRun>& runs) const;
+    [[nodiscard]] static std::size_t first_sample_at(double x, int density, std::size_t from, std::size_t count);
 
     const vector::Scene* scene_;
     std::vector<std::vector<std::uint32_t>> edges_by_row_;
