@@ -61,8 +61,9 @@ constexpr std::array<std::uint8_t, 16> default_ega_priority{0, 1, 2, 3, 4, 5, 6,
 
 class Rasterizer {
 public:
-    Rasterizer(PictureMaps& maps, const DrawOptions& options)
-        : canvas_(maps), palette_base_(options.ega_palette < palette_count ? options.ega_palette * palette_size : 0),
+    Rasterizer(PictureMaps& maps, const DrawOptions& options, DrawTrace* trace)
+        : canvas_(maps, trace), trace_(trace),
+          palette_base_(options.ega_palette < palette_count ? options.ega_palette * palette_size : 0),
           mirrored_(options.mirrored) {
         for (std::size_t palette = 0; palette < palette_count; ++palette) {
             set_palette(palette, default_ega_palette);
@@ -112,6 +113,7 @@ public:
         const Point to = mirror(command.to);
         // The picture port offsets lines by picture_top; ScummVM adds it in
         // 16-bit arithmetic.
+        record(Line{.from = from, .to = to});
         canvas_.draw_line(from.x, static_cast<std::int16_t>(from.y + picture_top), to.x,
                           static_cast<std::int16_t>(to.y + picture_top), color_, priority_, control_);
         return {};
@@ -119,6 +121,7 @@ public:
 
     Result<void> operator()(const Fill& command) {
         const Point at = mirror(command.at);
+        record(Fill{.at = at});
         if (!detail::flood_fill(canvas_, at.x, at.y, color_, priority_, control_)) {
             return make_error(ErrorCode::InvalidData,
                               std::format("fill starts outside the screen at ({}, {})", at.x, at.y));
@@ -132,6 +135,7 @@ public:
 
     Result<void> operator()(const Pattern& command) {
         const Point at = mirror(command.at);
+        record(Pattern{.at = at, .code = command.code, .texture = command.texture});
         detail::draw_pattern(canvas_, at.x, at.y, color_, priority_, control_, command.code, command.texture);
         return {};
     }
@@ -157,12 +161,36 @@ public:
         return {};
     }
 
+    // The index of the command being drawn, for the trace.
+    void begin_command(std::size_t index) noexcept { command_ = static_cast<std::uint32_t>(index); }
+
     Result<DrawResult> finish() {
         canvas_.dither();
         return result_;
     }
 
 private:
+    // Adds a primitive to the trace; the pixels drawn next belong to it.
+    void record(std::variant<Line, Fill, Pattern> shape) {
+        if (trace_ == nullptr) {
+            return;
+        }
+        const std::uint8_t planes = detail::drawing_mask(color_, priority_, control_);
+        trace_->primitives.push_back(TracedPrimitive{
+            .picture = trace_->pictures,
+            .command = command_,
+            .state =
+                DrawState{
+                    .planes = planes,
+                    .pair = (planes & plane_visual) != 0 ? detail::decode_pair(color_) : ColorPair{0},
+                    .priority = priority_,
+                    .control = control_,
+                },
+            .shape = shape,
+        });
+        canvas_.set_owner(static_cast<std::int32_t>(trace_->primitives.size() - 1));
+    }
+
     void set_palette(std::size_t number, const std::array<std::uint8_t, palette_size>& colors) noexcept {
         for (std::size_t i = 0; i < palette_size; ++i) {
             palettes_[(number * palette_size) + i] = colors[i];
@@ -180,6 +208,8 @@ private:
     }
 
     Canvas canvas_;
+    DrawTrace* trace_; // Null when no trace is recorded.
+    std::uint32_t command_ = 0;
     std::array<std::uint8_t, palette_size * palette_count> palettes_{};
     std::size_t palette_base_;
     bool mirrored_;
@@ -204,15 +234,23 @@ void clear_picture_port(PictureMaps& maps) {
 
 } // namespace
 
-Result<DrawResult> draw_picture(std::span<const PicCommand> commands, PictureMaps& maps, const DrawOptions& options) {
+Result<DrawResult> draw_picture(std::span<const PicCommand> commands, PictureMaps& maps, const DrawOptions& options,
+                                DrawTrace* trace) {
     if (!options.add_to) {
         clear_picture_port(maps);
+        if (trace != nullptr) {
+            *trace = DrawTrace{};
+        }
     }
-    Rasterizer rasterizer(maps, options);
-    for (const PicCommand& command : commands) {
-        if (auto drawn = std::visit(rasterizer, command.operation); !drawn) {
+    Rasterizer rasterizer(maps, options, trace);
+    for (std::size_t i = 0; i < commands.size(); ++i) {
+        rasterizer.begin_command(i);
+        if (auto drawn = std::visit(rasterizer, commands[i].operation); !drawn) {
             return std::unexpected(drawn.error());
         }
+    }
+    if (trace != nullptr) {
+        ++trace->pictures;
     }
     return rasterizer.finish();
 }

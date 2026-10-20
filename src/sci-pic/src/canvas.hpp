@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "sci/pic/draw_trace.hpp"
 #include "sci/pic/picture_maps.hpp"
 
 #include <cstdint>
@@ -16,9 +17,9 @@
 namespace sci::pic::detail {
 
 // Which maps a drawing operation writes (GfxScreen's drawing mask).
-inline constexpr std::uint8_t mask_visual = 1;
-inline constexpr std::uint8_t mask_priority = 2;
-inline constexpr std::uint8_t mask_control = 4;
+inline constexpr std::uint8_t mask_visual = plane_visual;
+inline constexpr std::uint8_t mask_priority = plane_priority;
+inline constexpr std::uint8_t mask_control = plane_control;
 
 // The value 255 disables drawing into a map (GfxScreen::getDrawingMask).
 inline constexpr std::uint8_t disabled = 255;
@@ -56,7 +57,10 @@ inline constexpr std::uint8_t disabled = 255;
 
 class Canvas {
 public:
-    explicit Canvas(PictureMaps& maps) noexcept : maps_(&maps) {}
+    explicit Canvas(PictureMaps& maps, DrawTrace* trace = nullptr) noexcept : maps_(&maps), trace_(trace) {}
+
+    // The primitive that the following writes belong to, for the trace.
+    void set_owner(std::int32_t owner) noexcept { owner_ = owner; }
 
     [[nodiscard]] static constexpr bool on_screen(int x, int y) noexcept {
         return x >= 0 && x < screen_width && y >= 0 && y < screen_height;
@@ -69,9 +73,15 @@ public:
         if ((mask & mask_visual) != 0) {
             maps_->visual[i] = color;
             maps_->pairs[i] = decode_pair(color);
+            if (trace_ != nullptr) {
+                trace_->visual_owner[i] = owner_;
+            }
         }
         if ((mask & mask_priority) != 0) {
             maps_->priority[i] = priority;
+            if (trace_ != nullptr) {
+                trace_->priority_owner[i] = owner_;
+            }
         }
         if ((mask & mask_control) != 0) {
             maps_->control[i] = control;
@@ -96,6 +106,8 @@ public:
 
 private:
     PictureMaps* maps_; // Never null.
+    DrawTrace* trace_;  // Null when no trace is recorded.
+    std::int32_t owner_ = no_owner;
 };
 
 // GfxPicture::vectorFloodFill, for EGA pictures in the picture port. (x, y)

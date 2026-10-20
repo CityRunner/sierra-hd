@@ -8,6 +8,7 @@
 #pragma once
 
 #include "sci/core/error.hpp"
+#include "sci/pic/draw_trace.hpp"
 #include "sci/pic/pic_command.hpp"
 #include "sci/pic/picture_maps.hpp"
 
@@ -37,7 +38,10 @@ struct DrawResult {
 // Errors: a fill starting outside the screen, a colour index beyond the
 // palette table (where ScummVM reads out of bounds) and embedded views (not
 // used by SCI0 pictures) leave the maps partly drawn.
+// Draws a picture into the maps. With a trace, also records what was drawn:
+// a picture drawn over the maps (add_to) adds to the trace, any other
+// picture starts it afresh.
 [[nodiscard]] core::Result<DrawResult> draw_picture(std::span<const PicCommand> commands, PictureMaps& maps,
-                                                    const DrawOptions& options);
+                                                    const DrawOptions& options, DrawTrace* trace = nullptr);
 
 } // namespace sci::pic
