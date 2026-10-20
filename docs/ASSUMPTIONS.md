@@ -179,33 +179,46 @@ Details: docs/ARCHITECTURE.md, "Error handling".
 
 ## CI (milestone 0)
 
-- **Availability.** GitHub announced on 2026-01-29 that standard arm64
-  runners (`ubuntu-24.04-arm`, `windows-11-arm`) are available in private
-  repositories and count against the plan's minutes. macOS on Apple silicon
-  (`macos-15`) and x86-64 Linux and Windows were already available.
-  **Assumed:** this could not be checked against the account, because the
-  session has no API access to the repository's settings or billing.
-- **Prices** (per minute for private repositories, after GitHub's price cut of
-  2026-01-01, from public pricing summaries; to be confirmed on the account's
-  billing page): Linux x64 2-core $0.006, Linux arm64 2-core $0.005, Windows
-  2-core $0.010, macOS (M1, 3-core) $0.062. GitHub Free includes 2,000
-  minutes a month for private repositories, Pro and Team 3,000. Historically,
-  included minutes were consumed at multipliers (Windows 2x, macOS 10x).
-- **Estimated use per run** (milestone 0 size; it grows with the code):
-
-  | Workflow part | Jobs | Minutes each (cached) | Cost if billed |
-  |---|---|---|---|
-  | Linux x64: lint, 3 presets, fuzz | 5 | about 5 | about $0.15 |
-  | Linux arm64: 3 presets | 3 | about 5 | about $0.08 |
-  | macOS: 3 presets | 3 | about 6 to 8 | about $1.10 to $1.50 |
-  | Windows x64: 2 presets, arm64: 1 | 3 | about 8 to 10 | about $0.25 to $0.30 |
-
-  The first run on each architecture builds the toolchain image (about 10
-  minutes) or downloads LLVM (about 5 minutes); later runs use the cache.
+- **Plan.** The repository belongs to a GitHub Free personal account
+  (confirmed by the customer, 2026-10-20). For private repositories, that
+  means 2,000 included minutes a month. Once they are used up, jobs stop
+  unless a payment method and budget are set.
+- **Availability.** GitHub has offered standard arm64 runners
+  (`ubuntu-24.04-arm`, `windows-11-arm`) in private repositories since
+  2026-01-29. All of them ran on this repository: Linux x86-64 and ARM64,
+  macOS 15 on Apple silicon, and Windows x86-64 and ARM64.
+- **Prices.** Per-minute list prices for private repositories after GitHub's
+  price cut of 2026-01-01, from public pricing summaries (the account's
+  billing page is not reachable from the session): Linux x64 2-core $0.006,
+  Linux arm64 2-core $0.005, Windows 2-core $0.010, macOS (M1, 3-core)
+  $0.062. Included minutes have historically been consumed at multipliers:
+  Windows 2x, macOS 10x.
+- **Measured use** (milestone 0; it grows with the code). Job time is rounded
+  up to whole minutes.
+  - A push runs 8 Linux jobs of 1 to 2.5 minutes each, with the image cached:
+    about 16 included minutes.
+  - A full run (gate) adds 3 macOS jobs and 3 Windows jobs of about 2
+    minutes each: about 16 + 60 + 12 = 90 included minutes, or about $0.50
+    at list prices.
+  - The first run on each architecture builds the toolchain image (4 to 9
+    minutes per job).
+  - At this size the 2,000 minutes cover roughly 100 pushes plus a few
+    gates a month. The numbers in each milestone report show how this
+    develops.
 - **Decision.** Linux x86-64 and ARM64 run on every push. macOS and Windows
-  run on pull requests to `main` (the milestone gates) and when started by
-  hand. This is the option spec section 3.2 provides for. **Decided**, unless
-  the customer prefers every push.
+  run on pull requests to `main` (the milestone gates) and on manual runs,
+  which can be limited to one platform. This is the option spec section
+  3.2 provides for. **Decided.**
+- Push, pull request and manual runs are in separate concurrency groups, so
+  they do not cancel each other.
+- The tail of a failed step's log is published as an error annotation. It is
+  readable in the run summary and through the checks API. The session cannot
+  download full job logs, because they are served from a host the session
+  proxy blocks.
+- clang-cl ASan builds link the ASan runtime explicitly
+  (`cmake/SciCompilerFlags.cmake`). CMake runs lld-link itself, so the
+  libraries that clang-cl would add were missing; this was found by the
+  first Windows run.
 - Actions are pinned by commit SHA. The workflow is checked with actionlint
   1.7.12.
 - Linux jobs run inside the toolchain image. It is built per runner

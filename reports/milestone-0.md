@@ -1,8 +1,8 @@
 # Milestone 0: bootstrap
 
-Status: **work complete locally; two exit criteria wait on input from the
-customer** (CI on GitHub needs push access; the reference ScummVM run with
-the game needs the game files). See "Exit criteria" below.
+Status: **ready for review**, with one exit criterion partly met. The
+reference ScummVM builds and runs, but the run with the game waits for the
+game files (see "Exit criteria").
 
 Spec: version 15. All decisions and assumptions are in `docs/ASSUMPTIONS.md`.
 
@@ -21,7 +21,9 @@ Spec: version 15. All decisions and assumptions are in `docs/ASSUMPTIONS.md`.
    private repositories since 2026-01-29. Prices and per-run estimates are in
    `docs/ASSUMPTIONS.md`, "CI". Decision: Linux (x86-64 and ARM64) on every
    push; macOS and Windows on pull requests to `main` (the milestone gates)
-   and on manual runs.
+   and on manual runs, which can be limited to one platform. The account is
+   on GitHub Free (2,000 included minutes a month). A full run currently uses
+   about 90 included minutes, a push about 16.
 3. **Toolchain container** (`docker/`). Upstream LLVM 23.1.4, verified by
    SHA-256. Ubuntu 24.04 is pinned by digest to the release-day image, with
    packages from the frozen release pocket, so amd64 and arm64 get identical
@@ -72,7 +74,32 @@ Spec: version 15. All decisions and assumptions are in `docs/ASSUMPTIONS.md`.
 
 ## Test results
 
-All runs in the toolchain container, from clean build directories:
+### CI on GitHub
+
+Manual runs of the full workflow on `milestone-0`. The pull request runs it
+once more.
+
+| Platform | Jobs | Result |
+|---|---|---|
+| Linux x86-64 | lint (format, policy, clang-tidy), release, ASan+UBSan, TSan, fuzz (60 s) | pass |
+| Linux ARM64 | release, ASan+UBSan, TSan | pass |
+| macOS 15 (Apple silicon) | release, ASan+UBSan, TSan | pass |
+| Windows x86-64 | release, ASan | pass, after one fix |
+| Windows ARM64 | release | pass |
+
+The first Windows ASan run failed at link time. CMake runs lld-link
+directly, so the ASan runtime that clang-cl adds when it drives the link was
+missing. It is now named explicitly (`cmake/SciCompilerFlags.cmake`).
+
+Two CI fixes came out of this:
+
+- Manual runs had cancelled push runs on the same branch, because they
+  shared a concurrency group. The event name is now part of the group.
+- Failing steps now publish the tail of their log as an error annotation.
+
+### Local, in the toolchain container
+
+From clean build directories:
 
 | Check | Result |
 |---|---|
@@ -101,8 +128,8 @@ Negative checks, to confirm the guards work:
 
 | Criterion | Status |
 |---|---|
-| The empty libraries build and pass the style checks and sanitizer jobs on every CI platform | **Not yet shown.** Pushing to GitHub is refused: the Claude GitHub App has no access to `CityRunner/sierra-hd`. Locally, Linux x86-64 and ARM64 (qemu) pass in the same container that CI uses. macOS and Windows have not run yet. |
-| The reference ScummVM runs | **Partly.** It builds and runs; the run with the game waits for the game files. |
+| The empty libraries build and pass the style checks and sanitizer jobs on every CI platform | Met (see the table above). |
+| The reference ScummVM runs | **Partly.** It builds with the pinned toolchain and runs (launcher under Xvfb). The run with the game waits for the game files. |
 | The decisions are recorded in docs/ASSUMPTIONS.md | Done. |
 
 ## Deviations from the spec
@@ -118,13 +145,11 @@ Negative checks, to confirm the guards work:
 
 ## Open questions
 
-1. **GitHub access.** Please install the Claude GitHub App for
-   `CityRunner/sierra-hd`, or reconnect GitHub, so the work can be pushed and
-   CI can run.
-2. **Game files.** Please provide the game folder. It will be mounted
-   read-only and never committed. It is needed to identify the tested
-   release and to run the reference ScummVM with the game.
-3. **CI plan and budget.** Which GitHub plan does the account use, and is a
-   spending limit set? A milestone gate costs about $2 in macOS and Windows
-   minutes at list prices. Would you rather run macOS and Windows on every
-   push?
+1. **Game files.** Please provide the game folder. It will be mounted
+   read-only and never committed. It is needed to identify the tested release
+   and to run the reference ScummVM with the game, which completes the last
+   exit criterion. Approval of milestone 0 can wait for that check or come
+   before it, as you prefer. Milestone 1 needs the game files in any case.
+2. **CI budget.** At the current size the Free plan's 2,000 minutes are
+   enough. If the account has no payment method, CI stops when they run out.
+   Each milestone report will give the measured use.
