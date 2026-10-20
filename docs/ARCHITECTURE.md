@@ -1,8 +1,8 @@
 # Architecture
 
 How the program is organised, how data flows through it, and the trade-offs
-behind it. Updated at every milestone (spec section 5.1). State: milestone 0,
-the empty skeleton.
+behind it. Updated at every milestone (spec section 5.1). State: milestone 1,
+resources.
 
 ## Modules
 
@@ -11,8 +11,8 @@ purpose and invariants:
 
 | Library | Purpose | Depends on |
 |---|---|---|
-| sci-core | Error type, assertions, bounds-checked reading, floating-point profile; later exact arithmetic, hashing, logging | none |
-| sci-resource | RESOURCE.MAP and volumes, decompression | sci-core |
+| sci-core | Error type, assertions, bounds-checked reading, floating-point profile, logging; later exact arithmetic, hashing | none |
+| sci-resource | RESOURCE.MAP, volumes, patch files, LZW and Huffman decompression (done, milestone 1) | sci-core |
 | sci-pic | PIC parsing and the exact 1x rasteriser (path 1) | sci-core, sci-resource |
 | sci-vector | Vector analysis of PIC (path 2) | sci-core, sci-pic |
 | sci-view | View, loop and cel decoding | sci-core, sci-resource |
@@ -25,7 +25,12 @@ purpose and invariants:
 `tests/` holds the unit tests (`tests/unit`), the fuzz targets
 (`tests/fuzz`) and, from milestone 2, the golden tests. `tools/` holds the
 development tools and the reference tooling, which is never linked into the
-program.
+program:
+
+- `reference-scummvm`: builds and runs the reference ScummVM.
+- `scummvm-patches`: the reference's dump and trace patches.
+- `resource-dump`: dumps all resources through sci-resource.
+- `resource-compare`: the milestone 1 comparison with ScummVM.
 
 ### Dependency rules and how they are enforced
 
@@ -82,6 +87,31 @@ There are no exceptions in the project: every target is built with
 returns a `Result`, a failed read does not move the reader, and the fuzz
 target `fuzz-byte-reader` checks both properties.
 
+## Resources
+
+`sci::resource::ResourceManager::open` takes the game folder's files as
+bytes. It indexes them in ScummVM's order: format checks on the map and the
+first volume, map entries (the first entry for an id wins), then patch
+files, which replace or add resources. `load(id)` reads one resource and
+decompresses it. The manager keeps no cache; caching belongs to the VM
+(milestone 4), which knows when resources are no longer needed. The file
+formats are in `docs/formats/resources.md`.
+
+The decompressors keep ScummVM's way of reading: whole bytes are fetched
+ahead of the bits, past the packed data and, as zeros, past the end of the
+volume. This is what makes every decode match the reference, including the
+end condition. Where ScummVM's behaviour is undefined (buffer overruns,
+uninitialised memory, an endless loop), the port reports an error instead.
+The full list is in docs/ASSUMPTIONS.md, "Milestone 1".
+
+## Logging
+
+`sci/core/log.hpp` is the only logging facility. Messages have a level and a
+category and go to a sink installed by app or a tool; sci-core itself does no
+I/O. `General` is always on. Other categories (`Resources` so far; kernel
+calls and sound signals later) are off by default and cost one atomic load
+when off, so they stay in release builds.
+
 ## Determinism
 
 - The floating-point profile of spec section 5.3 is set for every target in
@@ -107,5 +137,9 @@ target `fuzz-byte-reader` checks both properties.
   sanitizer builds, and input-driven indices go through bounds-checked
   readers.
 - **Placeholder `component_name()` functions** keep the empty libraries
-  buildable and linked into the program at milestone 0. They go away as the
-  libraries get content.
+  buildable and linked into the program. They go away as the libraries get
+  content; sci-resource's went at milestone 1.
+- **Whole files in memory.** The resource manager keeps the game folder's
+  files in memory (about 2.6 MB for this game) instead of reading on demand.
+  This keeps sci-resource free of I/O and makes loading a pure function of
+  the bytes.

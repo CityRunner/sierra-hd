@@ -5,6 +5,10 @@
 - `fuzz/`: libFuzzer targets with their seed corpora. Without `SCI_FUZZ`,
   each target replays its corpus as a CTest test.
 
-Tests that need the game files (golden hashes, comparisons with the
-reference ScummVM) are added from milestone 1, with instructions for running
-them locally.
+Seed corpora are hand-made; `fuzz/make_seeds.py` regenerates the
+sci-resource ones. libFuzzer runs write new inputs to a scratch directory
+(`scripts/run-fuzzers.sh`), never into the corpora.
+
+Tests that need the game files run locally, never in CI:
+
+- Resources (milestone 1): `tools/resource-compare/README.md`.
