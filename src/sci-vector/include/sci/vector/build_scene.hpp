@@ -58,10 +58,10 @@ struct BuiltScene {
 // Builds the scene of one plane from the maps and trace of path 1.
 [[nodiscard]] BuiltScene build_scene(const pic::PictureMaps& maps, const pic::DrawTrace& trace, Plane plane);
 
-#if defined(SCI_DEBUG_HIGHLIGHT)
-// Development only (CMake option SCI_DEBUG_HIGHLIGHT, spec section 6.3):
-// shows fitted strokes in light magenta and fallback blocks in yellow.
-void highlight_replacements(Scene& scene);
+#ifdef SCI_DEBUG_HIGHLIGHT
+// Development only (CMake option SCI_DEBUG_HIGHLIGHT, spec section 6.3): the
+// scene with fitted strokes in light magenta and fallback blocks in yellow.
+[[nodiscard]] Scene highlight_replacements(Scene scene);
 #endif
 
 } // namespace sci::vector

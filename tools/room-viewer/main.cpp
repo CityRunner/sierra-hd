@@ -122,10 +122,11 @@ std::optional<Image> render_hd_pictures(const ResourceManager& manager, const Op
         return sci::tools::to_image(sci::render::indices_to_rgba(map, sci::vector::picture_width * options.scale,
                                                                  sci::vector::picture_height * options.scale));
     }
-    auto scene = sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual);
-#if defined(SCI_DEBUG_HIGHLIGHT)
+    const auto scene = sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual);
+#ifdef SCI_DEBUG_HIGHLIGHT
     if (options.highlight) {
-        sci::vector::highlight_replacements(scene.scene);
+        return sci::tools::to_image(
+            sci::render::render_hd(sci::vector::highlight_replacements(scene.scene), options.scale, executor));
     }
 #endif
     return sci::tools::to_image(sci::render::render_hd(scene.scene, options.scale, executor));
@@ -307,7 +308,7 @@ bool parse_options(std::span<char*> args, Options& options) {
             options.draw.mirrored = true;
         } else if (arg == "--hd") {
             options.hd = true;
-#if defined(SCI_DEBUG_HIGHLIGHT)
+#ifdef SCI_DEBUG_HIGHLIGHT
         } else if (arg == "--highlight") {
             options.highlight = true;
 #endif

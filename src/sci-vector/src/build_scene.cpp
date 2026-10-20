@@ -845,10 +845,10 @@ BuiltScene build_scene(const pic::PictureMaps& maps, const pic::DrawTrace& trace
 
 } // namespace sci::vector
 
-#if defined(SCI_DEBUG_HIGHLIGHT)
+#ifdef SCI_DEBUG_HIGHLIGHT
 namespace sci::vector {
 
-void highlight_replacements(Scene& scene) {
+Scene highlight_replacements(Scene scene) {
     constexpr std::uint8_t fitted = 0xDD;   // Light magenta.
     constexpr std::uint8_t fallback = 0xEE; // Yellow.
     for (Layer& layer : scene.layers) {
@@ -858,6 +858,7 @@ void highlight_replacements(Scene& scene) {
     }
     // Only fallback faces read the block values.
     std::ranges::fill(scene.block_values, fallback);
+    return scene;
 }
 
 } // namespace sci::vector
