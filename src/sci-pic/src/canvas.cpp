@@ -2,7 +2,7 @@
 //
 // Ported from ScummVM (https://www.scummvm.org) at revision
 // ed949213a23440447ea402e263daa871394b6bf9, from:
-//   engines/sci/graphics/screen.cpp (GfxScreen::drawLine, GfxScreen::dither,
+//   engines/sci/graphics/screen.cpp (GfxScreen::dither,
 //       GfxScreen::vectorIsFillMatch), engines/sci/graphics/picture.cpp
 //       (GfxPicture::vectorFloodFill)
 // and translated into this project's style, types and error handling.
@@ -28,6 +28,8 @@
 
 #include "canvas.hpp"
 
+#include "sci/pic/geometry.hpp"
+
 #include <algorithm>
 #include <cstdlib>
 #include <utility>
@@ -37,63 +39,9 @@ namespace sci::pic::detail {
 
 void Canvas::draw_line(int x0, int y0, int x1, int y1, std::uint8_t color, std::uint8_t priority,
                        std::uint8_t control) {
-    // ScummVM clips the end points to the screen (LSL3 room 620 draws to x 320).
-    int left = std::clamp(x0, 0, screen_width - 1);
-    int top = std::clamp(y0, 0, screen_height - 1);
-    int right = std::clamp(x1, 0, screen_width - 1);
-    int bottom = std::clamp(y1, 0, screen_height - 1);
     const std::uint8_t mask = drawing_mask(color, priority, control);
-
-    if (top == bottom) {
-        if (right < left) {
-            std::swap(right, left);
-        }
-        for (int x = left; x <= right; ++x) {
-            put(x, top, mask, color, priority, control);
-        }
-        return;
-    }
-    if (left == right) {
-        if (top > bottom) {
-            std::swap(top, bottom);
-        }
-        for (int y = top; y <= bottom; ++y) {
-            put(left, y, mask, color, priority, control);
-        }
-        return;
-    }
-
-    // Do not replace with another Bresenham: flood fills depend on exactly
-    // which pixels this variant sets.
-    const int step_y = bottom - top < 0 ? -1 : 1;
-    const int step_x = right - left < 0 ? -1 : 1;
-    const int dy = std::abs(bottom - top) * 2;
-    const int dx = std::abs(right - left) * 2;
-    put(left, top, mask, color, priority, control);
-    put(right, bottom, mask, color, priority, control);
-    if (dx > dy) {
-        int fraction = dy - (dx / 2); // dx is not negative: dx / 2 == dx >> 1.
-        while (left != right) {
-            if (fraction >= 0) {
-                top += step_y;
-                fraction -= dx;
-            }
-            left += step_x;
-            fraction += dy;
-            put(left, top, mask, color, priority, control);
-        }
-    } else {
-        int fraction = dx - (dy / 2);
-        while (top != bottom) {
-            if (fraction >= 0) {
-                left += step_x;
-                fraction -= dy;
-            }
-            top += step_y;
-            fraction += dx;
-            put(left, top, mask, color, priority, control);
-        }
-    }
+    for_each_line_pixel(ScreenPoint{.x = x0, .y = y0}, ScreenPoint{.x = x1, .y = y1},
+                        [&](int x, int y) { put(x, y, mask, color, priority, control); });
 }
 
 void Canvas::dither() noexcept {
