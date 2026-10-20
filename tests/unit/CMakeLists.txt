@@ -36,6 +36,7 @@ sci_add_unit_test(NAME sci-text-tests
 sci_add_unit_test(NAME sci-vector-tests
     SOURCES
         vector/build_scene_test.cpp
+        vector/differential_test.cpp
         vector/fitting_test.cpp
     DEPENDS sci-vector sci-render)
 # The fitting tests reach into sci-vector's internals.

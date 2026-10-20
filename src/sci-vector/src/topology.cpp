@@ -64,8 +64,15 @@ Prepared prepare(const TopoSegment& segment) {
         .high = std::max(segment.from, segment.to),
     };
     SCI_ASSERT(prepared.low != prepared.high);
-    const auto [min_x, max_x] = std::minmax(prepared.low.x(), prepared.high.x());
-    const auto [min_y, max_y] = std::minmax(prepared.low.y(), prepared.high.y());
+    // By value: minmax of temporaries would return dangling references.
+    const core::Rational low_x = prepared.low.x();
+    const core::Rational high_x = prepared.high.x();
+    const core::Rational low_y = prepared.low.y();
+    const core::Rational high_y = prepared.high.y();
+    const core::Rational min_x = std::min(low_x, high_x);
+    const core::Rational max_x = std::max(low_x, high_x);
+    const core::Rational min_y = std::min(low_y, high_y);
+    const core::Rational max_y = std::max(low_y, high_y);
     prepared.min_x = core::floor_div(min_x.num(), min_x.den());
     prepared.max_x = core::ceil_div(max_x.num(), max_x.den());
     prepared.min_y = core::floor_div(min_y.num(), min_y.den());
