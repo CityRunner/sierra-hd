@@ -307,6 +307,9 @@ bool parse_options(std::span<char*> args, Options& options) {
                 return false;
             }
             if (arg == "--palette") {
+                if (*value > 3) {
+                    return false;
+                }
                 options.draw.ega_palette = static_cast<std::uint8_t>(*value);
             } else {
                 options.scale = std::max(1, *value);
