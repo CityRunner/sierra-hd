@@ -118,7 +118,7 @@ of `PicCommand`s: one typed operation per drawing step, with absolute
 coordinates and the byte offset it came from. `draw_picture` rasterises the
 commands into `PictureMaps` (visual, priority, control and pair maps, 320 x
 200 bytes each), exactly as ScummVM's `GfxPicture` does. The split lets
-sci-vector (milestone 3a) read the same command stream that path 1 draws,
+sci-vector (milestone 3) read the same command stream that path 1 draws,
 without parsing PIC data a second time.
 
 The rasteriser keeps ScummVM's integer algorithms: Sierra's line algorithm,

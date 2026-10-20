@@ -416,7 +416,7 @@ Milestone 1 was approved and merged
   dithered from. Clearing the picture port sets it to 0xFF, solid white,
   like the cleared visual map. `sci-graphics-dump` checks on
   every picture that dithering the pair map gives the visual map. The pair
-  map is the input sci-vector needs at milestone 3a (spec section 6.3).
+  map is the input sci-vector needs at milestone 3 (spec section 6.3).
   **Decided.**
 - **Where the port deliberately differs from ScummVM.** Again only for data
   the tested release does not contain. **Decided.**
@@ -442,6 +442,15 @@ Milestone 1 was approved and merged
 - **Tool PNG writer.** `tools/common/png.cpp` writes uncompressed (stored
   deflate) PNG files, so the tools need no zlib. The files are larger, which
   does not matter for development output. **Decided.**
+
+## Milestone 2 approval (2026-10-20)
+
+Milestone 2 was approved and merged
+([CityRunner/sierra-hd#3](https://github.com/CityRunner/sierra-hd/pull/3)).
+The milestone 2 report and docs had called the vector path "milestone 3a";
+it is milestone 3 (the HD picture pipeline), and 3a is the separate gate
+after it (hints, release v0.1 with the window). The labels are corrected.
+The customer confirmed the order: milestone 3 first, then 3a. **Decided.**
 
 ## Spec items carried forward
 

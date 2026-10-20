@@ -12,7 +12,7 @@ the reference tooling. Screenshots are used only for spot checks.
 1. **sci-pic**, ported from ScummVM's `GfxPicture` and `GfxScreen` at the
    pinned revision. Every ported file names its source.
    - `parse_pic` turns a PIC resource into a typed command stream with
-     absolute coordinates and source offsets. Path 2 (milestone 3a) will
+     absolute coordinates and source offsets. Path 2 (milestone 3) will
      read the same stream.
    - `draw_picture` is the path-1 rasteriser. It keeps ScummVM's integer
      algorithms: Sierra's line algorithm, the flood fill with ScummVM's
@@ -122,5 +122,5 @@ cels are now rejected before the allocation.
 
 ## Open questions
 
-None. Milestone 3a (the vector path and the window layer) builds on the
+None. Milestone 3 (the vector path) builds on the
 command stream and the pair map from this milestone.
