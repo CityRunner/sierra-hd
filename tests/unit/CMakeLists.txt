@@ -16,3 +16,17 @@ sci_add_unit_test(NAME sci-resource-tests
         resource/resource_map_test.cpp
         resource/volume_test.cpp
     DEPENDS sci-resource)
+
+sci_add_unit_test(NAME sci-pic-tests
+    SOURCES
+        pic/draw_pic_test.cpp
+        pic/parse_pic_test.cpp
+    DEPENDS sci-pic)
+
+sci_add_unit_test(NAME sci-view-tests
+    SOURCES view/view_test.cpp
+    DEPENDS sci-view)
+
+sci_add_unit_test(NAME sci-text-tests
+    SOURCES text/font_test.cpp
+    DEPENDS sci-text)

@@ -19,6 +19,16 @@ sci_add_fuzz_target(NAME fuzz-game-folder
     DEPENDS sci-resource
     CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/game_folder)
 
+sci_add_fuzz_target(NAME fuzz-pic
+    SOURCE fuzz_pic.cpp
+    DEPENDS sci-pic
+    CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/pic)
+
+sci_add_fuzz_target(NAME fuzz-view-font
+    SOURCE fuzz_view.cpp
+    DEPENDS sci-text sci-view
+    CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/view_font)
+
 # The list of fuzz targets and their seed corpora, for scripts/run-fuzzers.sh.
 if(SCI_FUZZ)
     get_property(targets GLOBAL PROPERTY SCI_FUZZ_TARGETS)
