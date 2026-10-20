@@ -1,0 +1,119 @@
+# Continuous integration (spec sections 3.2, 5.1, 5.2 and 11).
+#
+# Every push runs the Linux jobs (x86-64 and ARM64): build and tests in
+# release, ASan+UBSan and TSan, the style checks and the fuzzers. macOS and
+# Windows minutes cost more in a private repository, so those jobs run at the
+# milestone gates only: on pull requests to main and when started by hand
+# (docs/ASSUMPTIONS.md, "CI").
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: style and static analysis
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/toolchain-image
+      - name: clang-format
+        run: docker/run.sh scripts/check-format.sh
+      - name: Repository policy
+        run: docker/run.sh python3 scripts/check-repo-policy.py
+      - name: clang-tidy
+        run: docker/run.sh bash -c "cmake --preset debug && scripts/run-clang-tidy.sh build/debug"
+
+  linux:
+    name: linux-${{ matrix.arch }} ${{ matrix.preset }}
+    runs-on: ${{ matrix.arch == 'x64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+        preset: [release, asan, tsan]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/toolchain-image
+      - name: Reduce ASLR entropy for TSan
+        # TSan's shadow memory layout does not fit the default mmap
+        # randomisation of the runner kernels.
+        if: matrix.preset == 'tsan'
+        run: sudo sysctl vm.mmap_rnd_bits=28
+      - name: Build and test
+        run: docker/run.sh cmake --workflow --preset ${{ matrix.preset }}
+
+  fuzz:
+    name: linux-x64 fuzz
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/toolchain-image
+      - name: Build and run the fuzzers
+        run: docker/run.sh bash -c "cmake --preset fuzz && cmake --build --preset fuzz && scripts/run-fuzzers.sh build/fuzz 60"
+
+  macos:
+    name: macos-arm64 ${{ matrix.preset }}
+    if: github.event_name != 'push'
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [release, asan, tsan]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/native-toolchain
+        with:
+          llvm-archive: LLVM-23.1.4-macOS-ARM64.tar.xz
+          llvm-sha256: 5d3179db39adeca5b17a34d82708fe976bc60e055b05fe557878fb3fb64d39ef
+          ninja-version: v1.13.2
+          ninja-archive: ninja-mac.zip
+          ninja-sha256: c99048673aa765960a99cf10c6ddb9f1fad506099ff0a0e137ad8960a88f321b
+      - name: Build and test
+        run: cmake --workflow --preset ${{ matrix.preset }}
+
+  windows:
+    name: windows-${{ matrix.arch }} ${{ matrix.preset }}
+    if: github.event_name != 'push'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x64, runner: windows-2025, preset: windows-release, msvc: x64,
+              llvm: clang+llvm-23.1.4-x86_64-pc-windows-msvc.tar.xz,
+              llvm-sha256: 854bffcfc84528e0ee92490ff5c178920abd358a79c3e98f053e41e3e8e4c6d2,
+              ninja: ninja-win.zip, ninja-sha256: 07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65 }
+          - { arch: x64, runner: windows-2025, preset: windows-asan, msvc: x64,
+              llvm: clang+llvm-23.1.4-x86_64-pc-windows-msvc.tar.xz,
+              llvm-sha256: 854bffcfc84528e0ee92490ff5c178920abd358a79c3e98f053e41e3e8e4c6d2,
+              ninja: ninja-win.zip, ninja-sha256: 07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65 }
+          # The LLVM release has no ASan runtime for Windows on ARM64.
+          - { arch: arm64, runner: windows-11-arm, preset: windows-release, msvc: arm64,
+              llvm: clang+llvm-23.1.4-aarch64-pc-windows-msvc.tar.xz,
+              llvm-sha256: f0d2e32424850ffb9b6aef190587a8298353d858a8a7260f490c173fe98d6811,
+              ninja: ninja-winarm64.zip, ninja-sha256: e52f0bdef9dfb1003229dbd6508a508c4073fd017247002adc66e5e806cb0391 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/native-toolchain
+        with:
+          llvm-archive: ${{ matrix.llvm }}
+          llvm-sha256: ${{ matrix.llvm-sha256 }}
+          ninja-version: v1.13.2
+          ninja-archive: ${{ matrix.ninja }}
+          ninja-sha256: ${{ matrix.ninja-sha256 }}
+          msvc-arch: ${{ matrix.msvc }}
+      - name: Build and test
+        run: cmake --workflow --preset ${{ matrix.preset }}

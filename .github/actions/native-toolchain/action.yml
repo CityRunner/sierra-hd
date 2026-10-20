@@ -1,0 +1,113 @@
+name: Native toolchain
+description: >
+  Installs the pinned upstream LLVM release and Ninja on macOS and Windows
+  runners (Linux jobs use the toolchain image instead), verifies their
+  SHA-256, and on Windows sets up the MSVC and Windows SDK environment that
+  clang-cl needs.
+inputs:
+  llvm-archive:
+    description: File name of the LLVM release archive
+    required: true
+  llvm-sha256:
+    description: SHA-256 of the LLVM release archive
+    required: true
+  ninja-version:
+    description: Ninja release tag
+    required: true
+  ninja-archive:
+    description: File name of the Ninja release archive
+    required: true
+  ninja-sha256:
+    description: SHA-256 of the Ninja release archive
+    required: true
+  msvc-arch:
+    description: Target architecture for vcvarsall.bat (Windows only)
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - id: paths
+      shell: bash
+      run: echo "root=${RUNNER_TEMP//\\//}/toolchain" >> "$GITHUB_OUTPUT"
+
+    - id: cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.paths.outputs.root }}
+        key: toolchain-${{ inputs.llvm-archive }}-${{ inputs.llvm-sha256 }}-${{ inputs.ninja-archive }}-${{ inputs.ninja-sha256 }}
+
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        ROOT: ${{ steps.paths.outputs.root }}
+        LLVM_ARCHIVE: ${{ inputs.llvm-archive }}
+        LLVM_SHA256: ${{ inputs.llvm-sha256 }}
+        NINJA_VERSION: ${{ inputs.ninja-version }}
+        NINJA_ARCHIVE: ${{ inputs.ninja-archive }}
+        NINJA_SHA256: ${{ inputs.ninja-sha256 }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$ROOT/llvm" "$ROOT/ninja"
+        cd "$RUNNER_TEMP"
+        version="$(sed -E 's/^(LLVM-|clang\+llvm-)([0-9.]+).*/\2/' <<< "$LLVM_ARCHIVE")"
+        curl -fsSL -o llvm.tar.xz "https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/${LLVM_ARCHIVE}"
+        curl -fsSL -o ninja.zip "https://github.com/ninja-build/ninja/releases/download/${NINJA_VERSION}/${NINJA_ARCHIVE}"
+        sha256() { if command -v sha256sum > /dev/null; then sha256sum "$@"; else shasum -a 256 "$@"; fi; }
+        echo "$LLVM_SHA256  llvm.tar.xz" | sha256 -c -
+        echo "$NINJA_SHA256  ninja.zip" | sha256 -c -
+        top="${LLVM_ARCHIVE%.tar.xz}"
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          tools=(clang-cl.exe clang.exe lld-link.exe llvm-lib.exe llvm-rc.exe llvm-mt.exe llvm-symbolizer.exe)
+        else
+          # macOS links with the Xcode linker and the SDK's libc++. The
+          # archive's libc++ headers are left out on purpose: binaries must be
+          # compiled against the headers of the libc++ they run with.
+          tools=(clang clang++ "clang-${version%%.*}" llvm-symbolizer)
+        fi
+        members=("$top/lib/clang")
+        for tool in "${tools[@]}"; do members+=("$top/bin/$tool"); done
+        tar -xJf llvm.tar.xz -C "$ROOT/llvm" --strip-components=1 "${members[@]}"
+        unzip -q ninja.zip -d "$ROOT/ninja"
+        rm llvm.tar.xz ninja.zip
+
+    - if: runner.os == 'Windows'
+      shell: pwsh
+      env:
+        MSVC_ARCH: ${{ inputs.msvc-arch }}
+      run: |
+        $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+        $before = $env:PATH -split ';'
+        cmd /c "`"$vs\VC\Auxiliary\Build\vcvarsall.bat`" $env:MSVC_ARCH > nul && set" | ForEach-Object {
+          if ($_ -match '^(INCLUDE|LIB|LIBPATH|WindowsSdkDir|WindowsSDKVersion|UCRTVersion|UniversalCRTSdkDir|VCToolsInstallDir|VSINSTALLDIR)=(.*)$') {
+            "$($Matches[1])=$($Matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          }
+          elseif ($_ -match '^PATH=(.*)$') {
+            # Only the directories vcvarsall adds (Windows SDK tools such as rc and mt).
+            $Matches[1] -split ';' | Where-Object { $_ -and ($before -notcontains $_) } |
+              Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          }
+        }
+
+    # Added last: GITHUB_PATH entries from later steps take precedence, so
+    # the pinned LLVM wins over any clang that comes with Visual Studio.
+    - shell: bash
+      env:
+        ROOT: ${{ steps.paths.outputs.root }}
+      run: |
+        set -euo pipefail
+        echo "$ROOT/llvm/bin" >> "$GITHUB_PATH"
+        echo "$ROOT/ninja" >> "$GITHUB_PATH"
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          # The ASan runtime DLL is loaded from PATH.
+          echo "$(cygpath -w "$ROOT/llvm/lib/clang")\\$(ls "$ROOT/llvm/lib/clang")\\lib\\windows" >> "$GITHUB_PATH"
+        else
+          echo "SDKROOT=$(xcrun --show-sdk-path)" >> "$GITHUB_ENV"
+          echo "MACOSX_DEPLOYMENT_TARGET=14.0" >> "$GITHUB_ENV"
+        fi
+
+    - shell: bash
+      run: |
+        command -v clang clang-cl ninja 2>/dev/null || true
+        if [[ "$RUNNER_OS" == "Windows" ]]; then clang-cl --version; else clang++ --version; fi
+        ninja --version
