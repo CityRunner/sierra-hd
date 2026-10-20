@@ -1,0 +1,20 @@
+name: Report failure
+description: >
+  Publishes the tail of a failed step's log as an error annotation, so the
+  cause is visible in the run summary and through the checks API without
+  downloading the full log.
+inputs:
+  log:
+    description: Path of the log file
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        LOG: ${{ inputs.log }}
+      run: |
+        if [[ -f "$LOG" ]]; then
+          # Workflow commands take one line: escape % and join lines with %0A.
+          tail -n 80 "$LOG" | tr -d '\r' | awk 'BEGIN { printf "::error title=Last lines of the log::" } { gsub(/%/, "%25"); printf "%s%%0A", $0 } END { print "" }'
+        fi
