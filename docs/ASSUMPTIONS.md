@@ -380,6 +380,69 @@ optional (both above).
   standard-library hardening checks indices, and `.at()` would throw.
   **Decided.**
 
+## Milestone 1 approval (2026-10-20)
+
+Milestone 1 was approved and merged
+([CityRunner/sierra-hd#2](https://github.com/CityRunner/sierra-hd/pull/2)).
+
+## Milestone 2: path 1, views, fonts and the room viewer (2026-10-20)
+
+- **Reference tooling: a second ScummVM patch.** As in milestone 1, the
+  reference is the patched engine, not a harness.
+  `tools/scummvm-patches/0002-dump-graphics.patch` hooks in after
+  `initGraphics()`. With `SIERRA_HD_DUMP_GRAPHICS=<dir>` it draws every
+  picture through `GfxPaint16::drawPicture` and the picture port, as
+  `kDrawPic` does. It dumps the visual, priority and control maps as
+  palette-index buffers, then dumps every view cel (`GfxView::getBitmap`)
+  and every font glyph, then exits. **Decided.**
+- **Picture variants.** Each picture is drawn five times into cleared maps:
+  normal, mirrored, and with EGA palettes 1, 2 and 3. Each picture except
+  the first is also drawn once more, added on top of the previous picture in
+  number order ("overlay", the `addToPic` path). That gives 527 picture
+  dumps for the 88 pictures. The game selects these options through
+  `kDrawPic`; testing every combination for every picture covers more than
+  the rooms use. **Decided.**
+- **Font glyphs are read back from the screen.** `GfxFont::drawToBuffer`
+  exists only in SCI32 builds, and the reference is built without SCI32.
+  The patch draws each glyph with `GfxFont::draw()` onto the cleared screen
+  and reads it back from the visual map. **Decided.**
+- **Result.** All 899 dumps match byte for byte: 527 picture variants, 364
+  views and 8 fonts. The comparison was run with the native release build,
+  an ASan+UBSan build, and the ARM64 cross build under qemu-user.
+- **The pair map.** Path 1 also writes a pair map, which ScummVM does not
+  have and which is therefore not compared with it. For each pixel it holds
+  the EGA pair (high nibble: colour at odd positions, low nibble: at even
+  positions, where odd means x XOR y is odd) that the visual pixel was
+  dithered from. Clearing the picture port sets it to 0xFF, solid white,
+  like the cleared visual map. `sci-graphics-dump` checks on
+  every picture that dithering the pair map gives the visual map. The pair
+  map is the input sci-vector needs at milestone 3a (spec section 6.3).
+  **Decided.**
+- **Where the port deliberately differs from ScummVM.** Again only for data
+  the tested release does not contain. **Decided.**
+  - Embedded views in pictures (extended opcode 7) are rejected as
+    `Unsupported`. ScummVM draws them through the view code; no picture of
+    the tested release uses them.
+  - A fill that starts outside the screen is an error. ScummVM reads outside
+    its buffers.
+  - A colour index beyond the four EGA palettes is an error. ScummVM reads
+    past its table.
+  - A view cel larger than its run-length data could describe (more than 15
+    pixels per remaining byte) is rejected before allocating. ScummVM
+    allocates it and reads past the resource. This was found by fuzzing
+    (out of memory on a 65535 x 65535 cel).
+- **The room viewer is a command-line tool until milestone 3a.** Spec
+  section 12 asks for a room viewer at milestone 2, and the window layer
+  (SDL3) first appears at the end of 3a. `sci-room-viewer` therefore writes
+  PNG files: a picture or a stack of pictures (any map, mirrored, any EGA
+  palette, any integer scale), a view sheet or a font sheet. The window
+  version with zoom and map switching comes with 3a. Its PNG output is
+  game-derived and goes to git-ignored directories (`reports/images/`,
+  `build/`). **Decided.**
+- **Tool PNG writer.** `tools/common/png.cpp` writes uncompressed (stored
+  deflate) PNG files, so the tools need no zlib. The files are larger, which
+  does not matter for development output. **Decided.**
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with
@@ -394,4 +457,4 @@ optional (both above).
 - Each library without real content contains only a `component_name()`
   function, which the program's `--version` output uses to show that
   everything links. These functions are removed as soon as the library has
-  real content (sci-resource: milestone 1).
+  real content (sci-resource: milestone 1; sci-pic, sci-view and sci-text: milestone 2).

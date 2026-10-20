@@ -12,3 +12,4 @@ sci-resource ones. libFuzzer runs write new inputs to a scratch directory
 Tests that need the game files run locally, never in CI:
 
 - Resources (milestone 1): `tools/resource-compare/README.md`.
+- Pictures, views and fonts (milestone 2): `tools/graphics-compare/README.md`.

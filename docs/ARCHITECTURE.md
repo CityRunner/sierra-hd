@@ -1,8 +1,8 @@
 # Architecture
 
 How the program is organised, how data flows through it, and the trade-offs
-behind it. Updated at every milestone (spec section 5.1). State: milestone 1,
-resources.
+behind it. Updated at every milestone (spec section 5.1). State: milestone 2,
+path 1, views, fonts and the room viewer.
 
 ## Modules
 
@@ -13,10 +13,10 @@ purpose and invariants:
 |---|---|---|
 | sci-core | Error type, assertions, bounds-checked reading, floating-point profile, logging; later exact arithmetic, hashing | none |
 | sci-resource | RESOURCE.MAP, volumes, patch files, LZW and Huffman decompression (done, milestone 1) | sci-core |
-| sci-pic | PIC parsing and the exact 1x rasteriser (path 1) | sci-core, sci-resource |
+| sci-pic | PIC parsing and the exact 1x rasteriser (path 1) (done, milestone 2) | sci-core, sci-resource |
 | sci-vector | Vector analysis of PIC (path 2) | sci-core, sci-pic |
-| sci-view | View, loop and cel decoding | sci-core, sci-resource |
-| sci-text | Fonts, messages, vocabulary, Said | sci-core, sci-resource |
+| sci-view | View, loop and cel decoding (done, milestone 2) | sci-core, sci-resource |
+| sci-text | Fonts (done, milestone 2), messages, vocabulary, Said | sci-core, sci-resource |
 | sci-audio | Sound playback, silent driver, AdLib, MT-32, mixer | sci-core, sci-resource |
 | sci-render | HD rasteriser and compositor | sci-core, sci-pic, sci-vector, sci-view |
 | sci-vm | Bytecode interpreter, objects, kernel, animation | sci-core, sci-resource, sci-text |
@@ -31,6 +31,13 @@ program:
 - `scummvm-patches`: the reference's dump and trace patches.
 - `resource-dump`: dumps all resources through sci-resource.
 - `resource-compare`: the milestone 1 comparison with ScummVM.
+- `common`: game-folder loading, logging to stderr and a PNG writer, shared
+  by the tools.
+- `graphics-dump`: dumps every picture variant, view and font through
+  sci-pic, sci-view and sci-text.
+- `graphics-compare`: the milestone 2 comparison with ScummVM.
+- `room-viewer`: renders pictures, views and fonts to PNG files (a window
+  follows at milestone 3a).
 
 ### Dependency rules and how they are enforced
 
@@ -104,6 +111,31 @@ end condition. Where ScummVM's behaviour is undefined (buffer overruns,
 uninitialised memory, an endless loop), the port reports an error instead.
 The full list is in docs/ASSUMPTIONS.md, "Milestone 1".
 
+## Pictures, views and fonts (path 1)
+
+sci-pic works in two steps. `parse_pic` turns a PIC resource into a vector
+of `PicCommand`s: one typed operation per drawing step, with absolute
+coordinates and the byte offset it came from. `draw_picture` rasterises the
+commands into `PictureMaps` (visual, priority, control and pair maps, 320 x
+200 bytes each), exactly as ScummVM's `GfxPicture` does. The split lets
+sci-vector (milestone 3a) read the same command stream that path 1 draws,
+without parsing PIC data a second time.
+
+The rasteriser keeps ScummVM's integer algorithms: Sierra's line algorithm,
+the queue-based flood fill with its push order, the pattern boxes and
+circles with their texture tables, the encoded dither colours and the final
+dither pass. The pair map is path 1's addition for HD rendering; it records
+the EGA pair behind each visual pixel. The formats are in
+`docs/formats/pictures.md` and `docs/formats/views-and-fonts.md`.
+
+sci-view decodes views into loops and cels (with mirroring already applied)
+and sci-text decodes fonts into glyph bitmaps. Neither draws: compositing
+belongs to sci-render, and drawing at 1x for comparison is
+done by the tools.
+
+All three libraries are pure functions of their input bytes and have
+libFuzzer targets (`fuzz-pic`, `fuzz-view-font`).
+
 ## Logging
 
 `sci/core/log.hpp` is the only logging facility. Messages have a level and a
@@ -143,3 +175,7 @@ when off, so they stay in release builds.
   files in memory (about 2.6 MB for this game) instead of reading on demand.
   This keeps sci-resource free of I/O and makes loading a pure function of
   the bytes.
+- **A parsed command stream instead of drawing while decoding.** ScummVM
+  draws as it decodes. Parsing first costs one allocation per picture, and
+  in return the parser and the rasteriser are tested separately and path 2
+  shares the parser.

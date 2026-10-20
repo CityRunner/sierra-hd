@@ -29,6 +29,13 @@ functions and source files it comes from.
 | `src/sci-resource/src/decompress.cpp` | `engines/sci/resource/decompressor.cpp` (`Decompressor`, `DecompressorHuffman`, `DecompressorLZW::unpackLZW`) |
 | `src/sci-resource/src/patch_file.cpp` | `engines/sci/resource/resource.cpp` (`readResourcePatches`, `processPatch`) |
 | `src/sci-resource/src/resource_manager.cpp` | `engines/sci/resource/resource.cpp` (sources, index and loading) |
+| `src/sci-pic/src/parse_pic.cpp` | `engines/sci/graphics/picture.cpp` (`GfxPicture::draw`, `drawVectorData`, coordinate and pattern decoding) |
+| `src/sci-pic/src/draw_pic.cpp` | `engines/sci/graphics/picture.cpp` (`drawVectorData`, default EGA palette and priority tables), `engines/sci/graphics/paint16.cpp` (`drawPicture`, `clearScreen`) |
+| `src/sci-pic/src/canvas.cpp` | `engines/sci/graphics/screen.cpp` (`drawLine`, `dither`, `vectorIsFillMatch`), `engines/sci/graphics/picture.cpp` (`vectorFloodFill`) |
+| `src/sci-pic/src/patterns.cpp` | `engines/sci/graphics/picture.cpp` (`vectorPattern*`) |
+| `src/sci-pic/src/pattern_tables.hpp` | `engines/sci/graphics/picture.cpp` (`vectorPatternCircles`, `vectorPatternTextures`, `vectorPatternTextureOffset`), generated |
+| `src/sci-view/src/view.cpp` | `engines/sci/graphics/view.cpp` (`GfxView::initData` and `unpackCelData` for EGA views, `getBitmap`) |
+| `src/sci-text/src/font.cpp` | `engines/sci/graphics/scifont.cpp` (`GfxFontFromResource`) |
 
 `tools/scummvm-patches/` holds patches to ScummVM itself (GPL v3 or later),
 used only for the reference build.
