@@ -59,6 +59,7 @@ struct Stroke {
     std::vector<Vec2> points; // At least one point; one point is a dot.
     double radius = 0.5;
     std::uint8_t value = 0;
+    bool fitted = false; // Along a curve fitted to a chain of lines.
 };
 
 // A solid circle brush, drawn as the ellipse inscribed in its box.

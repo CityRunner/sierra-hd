@@ -6,3 +6,6 @@ sci_add_library(NAME sci-vector
         src/fitting.cpp
         src/topology.cpp
     DEPENDS sci-core sci-pic)
+if(SCI_DEBUG_HIGHLIGHT)
+    target_compile_definitions(sci-vector PUBLIC SCI_DEBUG_HIGHLIGHT=1)
+endif()

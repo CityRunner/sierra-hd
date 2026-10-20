@@ -12,6 +12,8 @@
 //       --mirrored  --palette <0-3>  --scale <k>
 //       --hd: through the vector path (milestone 3): the HD frame at scale
 //       k, or with --map priority the HD priority map
+//       --highlight (with --hd, in builds with SCI_DEBUG_HIGHLIGHT): fitted
+//       strokes in light magenta, fallback blocks in yellow
 //   sci-room-viewer <game> view <n> [--scale <k>] <out.png>
 //       All loops (rows) and cels; transparent pixels show the background.
 //   sci-room-viewer <game> font <n> [--scale <k>] <out.png>
@@ -65,7 +67,8 @@ struct Options {
     MapChoice map = MapChoice::Visual;
     sci::pic::DrawOptions draw;
     int scale = 1;
-    bool hd = false; // Through the vector path instead of the 1x maps.
+    bool hd = false;        // Through the vector path instead of the 1x maps.
+    bool highlight = false; // With --hd: show replacements (SCI_DEBUG_HIGHLIGHT builds only).
 };
 
 std::optional<int> parse_int(std::string_view text) {
@@ -119,7 +122,12 @@ std::optional<Image> render_hd_pictures(const ResourceManager& manager, const Op
         return sci::tools::to_image(sci::render::indices_to_rgba(map, sci::vector::picture_width * options.scale,
                                                                  sci::vector::picture_height * options.scale));
     }
-    const auto scene = sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual);
+    auto scene = sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual);
+#if defined(SCI_DEBUG_HIGHLIGHT)
+    if (options.highlight) {
+        sci::vector::highlight_replacements(scene.scene);
+    }
+#endif
     return sci::tools::to_image(sci::render::render_hd(scene.scene, options.scale, executor));
 }
 
@@ -299,6 +307,10 @@ bool parse_options(std::span<char*> args, Options& options) {
             options.draw.mirrored = true;
         } else if (arg == "--hd") {
             options.hd = true;
+#if defined(SCI_DEBUG_HIGHLIGHT)
+        } else if (arg == "--highlight") {
+            options.highlight = true;
+#endif
         } else if (arg == "--map" && has_value) {
             const auto map = parse_map(args[++i]);
             if (!map) {

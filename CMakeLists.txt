@@ -13,6 +13,7 @@ endif()
 option(SCI_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
 option(SCI_BUILD_TESTS "Build the unit and fuzz tests" ON)
 option(SCI_BUILD_TOOLS "Build the development tools under tools/" ON)
+option(SCI_DEBUG_HIGHLIGHT "Development only: let the room viewer highlight vector replacements" OFF)
 
 # The project does not use C++ modules; scanning would require clang-scan-deps.
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)

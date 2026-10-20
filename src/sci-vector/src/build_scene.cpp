@@ -655,7 +655,13 @@ std::vector<detail::FittedChain> fit_curves(const detail::Arrangement& arrangeme
     stats.arcs = curve_stats.arcs;
     stats.splines = curve_stats.splines;
     stats.ellipses = curve_stats.ellipses;
-    stats.fitted_lines = curve_stats.replaced_edges;
+    std::vector<bool> fitted_line(lines.size(), false);
+    for (const detail::FittedChain& chain : fitted) {
+        for (const std::int32_t edge : chain.edges) {
+            fitted_line[static_cast<std::size_t>(arrangement.sources[static_cast<std::size_t>(edge)])] = true;
+        }
+    }
+    stats.fitted_lines = static_cast<int>(std::ranges::count(fitted_line, true));
     stats.rejected_fits = curve_stats.rejected;
     return fitted;
 }
@@ -770,6 +776,7 @@ std::vector<Layer> build_layers(const pic::DrawTrace& trace, const PlaneView& vi
             Stroke stroke{.source = static_cast<std::int32_t>(i), .points = {centre(line.from)}, .value = value};
             if (!curves[index].empty()) {
                 stroke.points = curves[index];
+                stroke.fitted = true;
             } else if (!line.is_dot()) {
                 stroke.points.push_back(centre(line.to));
             }
@@ -837,3 +844,21 @@ BuiltScene build_scene(const pic::PictureMaps& maps, const pic::DrawTrace& trace
 }
 
 } // namespace sci::vector
+
+#if defined(SCI_DEBUG_HIGHLIGHT)
+namespace sci::vector {
+
+void highlight_replacements(Scene& scene) {
+    constexpr std::uint8_t fitted = 0xDD;   // Light magenta.
+    constexpr std::uint8_t fallback = 0xEE; // Yellow.
+    for (Layer& layer : scene.layers) {
+        if (auto* stroke = std::get_if<Stroke>(&layer); stroke != nullptr && stroke->fitted) {
+            stroke->value = fitted;
+        }
+    }
+    // Only fallback faces read the block values.
+    std::ranges::fill(scene.block_values, fallback);
+}
+
+} // namespace sci::vector
+#endif
