@@ -10,7 +10,8 @@
 #   cert-err58-cpp                       the project builds without exceptions
 #   cppcoreguidelines-avoid-do-while     do-while is fine where it reads naturally
 #   portability-avoid-pragma-once        every supported compiler implements #pragma once
-#   cppcoreguidelines-pro-bounds-avoid-unchecked-container-access
+#   cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+#   cppcoreguidelines-pro-bounds-constant-array-index
 #                                        indices are checked by the standard library
 #                                        hardening of debug and sanitizer builds; .at()
 #                                        would throw, and the project has no exceptions
@@ -28,6 +29,7 @@ Checks: >
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-avoid-do-while,
   -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
   misc-*,
   -misc-include-cleaner,
   -misc-non-private-member-variables-in-classes,
