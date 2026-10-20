@@ -28,6 +28,13 @@ struct SceneStats {
     int fallback_pixels = 0; // Pixel centres in fallback faces.
     int brushes = 0;         // Solid brushes drawn as shapes.
     int textured = 0;        // Textured brushes drawn as blocks.
+    // Chains of short lines replaced by fitted curves.
+    int straightened = 0;  // By one straight line.
+    int arcs = 0;          // By circular arcs.
+    int splines = 0;       // By cubic splines.
+    int ellipses = 0;      // Closed chains, by ellipses.
+    int fitted_lines = 0;  // PIC lines replaced by these curves.
+    int rejected_fits = 0; // Fits left out because they would change the faces.
 };
 
 struct BuiltScene {

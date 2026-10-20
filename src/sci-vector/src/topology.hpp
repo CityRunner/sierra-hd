@@ -22,6 +22,9 @@ namespace sci::vector::detail {
 
 inline constexpr std::int64_t max_coordinate = 1024;
 
+inline constexpr std::int32_t no_source = -1;
+inline constexpr std::int32_t shared_source = -2; // An edge of several overlapping segments.
+
 // A segment of the line through the integer points a and b (a != b),
 // between the points from and to on that line.
 struct TopoSegment {
@@ -29,10 +32,11 @@ struct TopoSegment {
     core::IntPoint b;
     core::RationalPoint from;
     core::RationalPoint to;
+    std::int32_t source = no_source; // What the segment stands for, for the caller.
 };
 
 // A segment from a to b.
-[[nodiscard]] TopoSegment make_segment(core::IntPoint a, core::IntPoint b);
+[[nodiscard]] TopoSegment make_segment(core::IntPoint a, core::IntPoint b, std::int32_t source = no_source);
 
 // Whether two segments have a point in common.
 [[nodiscard]] bool segments_touch(const TopoSegment& s, const TopoSegment& t);
@@ -62,7 +66,8 @@ struct HalfEdge {
 // enclosing face next to the component.
 struct Arrangement {
     std::vector<core::RationalPoint> vertices;
-    std::vector<HalfEdge> half_edges; // Twins are adjacent: 2i and 2i + 1.
+    std::vector<HalfEdge> half_edges;  // Twins are adjacent: 2i and 2i + 1.
+    std::vector<std::int32_t> sources; // Per edge i (half-edges 2i, 2i + 1): its segment's source.
     std::int32_t face_count = 0;
 };
 

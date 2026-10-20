@@ -24,7 +24,8 @@ namespace sci::tools {
 
 [[nodiscard]] bool write_file(const std::filesystem::path& path, std::span<const std::uint8_t> bytes);
 
-// Prints log messages to stderr and enables the given categories.
+// Prints log messages and failed assertions to stderr and enables the
+// resource log category.
 void install_stderr_log();
 
 } // namespace sci::tools

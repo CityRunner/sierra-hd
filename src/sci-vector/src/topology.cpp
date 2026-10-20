@@ -115,10 +115,7 @@ struct Edge {
     std::int32_t from = 0; // Vertex indices, from < to in point order.
     std::int32_t to = 0;
     IntPoint direction; // Primitive, from -> to.
-
-    // Edges between the same vertices lie on the same line, so they have
-    // the same direction and compare equal.
-    friend auto operator<=>(const Edge&, const Edge&) = default;
+    std::int32_t source = no_source;
 };
 
 // Directions sorted clockwise on screen (y downwards), starting at +x.
@@ -166,20 +163,31 @@ std::vector<Edge> split_into_edges(std::span<const TopoSegment> segments, std::v
     for (std::size_t i = 0; i < splits.size(); ++i) {
         const IntPoint direction = primitive_direction(prepared[i].direction);
         for (std::size_t k = 0; k + 1 < splits[i].size(); ++k) {
-            edges.push_back(
-                Edge{.from = vertex_index(splits[i][k]), .to = vertex_index(splits[i][k + 1]), .direction = direction});
+            edges.push_back(Edge{
+                .from = vertex_index(splits[i][k]),
+                .to = vertex_index(splits[i][k + 1]),
+                .direction = direction,
+                .source = segments[i].source,
+            });
         }
     }
-    std::ranges::stable_sort(edges);
-    const auto repeated = std::ranges::unique(edges);
-    edges.erase(repeated.begin(), repeated.end());
-    return edges;
+    // Edges between the same vertices lie on the same line: keep one.
+    std::ranges::stable_sort(edges, {}, [](const Edge& e) { return std::pair{e.from, e.to}; });
+    std::vector<Edge> unique;
+    for (const Edge& edge : edges) {
+        if (!unique.empty() && unique.back().from == edge.from && unique.back().to == edge.to) {
+            unique.back().source = shared_source;
+        } else {
+            unique.push_back(edge);
+        }
+    }
+    return unique;
 }
 
 } // namespace
 
-TopoSegment make_segment(IntPoint a, IntPoint b) {
-    return TopoSegment{.a = a, .b = b, .from = RationalPoint(a), .to = RationalPoint(b)};
+TopoSegment make_segment(IntPoint a, IntPoint b, std::int32_t source) {
+    return TopoSegment{.a = a, .b = b, .from = RationalPoint(a), .to = RationalPoint(b), .source = source};
 }
 
 bool segments_touch(const TopoSegment& s, const TopoSegment& t) {
@@ -220,7 +228,9 @@ Arrangement build_arrangement(std::span<const TopoSegment> segments) {
 
     auto& half_edges = arrangement.half_edges;
     half_edges.reserve(2 * edges.size());
+    arrangement.sources.reserve(edges.size());
     for (const Edge& edge : edges) {
+        arrangement.sources.push_back(edge.source);
         const auto index = static_cast<std::int32_t>(half_edges.size());
         half_edges.push_back(HalfEdge{.origin = edge.from, .twin = index + 1, .direction = edge.direction});
         half_edges.push_back(HalfEdge{

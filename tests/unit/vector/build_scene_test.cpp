@@ -7,6 +7,7 @@
 #include "sci/vector/build_scene.hpp"
 #include "sci_test.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <variant>
@@ -221,6 +222,49 @@ SCI_TEST(every_point_of_the_picture_has_a_face) {
         sampler.sample_faces((row + 0.5) / 4, 4, faces);
         for (const std::int32_t face : faces) {
             SCI_CHECK(face >= 0 && static_cast<std::size_t>(face) < drawn.built.scene.faces.size());
+        }
+    }
+}
+
+SCI_TEST(curves_drawn_as_short_lines_are_fitted) {
+    // A circle of 24 short lines, filled inside.
+    PicBuilder pic;
+    pic.color(red);
+    const std::array xs{
+        116, 115, 114, 111, 108, 104, 100, 96,  92,  89,  86,  85,  84,
+        85,  86,  89,  92,  96,  100, 104, 108, 111, 114, 115, 116,
+    };
+    const std::array ys{
+        66, 70, 73, 76, 78, 80, 80, 80, 78, 76, 73, 70, 66, 62, 59, 56, 54, 52, 52, 52, 54, 56, 59, 62, 66,
+    };
+    for (std::size_t i = 0; i + 1 < xs.size(); ++i) {
+        pic.line(xs[i], ys[i], xs[i + 1], ys[i + 1]);
+    }
+    pic.color(blue).fill(100, 66);
+    const Drawn drawn = build(pic.end());
+    const auto& stats = drawn.built.stats;
+    SCI_CHECK(stats.arcs + stats.splines + stats.ellipses > 0 && stats.fitted_lines >= 10);
+    SCI_CHECK(stats.mixed_faces == 0);
+    SCI_CHECK(agrees_outside_band(drawn));
+    // Every line pixel is still touched by its stroke.
+    const sci::render::SceneSampler sampler(drawn.built.scene);
+    std::vector<std::int32_t> sources(std::size_t{320} * 16);
+    std::vector<int> touched(sci::vector::picture_pixels, 0);
+    for (int row = 40 * 16; row < 90 * 16; ++row) {
+        sampler.sample_sources((row + 0.5) / 16, 16, sources);
+        for (std::size_t i = 0; i < sources.size(); ++i) {
+            if (sources[i] >= 0) {
+                ++touched[(static_cast<std::size_t>(row / 16) * 320) + (i / 16)];
+            }
+        }
+    }
+    for (int y = 40; y < 90; ++y) {
+        for (int x = 70; x < 130; ++x) {
+            const auto owner = drawn.trace.visual_owner[PictureMaps::index(x, y + sci::pic::picture_top)];
+            if (owner >= 0 &&
+                std::holds_alternative<sci::pic::Line>(drawn.trace.primitives[static_cast<std::size_t>(owner)].shape)) {
+                SCI_CHECK(touched[(static_cast<std::size_t>(y) * 320) + static_cast<std::size_t>(x)] > 0);
+            }
         }
     }
 }

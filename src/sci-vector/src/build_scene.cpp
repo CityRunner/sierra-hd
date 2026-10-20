@@ -2,6 +2,7 @@
 
 #include "sci/vector/build_scene.hpp"
 
+#include "curves.hpp"
 #include "sci/pic/geometry.hpp"
 #include "topology.hpp"
 
@@ -24,6 +25,15 @@ using core::RationalPoint;
 using detail::TopoSegment;
 
 constexpr int picture_top = pic::picture_top;
+
+// Chains of lines up to this long (in original pixels, either axis) may be
+// fitted by curves.
+constexpr int max_curve_line = 12;
+
+// How far a fitted curve may lie from its chain (spec section 6.3: about
+// 0.5 to 1 pixel). At 0.5 the stroke along the curve, 1 pixel wide, still
+// touches every pixel path 1 set for the lines.
+constexpr double fit_tolerance = 0.5;
 
 // Gaps up to this far (in doubled coordinates: 2 original pixels) are
 // closed when the 1x line pixels touch (spec section 6.3).
@@ -495,28 +505,46 @@ std::vector<std::uint8_t> block_values(const PlaneView& view, const pic::DrawTra
     return blocks;
 }
 
-Vec2 to_picture(const RationalPoint& p) {
-    const auto den = static_cast<double>(core::checked_mul(2, p.den()));
-    return {.x = static_cast<double>(p.x_num()) / den, .y = static_cast<double>(p.y_num()) / den};
+// One scan edge, unless horizontal; `face_after` is the face of the
+// half-edge running upwards.
+void add_scan_edge(Vec2 from, Vec2 to, std::int32_t face_forward, std::int32_t face_backward,
+                   std::vector<ScanEdge>& edges) {
+    if (from.y == to.y) {
+        return;
+    }
+    const bool down = to.y > from.y;
+    const Vec2 top = down ? from : to;
+    const Vec2 bottom = down ? to : from;
+    if (bottom.y <= 0 || top.y >= picture_height) {
+        return;
+    }
+    edges.push_back(ScanEdge{.top = top, .bottom = bottom, .face_after = down ? face_backward : face_forward});
 }
 
-std::vector<ScanEdge> scan_edges(const detail::Arrangement& arrangement) {
+std::vector<ScanEdge> scan_edges(const detail::Arrangement& arrangement,
+                                 const std::vector<detail::FittedChain>& fitted) {
+    std::vector<bool> replaced(arrangement.sources.size(), false);
     std::vector<ScanEdge> edges;
-    for (std::size_t i = 0; i < arrangement.half_edges.size(); i += 2) {
-        const detail::HalfEdge& forward = arrangement.half_edges[i];
-        const detail::HalfEdge& backward = arrangement.half_edges[i + 1];
-        if (forward.direction.y == 0) {
+    for (const detail::FittedChain& chain : fitted) {
+        for (std::size_t i = 0; i < chain.edges.size(); ++i) {
+            replaced[static_cast<std::size_t>(chain.edges[i])] = true;
+            const detail::HalfEdge& along = arrangement.half_edges[static_cast<std::size_t>(chain.half_edges[i])];
+            const std::int32_t back = arrangement.half_edges[static_cast<std::size_t>(along.twin)].face;
+            const auto& piece = chain.pieces[i];
+            for (std::size_t k = 0; k + 1 < piece.size(); ++k) {
+                add_scan_edge(piece[k], piece[k + 1], along.face, back, edges);
+            }
+        }
+    }
+    for (std::size_t edge = 0; edge < replaced.size(); ++edge) {
+        if (replaced[edge]) {
             continue;
         }
-        const bool forward_down = forward.direction.y > 0;
-        const detail::HalfEdge& down = forward_down ? forward : backward;
-        const detail::HalfEdge& up = forward_down ? backward : forward;
-        const Vec2 top = to_picture(arrangement.vertices[static_cast<std::size_t>(down.origin)]);
-        const Vec2 bottom = to_picture(arrangement.vertices[static_cast<std::size_t>(up.origin)]);
-        if (bottom.y <= 0 || top.y >= picture_height) {
-            continue;
-        }
-        edges.push_back(ScanEdge{.top = top, .bottom = bottom, .face_after = up.face});
+        const detail::HalfEdge& forward = arrangement.half_edges[2 * edge];
+        const detail::HalfEdge& backward = arrangement.half_edges[(2 * edge) + 1];
+        add_scan_edge(detail::to_picture(arrangement.vertices[static_cast<std::size_t>(forward.origin)]),
+                      detail::to_picture(arrangement.vertices[static_cast<std::size_t>(backward.origin)]), forward.face,
+                      backward.face, edges);
     }
     return edges;
 }
@@ -552,16 +580,138 @@ std::optional<Layer> brush_layer(const pic::Pattern& pattern, std::uint8_t value
     };
 }
 
-// The layers over the faces, in drawing order: visible lines as strokes,
-// solid brushes as shapes, textured brushes as blocks.
-std::vector<Layer> build_layers(const pic::DrawTrace& trace, const PlaneView& view, Plane plane,
-                                const std::vector<DrawnLine>& lines, SceneStats& stats) {
+// How many pixels each primitive owns at the end.
+std::vector<int> owned_pixels(const pic::DrawTrace& trace, const PlaneView& view) {
     std::vector<int> owned(trace.primitives.size(), 0);
     for (const std::int32_t owner : view.owners) {
         if (owner != pic::no_owner) {
             ++owned[static_cast<std::size_t>(owner)];
         }
     }
+    return owned;
+}
+
+// Replaces the chains of short visible lines that imitate curves.
+std::vector<detail::FittedChain> fit_curves(const detail::Arrangement& arrangement, const std::vector<DrawnLine>& lines,
+                                            const std::vector<std::optional<TopoSegment>>& segments,
+                                            const std::vector<int>& owned, SceneStats& stats) {
+    std::vector<detail::ChainLine> chain_lines(lines.size());
+    for (std::size_t i = 0; i < lines.size(); ++i) {
+        const DrawnLine& line = lines[i];
+        const IntPoint a = doubled(line.from);
+        const IntPoint b = doubled(line.to);
+        // Lines extended to close a gap end on another line: they are not
+        // part of a curve there.
+        const std::optional<TopoSegment>& segment = segments[i];
+        const bool extended =
+            !segment.has_value() || segment->from != RationalPoint(a) || segment->to != RationalPoint(b);
+        const bool short_line =
+            std::abs(line.from.x - line.to.x) <= max_curve_line && std::abs(line.from.y - line.to.y) <= max_curve_line;
+        chain_lines[i] =
+            detail::ChainLine{.usable = !line.is_dot() && owned[lines[i].primitive] > 0 && !extended && short_line};
+    }
+    detail::CurveStats curve_stats;
+    auto fitted = detail::fit_chains(arrangement, chain_lines, fit_tolerance, curve_stats);
+    stats.straightened = curve_stats.lines;
+    stats.arcs = curve_stats.arcs;
+    stats.splines = curve_stats.splines;
+    stats.ellipses = curve_stats.ellipses;
+    stats.fitted_lines = curve_stats.replaced_edges;
+    stats.rejected_fits = curve_stats.rejected;
+    return fitted;
+}
+
+// The points of an edge of a fitted line, from the end nearer the line's
+// start: its fitted piece, or the straight edge.
+std::vector<Vec2> edge_points(const detail::Arrangement& arrangement, std::size_t edge, const std::vector<Vec2>* piece,
+                              bool piece_reversed, const DrawnLine& line) {
+    std::vector<Vec2> points;
+    if (piece != nullptr) {
+        points = *piece;
+        if (piece_reversed) {
+            std::ranges::reverse(points);
+        }
+    } else {
+        const auto vertex = [&](std::size_t half_edge) {
+            return detail::to_picture(
+                arrangement.vertices[static_cast<std::size_t>(arrangement.half_edges[half_edge].origin)]);
+        };
+        points = {vertex(2 * edge), vertex((2 * edge) + 1)};
+    }
+    const Vec2 from = centre(line.from);
+    const Vec2 to = centre(line.to);
+    const auto along = [&](Vec2 p) { return ((p.x - from.x) * (to.x - from.x)) + ((p.y - from.y) * (to.y - from.y)); };
+    if (along(points.back()) < along(points.front())) {
+        std::ranges::reverse(points);
+    }
+    return points;
+}
+
+// A line's stroke from its parts in order along the line. Parts left out
+// (edges shared with overlapping segments) are straight pieces of the line:
+// joining the parts restores them.
+std::vector<Vec2> join_parts(std::vector<std::vector<Vec2>> parts, const DrawnLine& line) {
+    const Vec2 from = centre(line.from);
+    const Vec2 to = centre(line.to);
+    const auto along = [&](const std::vector<Vec2>& part) {
+        return ((part.front().x - from.x) * (to.x - from.x)) + ((part.front().y - from.y) * (to.y - from.y));
+    };
+    std::ranges::stable_sort(parts, {}, along);
+    std::vector<Vec2> points{from};
+    for (const auto& part : parts) {
+        for (const Vec2 p : part) {
+            if (points.back() != p) {
+                points.push_back(p);
+            }
+        }
+    }
+    if (points.back() != to) {
+        points.push_back(to);
+    }
+    return points;
+}
+
+// The stroke of every line with fitted edges: the pieces of its edges
+// (fitted curves, or straight where not fitted), from the line's start to
+// its end. Empty for lines without fitted edges.
+std::vector<std::vector<Vec2>> stroke_curves(const detail::Arrangement& arrangement,
+                                             const std::vector<detail::FittedChain>& fitted,
+                                             const std::vector<DrawnLine>& lines) {
+    // The fitted piece of every fitted edge, and whether the chain runs
+    // against the edge's own direction (from half-edge 2i's origin).
+    std::vector<const std::vector<Vec2>*> piece_of(arrangement.sources.size(), nullptr);
+    std::vector<bool> reversed(arrangement.sources.size(), false);
+    std::vector<bool> has_fit(lines.size(), false);
+    for (const detail::FittedChain& chain : fitted) {
+        for (std::size_t i = 0; i < chain.edges.size(); ++i) {
+            const auto edge = static_cast<std::size_t>(chain.edges[i]);
+            piece_of[edge] = &chain.pieces[i];
+            reversed[edge] = chain.half_edges[i] % 2 != 0;
+            has_fit[static_cast<std::size_t>(arrangement.sources[edge])] = true;
+        }
+    }
+    std::vector<std::vector<std::vector<Vec2>>> parts(lines.size());
+    for (std::size_t edge = 0; edge < arrangement.sources.size(); ++edge) {
+        const std::int32_t source = arrangement.sources[edge];
+        if (source >= 0 && has_fit[static_cast<std::size_t>(source)]) {
+            const auto line = static_cast<std::size_t>(source);
+            parts[line].push_back(edge_points(arrangement, edge, piece_of[edge], reversed[edge], lines[line]));
+        }
+    }
+    std::vector<std::vector<Vec2>> curves(lines.size());
+    for (std::size_t line = 0; line < lines.size(); ++line) {
+        if (has_fit[line]) {
+            curves[line] = join_parts(std::move(parts[line]), lines[line]);
+        }
+    }
+    return curves;
+}
+
+// The layers over the faces, in drawing order: visible lines as strokes,
+// solid brushes as shapes, textured brushes as blocks.
+std::vector<Layer> build_layers(const pic::DrawTrace& trace, const PlaneView& view, Plane plane,
+                                const std::vector<DrawnLine>& lines, const std::vector<int>& owned,
+                                const std::vector<std::vector<Vec2>>& curves, SceneStats& stats) {
     std::vector<Layer> layers;
     std::size_t next_line = 0;
     for (std::size_t i = 0; i < trace.primitives.size(); ++i) {
@@ -571,14 +721,17 @@ std::vector<Layer> build_layers(const pic::DrawTrace& trace, const PlaneView& vi
         }
         const std::uint8_t value = value_of(primitive, plane);
         if (std::holds_alternative<pic::Line>(primitive.shape)) {
-            const DrawnLine& line = lines[next_line++];
+            const std::size_t index = next_line++;
+            const DrawnLine& line = lines[index];
             ++stats.lines;
             if (owned[i] == 0) {
                 ++stats.hidden_lines;
                 continue;
             }
             Stroke stroke{.source = static_cast<std::int32_t>(i), .points = {centre(line.from)}, .value = value};
-            if (!line.is_dot()) {
+            if (!curves[index].empty()) {
+                stroke.points = curves[index];
+            } else if (!line.is_dot()) {
                 stroke.points.push_back(centre(line.to));
             }
             layers.emplace_back(std::move(stroke));
@@ -606,14 +759,16 @@ BuiltScene build_scene(const pic::PictureMaps& maps, const pic::DrawTrace& trace
     const PlaneView view = view_plane(maps, trace, plane);
     const std::vector<DrawnLine> lines = collect_lines(trace, plane);
 
-    // One topology segment per line (dots have none), in line order.
+    // One topology segment per line (dots have none), in line order; its
+    // source is the line's index.
     std::vector<std::optional<TopoSegment>> segments;
     segments.reserve(lines.size());
-    for (const DrawnLine& line : lines) {
-        if (line.is_dot()) {
+    for (std::size_t i = 0; i < lines.size(); ++i) {
+        if (lines[i].is_dot()) {
             segments.emplace_back();
         } else {
-            segments.emplace_back(detail::make_segment(doubled(line.from), doubled(line.to)));
+            segments.emplace_back(
+                detail::make_segment(doubled(lines[i].from), doubled(lines[i].to), static_cast<std::int32_t>(i)));
         }
     }
     GapCloser closer(lines, segments, built.stats);
@@ -633,8 +788,12 @@ BuiltScene build_scene(const pic::PictureMaps& maps, const pic::DrawTrace& trace
     const std::vector<std::int32_t> labels = detail::label_pixel_centres(arrangement, picture_width, picture_height);
     colour_faces(labels, view, trace, scene.faces, built.stats);
     scene.block_values = block_values(view, trace);
-    scene.edges = scan_edges(arrangement);
-    scene.layers = build_layers(trace, view, plane, lines, built.stats);
+
+    const std::vector<int> owned = owned_pixels(trace, view);
+    const auto fitted = fit_curves(arrangement, lines, segments, owned, built.stats);
+    scene.edges = scan_edges(arrangement, fitted);
+    scene.layers =
+        build_layers(trace, view, plane, lines, owned, stroke_curves(arrangement, fitted, lines), built.stats);
     return built;
 }
 

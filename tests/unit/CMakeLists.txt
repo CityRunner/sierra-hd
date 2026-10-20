@@ -34,9 +34,12 @@ sci_add_unit_test(NAME sci-text-tests
     DEPENDS sci-text)
 
 sci_add_unit_test(NAME sci-vector-tests
-    SOURCES vector/build_scene_test.cpp
+    SOURCES
+        vector/build_scene_test.cpp
+        vector/fitting_test.cpp
     DEPENDS sci-vector sci-render)
-target_include_directories(sci-vector-tests PRIVATE pic)
+# The fitting tests reach into sci-vector's internals.
+target_include_directories(sci-vector-tests PRIVATE pic ${PROJECT_SOURCE_DIR}/src/sci-vector/src)
 
 sci_add_unit_test(NAME sci-render-tests
     SOURCES render/render_test.cpp

@@ -56,6 +56,9 @@ std::optional<Span> band_span(Vec2 p, Vec2 q, double r, double y) {
     const double dx = q.x - p.x;
     const double dy = q.y - p.y;
     const double length_squared = (dx * dx) + (dy * dy);
+    if (length_squared == 0) {
+        return std::nullopt; // The end discs cover it.
+    }
     // Distance condition |dx * (y - p.y) - dy * (x - p.x)| <= r * |d|, and
     // projection condition 0 <= dx * (x - p.x) + dy * (y - p.y) <= |d|^2.
     double left = -1e300;
