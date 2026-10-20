@@ -16,5 +16,6 @@ while IFS='=' read -r target corpus; do
     binary="$(find "${build_dir}" -type f -name "${target}" -perm -u+x | head -n1)"
     echo "== ${target} (${seconds}s)"
     mkdir -p "${scratch}/${target}"
-    "${binary}" -max_total_time="${seconds}" -print_final_stats=1 "${scratch}/${target}" "${corpus}"
+    # A single input taking more than 10 s is reported as a hang.
+    "${binary}" -max_total_time="${seconds}" -timeout=10 -print_final_stats=1 "${scratch}/${target}" "${corpus}"
 done < "${build_dir}/fuzz-targets.txt"
