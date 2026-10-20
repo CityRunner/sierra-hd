@@ -32,6 +32,7 @@ add_subdirectory(src/sci-text)
 add_subdirectory(src/sci-audio)
 add_subdirectory(src/sci-render)
 add_subdirectory(src/sci-vm)
+include(SciThirdParty)
 add_subdirectory(src/app)
 
 if(SCI_BUILD_TESTS)
