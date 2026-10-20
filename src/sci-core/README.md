@@ -1,0 +1,17 @@
+# sci-core
+
+Shared foundations for every other library: the error type, invariant checks,
+bounds-checked binary reading and the floating-point profile check. Later
+milestones add exact integer predicates and rationals, rounding helpers,
+hashing, deterministic replacements for platform-dependent standard library
+facilities, and the logging facility.
+
+## Invariants
+
+- No external dependencies and no I/O. Anything that needs the outside world
+  (log output, assertion reporting) goes through a sink or handler that `app`
+  installs.
+- Failures on input are `sci::core::Result<T>` (`std::expected<T, Error>`);
+  broken invariants are `SCI_ASSERT`, which stays enabled in release builds.
+- Everything here is deterministic: no results depend on the platform, the
+  standard library implementation or the number of threads.

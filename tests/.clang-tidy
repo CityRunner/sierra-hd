@@ -1,0 +1,4 @@
+# Tests follow the project rules, with one exception: SCI_TEST defines each
+# test as a static function, which misc-use-anonymous-namespace would reject.
+InheritParentConfig: true
+Checks: -misc-use-anonymous-namespace
