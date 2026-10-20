@@ -25,9 +25,13 @@ Status markers: **decided** (final unless the customer objects),
   head of master when milestone 0 started. The same value is in
   `tools/reference-scummvm/REVISION`, which the build script checks.
   **Decided.** A later change of the pin is recorded here, with the reason.
-- **Game folder.** **Pending:** the customer will provide the game files. Until
-  then the tested release cannot be identified, and the reference ScummVM is
-  only checked without a game (it starts the launcher).
+- **Game folder.** The customer's copy is the GOG release, uploaded to the
+  session on 2026-10-20. Only the game files were extracted (the GOG
+  installer's `tmp/` folder was left out), to a read-only directory outside
+  the repository: `/home/user/game/colonels-bequest-gog` in the agent's
+  container. It is mounted read-only into the toolchain container, for
+  example `SIERRA_HD_MOUNTS=/home/user/game/colonels-bequest-gog:/game`.
+  **Decided.**
 - **Environment.** The agent works in a Linux x86-64 cloud container, not on a
   local machine (spec section 3.1). Docker is available (its daemon is started
   by hand in the session), so podman is not used; the customer allowed
@@ -49,12 +53,45 @@ releases are (spec section 10.2):
 - The English DOS non-interactive demo, the Amiga and Atari ST releases, the
   Hebrew release and the fan translations are not accepted. **Decided** (spec
   sections 1.2 and 1.3).
-- The tested release is the customer's copy; the other row is accepted with a
-  warning. ScummVM's table identifies releases by the MD5 of the first 5000
-  bytes of each file (the advanced detector's default) and the file size; the program will identify them by SHA-256 of whole files, with
-  the hashes taken from the customer's copy (and, for the other release,
-  recorded when a copy is available). **Assumed.** Until the other release
-  can be hashed it is recognised by the ScummVM MD5 values above.
+- **Tested release** (the customer's GOG copy, 2026-10-20): the English DOS
+  3.5" floppy release, game version 1.000.046. All five ScummVM detection
+  MD5s and sizes match, and the reference ScummVM identifies it as
+  `sci:laurabow`, "Laura Bow I: The Colonel's Bequest (DOS/English)".
+  `RESOURCE.CFG` selects `EGA320.DRV` and `MT32.DRV`. **Decided.**
+- **Patch files.** The GOG folder also contains the loose patch files
+  `SCRIPT.052` (header `0x82`) and `TEXT.052` (header `0x83`). They are not
+  part of ScummVM's detection entry. ScummVM loads them over the volume
+  copies ("Patching SCRIPT.052 - OK", "Patching TEXT.052 - OK"), so they are
+  part of the tested input. This project's resource loader must apply patch
+  files exactly as ScummVM does (milestone 1). **Decided.** Whether other
+  copies of the 3.5" release carry the same patches is unknown; a copy
+  without them is accepted, with a warning, as the same release.
+- **SHA-256 of the tested release.** The program identifies the game by these
+  hashes (spec section 10.2); hashes are not game data:
+
+  | File | Size | SHA-256 |
+  |---|---|---|
+  | `RESOURCE.MAP` | 8478 | `47c3463102b15034a0ba7d561c8c1c2de9838f05b8ecbc286961bdea862ba13b` |
+  | `RESOURCE.001` | 515788 | `898b89ad5ca9474cab37a8bf4fe8f22016700870fcc3eceb6953ae9e39cf4eb8` |
+  | `RESOURCE.002` | 721381 | `db1fa10ce5e438774fb44aef9c69eaa22ba82a403b05052533b9b5b11863a819` |
+  | `RESOURCE.003` | 667468 | `e114602aeb7e6b25ba4471bcbc1d15778841b4e4cf0c15d11fc4f58b491551f3` |
+  | `RESOURCE.004` | 683807 | `fcf2d7252dfd06b8ed8ca701128023fe404ad52c066b7548eec0eda3840cf762` |
+  | `SCRIPT.052` | 6962 | `4f8a42dbba46fe3b7156b90fdca8f0c526d3509fed623425983c072fda5254c7` |
+  | `TEXT.052` | 2734 | `7b8e4af2d9101764dbdd790988b892a0477297578cf02dd9c3d1100a3cc4bd73` |
+  | `SCIV.EXE` | 76419 | `cbbb9035ac64a8e24ba5cb6a334d0e7208164aa43f359fd7b244b87d87e9fa98` |
+  | `ADL.DRV` | 8997 | `522259dcd9026919698fd2a40e65e9676147382e445e9955128606bc691e011b` |
+  | `MT32.DRV` | 3162 | `15b2a5208c430f43b2583e642c5c286ea6f09acc920848eaf71776547f0352d1` |
+  | `EGA320.DRV` | 1952 | `1c134ec896509f243a5dcc85e8f51389649a0001f27d841a015aa26016c7993e` |
+
+- **Other accepted release.** The 5.25" floppy release in the table above is
+  accepted with a warning. No copy is available, so it is recognised by the
+  ScummVM MD5 values (first 5000 bytes and size) until one can be hashed.
+  **Assumed.**
+- **Copy protection.** The game opens with the fingerprint identification
+  screen; the reference ScummVM shows it unscaled at 1x after start-up. Both
+  engines run it as game logic. Scenario recordings and the playthrough
+  answer it like a player would. **Assumed**, to be confirmed with the
+  customer before milestone 4.
 
 ## Toolchain (milestone 0)
 

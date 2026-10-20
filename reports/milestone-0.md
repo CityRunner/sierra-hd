@@ -1,8 +1,6 @@
 # Milestone 0: bootstrap
 
-Status: **ready for review**, with one exit criterion partly met. The
-reference ScummVM builds and runs, but the run with the game waits for the
-game files (see "Exit criteria").
+Status: **ready for review**; all exit criteria are met.
 
 Spec: version 15. All decisions and assumptions are in `docs/ASSUMPTIONS.md`.
 
@@ -13,7 +11,9 @@ Spec: version 15. All decisions and assumptions are in `docs/ASSUMPTIONS.md`.
    - Repository: `github.com/CityRunner/sierra-hd` (private).
    - ScummVM: cloned from GitHub and pinned at
      `ed949213a23440447ea402e263daa871394b6bf9` (version `2026.4.1git`).
-   - Game files: still to come.
+   - Game files: the customer's GOG copy, the English DOS 3.5" floppy
+     release 1.000.046 with the loose patch files `SCRIPT.052` and
+     `TEXT.052`; SHA-256 hashes are in `docs/ASSUMPTIONS.md`.
    - Accepted releases from ScummVM's detection tables: the English DOS 3.5"
      and 5.25" floppy releases, 1.000.046.
 2. **CI runners and cost.** Researched availability and prices for private
@@ -129,7 +129,7 @@ Negative checks, to confirm the guards work:
 | Criterion | Status |
 |---|---|
 | The empty libraries build and pass the style checks and sanitizer jobs on every CI platform | Met (see the table above). |
-| The reference ScummVM runs | **Partly.** It builds with the pinned toolchain and runs (launcher under Xvfb). The run with the game waits for the game files. |
+| The reference ScummVM runs | Met. It builds with the pinned toolchain, detects the customer's GOG copy as `sci:laurabow` (English DOS 3.5" floppy, 1.000.046), and runs the game headless under Xvfb up to the opening copy-protection screen at 1x. The screen capture stays in the git-ignored `reports/images/`. |
 | The decisions are recorded in docs/ASSUMPTIONS.md | Done. |
 
 ## Deviations from the spec
@@ -145,11 +145,11 @@ Negative checks, to confirm the guards work:
 
 ## Open questions
 
-1. **Game files.** Please provide the game folder. It will be mounted
-   read-only and never committed. It is needed to identify the tested release
-   and to run the reference ScummVM with the game, which completes the last
-   exit criterion. Approval of milestone 0 can wait for that check or come
-   before it, as you prefer. Milestone 1 needs the game files in any case.
+1. **Copy protection in recordings.** The game opens with the fingerprint
+   identification screen. The plan is for scenario recordings and the
+   playthrough to answer it like a player would, in both engines. Please
+   confirm, or say if you prefer another approach (to be settled before
+   milestone 4).
 2. **CI budget.** At the current size the Free plan's 2,000 minutes are
    enough. If the account has no payment method, CI stops when they run out.
    Each milestone report will give the measured use.
