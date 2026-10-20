@@ -29,10 +29,14 @@ SPDX = "SPDX-License-Identifier:"
 
 
 def tracked_files() -> list[str]:
+    """Tracked and new (not ignored) files that exist in the working tree."""
     out = subprocess.run(
-        ["git", "ls-files", "-z"], cwd=ROOT, check=True, capture_output=True
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
     ).stdout
-    return [p for p in out.decode().split("\0") if p]
+    return sorted({p for p in out.decode().split("\0") if p and (ROOT / p).is_file()})
 
 
 def strip_comments_and_strings(text: str) -> str:

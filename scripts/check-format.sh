@@ -6,4 +6,10 @@ cd "$(dirname "$0")/.."
 mode=(--dry-run --Werror)
 if [[ "${1:-}" == "--fix" ]]; then mode=(-i); fi
 
-git ls-files -z -- '*.cpp' '*.hpp' ':!:third_party/**' | xargs -0 --no-run-if-empty clang-format "${mode[@]}"
+# Tracked and new (not ignored) files that exist in the working tree.
+mapfile -d '' files < <(git ls-files -z --cached --others --exclude-standard -- '*.cpp' '*.hpp' ':!:third_party/**')
+existing=()
+for file in "${files[@]}"; do [[ -f "${file}" ]] && existing+=("${file}"); done
+if [[ ${#existing[@]} -gt 0 ]]; then
+    clang-format "${mode[@]}" "${existing[@]}"
+fi
