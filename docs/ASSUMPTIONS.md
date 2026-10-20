@@ -90,8 +90,8 @@ releases are (spec section 10.2):
 - **Copy protection.** The game opens with the fingerprint identification
   screen; the reference ScummVM shows it unscaled at 1x after start-up. Both
   engines run it as game logic. Scenario recordings and the playthrough
-  answer it like a player would. **Assumed**, to be confirmed with the
-  customer before milestone 4.
+  answer it like a player would. **Decided** (approved by the customer on
+  2026-10-20).
 
 ## Toolchain (milestone 0)
 
@@ -242,10 +242,17 @@ Details: docs/ARCHITECTURE.md, "Error handling".
   - At this size the 2,000 minutes cover roughly 100 pushes plus a few
     gates a month. The numbers in each milestone report show how this
     develops.
-- **Decision.** Linux x86-64 and ARM64 run on every push. macOS and Windows
-  run on pull requests to `main` (the milestone gates) and on manual runs,
-  which can be limited to one platform. This is the option spec section
-  3.2 provides for. **Decided.**
+- **Decision.** Linux x86-64 and ARM64 run on every push. Windows runs on
+  pull requests to `main` (the milestone gates) and on manual runs.
+  **Decided.**
+- **macOS is optional** (customer decision, 2026-10-20, at the milestone 0
+  approval: "make macOS optional and concentrate on Windows and Linux for
+  now"). The macOS jobs run only when a manual run selects `macos`. They are
+  no longer part of the milestone gates. This saves about 60 of the roughly
+  90 included minutes a gate costs, and avoids the macOS runner queues seen
+  on 2026-10-20. macOS stays a supported platform (spec section 1.2). The
+  customer can ask for a macOS run at any gate. **Decided**, approved by the
+  customer as a deviation from spec section 3.2.
 - Push, pull request and manual runs are in separate concurrency groups, so
   they do not cancel each other.
 - The tail of a failed step's log is published as an error annotation. It is
@@ -296,6 +303,13 @@ Details: docs/ARCHITECTURE.md, "Error handling".
 - Comparisons go through buffer dumps and traces (patches in
   `tools/scummvm-patches/`), never through screenshots of the scaled window
   (spec section 6.2).
+
+## Milestone 0 approval (2026-10-20)
+
+Milestone 0 was approved and merged
+([CityRunner/sierra-hd#1](https://github.com/CityRunner/sierra-hd/pull/1)),
+together with the copy-protection approach and the change to make macOS CI
+optional (both above).
 
 ## Spec items carried forward
 
