@@ -8,6 +8,7 @@
 //   sci-graphics-dump <game folder> <output directory>
 
 #include "game_folder.hpp"
+#include "picture.hpp"
 #include "sci/pic/draw_pic.hpp"
 #include "sci/pic/parse_pic.hpp"
 #include "sci/text/font.hpp"
@@ -62,16 +63,6 @@ private:
     bool ok_;
 };
 
-std::vector<std::uint16_t> numbers_of(const ResourceManager& manager, ResourceType type) {
-    std::vector<std::uint16_t> numbers;
-    for (const ResourceId id : manager.list()) {
-        if (id.type == type) {
-            numbers.push_back(id.number);
-        }
-    }
-    return numbers;
-}
-
 std::vector<std::uint8_t> map_bytes(const sci::pic::PictureMaps& maps) {
     std::vector<std::uint8_t> bytes;
     bytes.reserve(maps.visual.size() * 3);
@@ -123,7 +114,7 @@ void dump_pictures(const ResourceManager& manager, Output& output) {
         Variant{.name = "palette2", .options = {.ega_palette = 2}},
         Variant{.name = "palette3", .options = {.ega_palette = 3}},
     };
-    const std::vector<std::uint16_t> numbers = numbers_of(manager, ResourceType::Pic);
+    const std::vector<std::uint16_t> numbers = sci::tools::numbers_of(manager, ResourceType::Pic);
     std::optional<std::vector<sci::pic::PicCommand>> previous;
     for (const std::uint16_t number : numbers) {
         const std::string base = std::format("pic.{:03}", number);
@@ -203,7 +194,7 @@ std::vector<std::uint8_t> font_bytes(const sci::text::Font& font) {
 template <typename Decoded, typename Decode, typename Serialize>
 void dump_resources(const ResourceManager& manager, Output& output, ResourceType type, Decode decode,
                     Serialize serialize) {
-    for (const std::uint16_t number : numbers_of(manager, type)) {
+    for (const std::uint16_t number : sci::tools::numbers_of(manager, type)) {
         const std::string name = std::format("{}.{:03}", sci::resource::resource_type_name(type), number);
         const auto resource = manager.load(ResourceId{.type = type, .number = number});
         if (!resource) {
