@@ -426,9 +426,32 @@ void count_face(const Face& face, bool has_samples, int pixels, SceneStats& stat
     } else {
         ++stats.uniform_faces;
     }
-    if (face.fill == FaceFill::Blocks) {
-        stats.fallback_pixels += pixels;
+}
+
+// The mixed faces' region pixels and bounding boxes, in face order.
+std::vector<Fallback> list_fallbacks(const std::vector<Sample>& samples, const std::vector<std::size_t>& sample_pixels,
+                                     const std::vector<Face>& faces, const std::vector<bool>& has_samples) {
+    std::vector<Fallback> fallbacks;
+    std::int32_t current = -1;
+    for (std::size_t i = 0; i < samples.size(); ++i) {
+        const auto face = static_cast<std::size_t>(samples[i].face);
+        if (!has_samples[face] || faces[face].fill != FaceFill::Blocks) {
+            continue;
+        }
+        const int x = static_cast<int>(sample_pixels[i] % picture_width);
+        const int y = static_cast<int>(sample_pixels[i] / picture_width);
+        if (samples[i].face != current) {
+            current = samples[i].face;
+            fallbacks.push_back(Fallback{.pixels = 0, .left = x, .top = y, .right = x, .bottom = y});
+        }
+        Fallback& fallback = fallbacks.back();
+        ++fallback.pixels;
+        fallback.left = std::min(fallback.left, x);
+        fallback.right = std::max(fallback.right, x);
+        fallback.top = std::min(fallback.top, y);
+        fallback.bottom = std::max(fallback.bottom, y);
     }
+    return fallbacks;
 }
 
 // Decides every face's value from the region pixels whose centres it
@@ -438,6 +461,7 @@ void colour_faces(const std::vector<std::int32_t>& labels, const PlaneView& view
                   std::vector<Face>& faces, SceneStats& stats) {
     const std::vector<bool> band = edge_band(view.values);
     std::vector<Sample> samples;
+    std::vector<std::size_t> pixel_of; // Per sample.
     std::vector<int> pixel_count(faces.size(), 0);
     for (std::size_t i = 0; i < picture_pixels; ++i) {
         const std::int32_t face = labels[i];
@@ -447,9 +471,20 @@ void colour_faces(const std::vector<std::int32_t>& labels, const PlaneView& view
         ++pixel_count[static_cast<std::size_t>(face)];
         if (is_region_pixel(trace, view.owners[i])) {
             samples.push_back(Sample{.face = face, .value = view.values[i], .in_band = band[i]});
+            pixel_of.push_back(i);
         }
     }
-    std::ranges::stable_sort(samples);
+    // Sorted by face and value; the pixel of each sample goes along.
+    std::vector<std::size_t> order(samples.size());
+    std::iota(order.begin(), order.end(), std::size_t{0});
+    std::ranges::stable_sort(order, {}, [&](std::size_t i) { return samples[i]; });
+    std::vector<Sample> sorted(samples.size());
+    std::vector<std::size_t> sample_pixels(samples.size());
+    for (std::size_t i = 0; i < order.size(); ++i) {
+        sorted[i] = samples[order[i]];
+        sample_pixels[i] = pixel_of[order[i]];
+    }
+    samples = std::move(sorted);
     std::vector<bool> has_samples(faces.size(), false);
     for (std::size_t start = 0; start < samples.size();) {
         const std::int32_t face = samples[start].face;
@@ -468,6 +503,10 @@ void colour_faces(const std::vector<std::int32_t>& labels, const PlaneView& view
             faces[f].fill = FaceFill::Blocks;
         }
         count_face(faces[f], has_samples[f], pixel_count[f], stats);
+    }
+    stats.fallbacks = list_fallbacks(samples, sample_pixels, faces, has_samples);
+    for (const Fallback& fallback : stats.fallbacks) {
+        stats.fallback_pixels += fallback.pixels;
     }
 }
 

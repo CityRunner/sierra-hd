@@ -3,6 +3,7 @@
 #include "png.hpp"
 
 #include "game_folder.hpp"
+#include "sci/core/assert.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -90,6 +91,11 @@ void Image::set(int x, int y, Rgb color) {
     if (x >= 0 && y >= 0 && x < width_ && y < height_) {
         pixels_[(static_cast<std::size_t>(y) * static_cast<std::size_t>(width_)) + static_cast<std::size_t>(x)] = color;
     }
+}
+
+Rgb Image::at(int x, int y) const {
+    SCI_ASSERT(x >= 0 && y >= 0 && x < width_ && y < height_);
+    return pixels_[(static_cast<std::size_t>(y) * static_cast<std::size_t>(width_)) + static_cast<std::size_t>(x)];
 }
 
 bool Image::write_png(const std::filesystem::path& path) const {

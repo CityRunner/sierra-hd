@@ -11,7 +11,19 @@
 #include "sci/pic/picture_maps.hpp"
 #include "sci/vector/scene.hpp"
 
+#include <vector>
+
 namespace sci::vector {
+
+// A face whose pixels disagree, drawn from the 1x blocks: its region
+// pixels and their bounding box (picture pixels, inclusive).
+struct Fallback {
+    int pixels = 0;
+    int left = 0;
+    int top = 0;
+    int right = 0;
+    int bottom = 0;
+};
 
 // What the analysis did, for the replacement report.
 struct SceneStats {
@@ -25,16 +37,17 @@ struct SceneStats {
     int uniform_faces = 0;   // Faces drawn in one value.
     int thin_faces = 0;      // Fallback: no pixel of the face's own region.
     int mixed_faces = 0;     // Fallback: the face's pixels disagree outside the edge band.
-    int fallback_pixels = 0; // Pixel centres in fallback faces.
+    int fallback_pixels = 0; // Region pixels in mixed faces, drawn as 1x blocks.
     int brushes = 0;         // Solid brushes drawn as shapes.
     int textured = 0;        // Textured brushes drawn as blocks.
     // Chains of short lines replaced by fitted curves.
-    int straightened = 0;  // By one straight line.
-    int arcs = 0;          // By circular arcs.
-    int splines = 0;       // By cubic splines.
-    int ellipses = 0;      // Closed chains, by ellipses.
-    int fitted_lines = 0;  // PIC lines replaced by these curves.
-    int rejected_fits = 0; // Fits left out because they would change the faces.
+    int straightened = 0;            // By one straight line.
+    int arcs = 0;                    // By circular arcs.
+    int splines = 0;                 // By cubic splines.
+    int ellipses = 0;                // Closed chains, by ellipses.
+    int fitted_lines = 0;            // PIC lines replaced by these curves.
+    int rejected_fits = 0;           // Fits left out because they would change the faces.
+    std::vector<Fallback> fallbacks; // The mixed faces.
 };
 
 struct BuiltScene {

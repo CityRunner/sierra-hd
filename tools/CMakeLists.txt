@@ -4,6 +4,7 @@
 
 add_subdirectory(common)
 add_subdirectory(graphics-dump)
+add_subdirectory(hd-report)
 add_subdirectory(resource-dump)
 add_subdirectory(room-viewer)
 
