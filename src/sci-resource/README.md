@@ -1,12 +1,28 @@
 # sci-resource
 
-RESOURCE.MAP and the RESOURCE.xxx volume files: lookup, loading and decompression of SCI0 resources.
+Access to the resources of an SCI0 game folder: the resource map, the
+volumes and loose patch files, combined in ScummVM's order. Includes the
+LZW and Huffman decompressors. The format is described in
+`docs/formats/resources.md`.
 
-Milestone 0 contains only the library skeleton; the content arrives with the
-milestones named below.
+The code is ported from ScummVM's resource loader
+(`engines/sci/resource/`) at the pinned revision. Each ported file names its
+source.
 
 ## Invariants
 
-- Game files are untrusted input: every read is bounds-checked through `sci::core::ByteReader`, and the parsers have libFuzzer targets.
-- Decoded resources are byte-identical to ScummVM's resource loader at the pinned revision (milestone 1).
-- No file system access of its own: `app` supplies the bytes of the game files.
+- Every resource decodes byte-identically to ScummVM's resource loader. This
+  is checked with the game files by `tools/resource-compare`: 1068 of 1068
+  resources of the tested release match.
+- Game files are untrusted input:
+  - every read is bounds-checked;
+  - where ScummVM would read or write out of bounds, leave memory
+    uninitialised or loop forever, the result is an error (or, for an LZW
+    stream ended early, zero-filled output);
+  - the parsers are fuzzed (`fuzz-decompress`, `fuzz-game-folder`).
+- No file system access: the caller passes the folder's files as
+  `GameFile`s.
+- Only SCI0 is supported. Maps, volumes and compression methods of other SCI
+  versions are rejected as `Unsupported`.
+- Warnings (skipped map entries, applied patches) go to the `Resources` log
+  category.
