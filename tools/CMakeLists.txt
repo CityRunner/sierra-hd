@@ -3,6 +3,7 @@
 # Development tools. Nothing here is linked into the program.
 
 add_subdirectory(common)
+add_subdirectory(golden-hashes)
 add_subdirectory(graphics-dump)
 add_subdirectory(hd-report)
 add_subdirectory(resource-dump)
