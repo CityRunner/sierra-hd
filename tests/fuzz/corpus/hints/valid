@@ -1,0 +1,14 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 44,
+  "pic_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "analyser": "test",
+  "regions": [{"id": "sky", "at": [10, 5], "label": "night sky", "uncertain": true}],
+  "chains": [
+    {"id": "arch-left", "lines": [30, 31, 32], "primitive": "arc", "label": "arch"},
+    {"id": "arch-right", "lines": [40, 41], "primitive": "spline"}
+  ],
+  "gaps": [{"id": "door-gap", "from": 72, "end": "end", "to": 90}],
+  "symmetry": [{"kind": "mirror", "chains": ["arch-left", "arch-right"], "note": "both sides"}]
+}

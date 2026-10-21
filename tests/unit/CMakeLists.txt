@@ -39,6 +39,8 @@ sci_add_unit_test(NAME sci-vector-tests
         vector/build_scene_test.cpp
         vector/differential_test.cpp
         vector/fitting_test.cpp
+        vector/hint_scene_test.cpp
+        vector/hints_test.cpp
     DEPENDS sci-vector sci-render)
 # The fitting tests reach into sci-vector's internals.
 target_include_directories(sci-vector-tests PRIVATE pic ${PROJECT_SOURCE_DIR}/src/sci-vector/src)

@@ -35,4 +35,11 @@ struct FittedCurve {
 [[nodiscard]] std::optional<FittedCurve> fit_curve(std::span<const Vec2> chain, const std::vector<bool>& pinned,
                                                    double tolerance);
 
+// Fits the chain by the requested kind of curve, as a hint asks (spec
+// section 6.7): one piece of that kind per section between pinned points,
+// or an ellipse for an unpinned closed chain. Nothing if a piece does not
+// stay within the tolerance.
+[[nodiscard]] std::optional<FittedCurve> fit_curve_as(std::span<const Vec2> chain, const std::vector<bool>& pinned,
+                                                      CurveKind kind, double tolerance);
+
 } // namespace sci::vector::detail

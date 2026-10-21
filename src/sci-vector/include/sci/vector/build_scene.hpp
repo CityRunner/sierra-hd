@@ -9,8 +9,11 @@
 
 #include "sci/pic/draw_trace.hpp"
 #include "sci/pic/picture_maps.hpp"
+#include "sci/vector/hints.hpp"
 #include "sci/vector/scene.hpp"
 
+#include <span>
+#include <string>
 #include <vector>
 
 namespace sci::vector {
@@ -23,6 +26,13 @@ struct Fallback {
     int top = 0;
     int right = 0;
     int bottom = 0;
+};
+
+// A hint the analysis did not use, and why.
+struct RejectedHint {
+    int picture = 0; // PIC resource number.
+    std::string id;
+    std::string reason;
 };
 
 // What the analysis did, for the replacement report.
@@ -48,6 +58,10 @@ struct SceneStats {
     int fitted_lines = 0;            // PIC lines replaced by these curves.
     int rejected_fits = 0;           // Fits left out because they would change the faces.
     std::vector<Fallback> fallbacks; // The mixed faces.
+    // Hints (spec section 6.7).
+    int hint_chains = 0;                      // Chain hints fitted as they ask.
+    int hint_gaps = 0;                        // Gap hints closed.
+    std::vector<RejectedHint> rejected_hints; // Hints left out; the automatic result stands there.
 };
 
 struct BuiltScene {
@@ -55,8 +69,12 @@ struct BuiltScene {
     SceneStats stats;
 };
 
-// Builds the scene of one plane from the maps and trace of path 1.
-[[nodiscard]] BuiltScene build_scene(const pic::PictureMaps& maps, const pic::DrawTrace& trace, Plane plane);
+// Builds the scene of one plane from the maps and trace of path 1. `hints`
+// holds the hints of each draw_picture call of the trace (by the trace's
+// picture index; null or missing for none). Hints for lines not drawn into
+// this plane are left out; the other plane's scene uses them.
+[[nodiscard]] BuiltScene build_scene(const pic::PictureMaps& maps, const pic::DrawTrace& trace, Plane plane,
+                                     std::span<const PictureHints* const> hints = {});
 
 #ifdef SCI_DEBUG_HIGHLIGHT
 // Development only (CMake option SCI_DEBUG_HIGHLIGHT, spec section 6.3): the

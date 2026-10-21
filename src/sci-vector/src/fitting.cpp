@@ -456,6 +456,38 @@ FittedCurve fit_through_pins(std::span<const Vec2> chain, const std::vector<bool
     return curve;
 }
 
+// One section between pins fitted by the requested kind (not an ellipse),
+// or nothing if that does not stay within the tolerance. A section of one
+// edge stays straight.
+std::optional<FittedCurve> fit_section_as(std::span<const Vec2> chain, std::size_t start, std::size_t end,
+                                          CurveKind kind, double tolerance) {
+    const std::span<const Vec2> section = chain.subspan(start, end - start + 1);
+    if (section.size() == 2) {
+        return fit_line(section);
+    }
+    std::optional<FittedCurve> curve;
+    switch (kind) {
+    case CurveKind::Line:
+        curve = fit_line(section);
+        break;
+    case CurveKind::Arc:
+        curve = fit_arc(section);
+        break;
+    case CurveKind::Spline:
+        curve = fit_tangent_cubic(section, tangent_at(chain, start), tangent_at(chain, end));
+        if (!within(curve, section, tolerance)) {
+            curve = fit_open(section, tolerance);
+        }
+        break;
+    case CurveKind::Ellipse:
+        break;
+    }
+    if (!within(curve, section, tolerance)) {
+        return std::nullopt;
+    }
+    return curve;
+}
+
 } // namespace
 
 double polyline_distance(std::span<const Vec2> a, std::span<const Vec2> b) {
@@ -499,6 +531,51 @@ std::optional<FittedCurve> fit_curve(std::span<const Vec2> chain, const std::vec
         curve = fit_open(chain, tolerance);
     }
     // A fit made only of the chain's own edges replaces nothing.
+    if (curve.points.size() == chain.size() && std::ranges::equal(curve.points, chain)) {
+        return std::nullopt;
+    }
+    return curve;
+}
+
+std::optional<FittedCurve> fit_curve_as(std::span<const Vec2> chain, const std::vector<bool>& pinned, CurveKind kind,
+                                        double tolerance) {
+    if (chain.size() < 3) {
+        return std::nullopt;
+    }
+    const bool closed = chain.front() == chain.back();
+    bool any_pinned = false;
+    for (std::size_t i = 1; i + 1 < pinned.size(); ++i) {
+        any_pinned = any_pinned || pinned[i];
+    }
+    if (kind == CurveKind::Ellipse) {
+        if (!closed || any_pinned || pinned.front()) {
+            return std::nullopt;
+        }
+        auto ellipse = fit_ellipse(chain);
+        if (!within(ellipse, chain, tolerance)) {
+            return std::nullopt;
+        }
+        return ellipse;
+    }
+    // Sections between the pins; an unpinned loop is cut in two halves.
+    std::vector<std::size_t> cuts{0};
+    for (std::size_t i = 1; i + 1 < chain.size(); ++i) {
+        if (pinned[i]) {
+            cuts.push_back(i);
+        }
+    }
+    if (closed && !any_pinned) {
+        cuts.push_back(chain.size() / 2);
+    }
+    cuts.push_back(chain.size() - 1);
+    FittedCurve curve{.kind = kind, .points = {chain.front()}};
+    for (std::size_t i = 0; i + 1 < cuts.size(); ++i) {
+        const auto piece = fit_section_as(chain, cuts[i], cuts[i + 1], kind, tolerance);
+        if (!piece) {
+            return std::nullopt;
+        }
+        curve.points.insert(curve.points.end(), piece->points.begin() + 1, piece->points.end());
+    }
     if (curve.points.size() == chain.size() && std::ranges::equal(curve.points, chain)) {
         return std::nullopt;
     }
