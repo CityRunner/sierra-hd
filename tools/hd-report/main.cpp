@@ -32,6 +32,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <map>
 #include <optional>
 #include <print>
 #include <span>
@@ -300,6 +301,27 @@ void print_summary(const std::vector<Row>& rows) {
     }
     std::println("A1 pass: {} joints closed, {} ends clipped, {} contacts kept, {} runs merged", joints, clipped, kept,
                  merged);
+    // Sizes of the cases, in original pixels (area or gap).
+    std::map<std::string, std::array<int, 4>> sizes;
+    for (const Row& row : rows) {
+        for (const auto& c : row.integrity.cases) {
+            const bool joint = c.kind == sci::render::IntegrityKind::Break && c.other >= 0;
+            const bool group = c.kind == sci::render::IntegrityKind::Break && c.other < 0;
+            std::string name(kind_name(c.kind));
+            if (joint) {
+                name = "broken joint (gap)";
+            } else if (group) {
+                name = "split/hidden group";
+            }
+            const std::array<double, 3> limits = joint ? std::array{0.125, 0.25, 0.5} : std::array{0.0625, 0.25, 1.0};
+            const auto bucket =
+                static_cast<std::size_t>(std::ranges::count_if(limits, [&](double l) { return c.size > l; }));
+            ++sizes[name][group ? std::min<std::size_t>(static_cast<std::size_t>(c.size), 3) : bucket];
+        }
+    }
+    for (const auto& [name, counts] : sizes) {
+        std::println("A1 sizes, {}: {} / {} / {} / {}", name, counts[0], counts[1], counts[2], counts[3]);
+    }
 }
 
 } // namespace

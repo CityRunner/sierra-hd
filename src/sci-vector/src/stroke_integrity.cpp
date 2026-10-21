@@ -7,6 +7,7 @@
 #include <map>
 #include <numeric>
 #include <optional>
+#include <tuple>
 #include <utility>
 #include <variant>
 
@@ -29,7 +30,9 @@ constexpr double run_gap = 1.5;
 
 constexpr const char* joint_evidence = "1x: the line ends are on touching pixels and all are seen";
 constexpr const char* contact_evidence = "1x: the line end touches the contour, which is seen there";
-constexpr const char* merge_evidence = "1x: the other line is seen on the pixels both lines drew";
+constexpr const char* near_end_evidence = "1x: the line end touches the other line next to its end";
+constexpr const char* side_evidence = "1x: the line end lies beside the contour, which is seen there";
+constexpr const char* hidden_evidence = "1x: another object is seen on these pixels of the line";
 constexpr const char* no_crossing_evidence = "kept: the line does not reach the contour within 1.5 pixels across";
 constexpr const char* passes_evidence = "kept: the line crosses the contour's edge elsewhere";
 constexpr const char* on_contour_evidence = "kept: the end pixel lies on the contour's stroke";
@@ -83,6 +86,7 @@ struct Line {
     std::int32_t primitive = -1;
     std::vector<std::size_t> path;
     std::vector<Stroke> strokes;
+    std::vector<Stroke> connectors; // Added to join other lines; not the line's own geometry.
 
     [[nodiscard]] std::size_t first() const { return path.front(); }
 
@@ -215,7 +219,7 @@ public:
     void run() {
         clip_ends();
         close_joints();
-        merge_runs();
+        hide_runs();
     }
 
     std::vector<Line> take() { return std::move(lines_); }
@@ -296,14 +300,57 @@ private:
                 }
                 neighbours(end, [&](std::size_t q) {
                     lines_at(q, [&](std::size_t j) {
-                        if (j <= i || !lines_[j].is_end(q) || !seen(q, j)) {
+                        if (j == i || !seen(q, j)) {
                             return;
                         }
-                        close_joint(i, end, j, q);
+                        if (lines_[j].is_end(q)) {
+                            if (j > i) {
+                                close_joint(i, end, j, q);
+                            }
+                        } else if (touching(lines_[j].first(), end) || touching(lines_[j].last(), end) ||
+                                   lines_[j].is_end(end)) {
+                            join_near_end(i, end, j);
+                        }
                     });
                 });
             }
         }
+    }
+
+    // A short stroke of the line from a to b, with the line's cuts (it ends
+    // on the same contours) and an extra cut if given.
+    static void add_connector(Line& line, Vec2 a, Vec2 b, std::optional<Cut> cut) {
+        Stroke connector = line.strokes.front();
+        connector.points = {a, b};
+        connector.fitted = false;
+        if (cut) {
+            connector.cuts.push_back(*cut);
+        }
+        line.connectors.push_back(std::move(connector));
+    }
+
+    // The nearest point of the line's own strokes to p, and the segment it
+    // lies on.
+    [[nodiscard]] std::optional<std::tuple<Vec2, Vec2, Vec2>> nearest_on(std::size_t line, Vec2 p) const {
+        std::optional<std::tuple<Vec2, Vec2, Vec2>> best;
+        double best_distance = 1e300;
+        for (const Stroke& stroke : lines_[line].strokes) {
+            for (std::size_t k = 0; k + 1 < stroke.points.size(); ++k) {
+                const Vec2 a = stroke.points[k];
+                const Vec2 d = stroke.points[k + 1] - a;
+                const double length_squared = dot(d, d);
+                if (length_squared == 0) {
+                    continue;
+                }
+                const double t = std::clamp(dot(p - a, d) / length_squared, 0.0, 1.0);
+                const Vec2 x = a + (d * t);
+                if (length(p - x) < best_distance) {
+                    best_distance = length(p - x);
+                    best = std::tuple{x, a, stroke.points[k + 1]};
+                }
+            }
+        }
+        return best;
     }
 
     void close_joint(std::size_t i, std::size_t end, std::size_t j, std::size_t q) {
@@ -316,12 +363,27 @@ private:
         // and everything after it keep showing over it.
         const bool i_later = lines_[i].primitive < lines_[j].primitive;
         Line& owner = lines_[i_later ? i : j];
-        Stroke connector = owner.strokes.front();
-        connector.points = i_later ? std::vector<Vec2>{a, b} : std::vector<Vec2>{b, a};
-        connector.fitted = false; // Keeps the line's cuts: it ends on the same contours.
-        owner.strokes.push_back(std::move(connector));
+        add_connector(owner, i_later ? a : b, i_later ? b : a, std::nullopt);
         ++stats_->closed_joints;
         record(IntegrityChangeKind::ClosedJoint, i_later ? i : j, i_later ? j : i, end, joint_evidence);
+    }
+
+    // A line end next to another line close to that line's end (a corner
+    // that is not end to end): a connector to the other line's nearest
+    // point.
+    void join_near_end(std::size_t i, std::size_t end, std::size_t j) {
+        const Vec2 p = end_point(lines_[i], end);
+        const auto nearest = nearest_on(j, p);
+        if (!nearest || length(p - std::get<0>(*nearest)) <= joined) {
+            return;
+        }
+        // Cut along the other line's near edge, so it never covers that line.
+        const Vec2 x = std::get<0>(*nearest);
+        const Vec2 u = (p - x) * (1 / length(p - x));
+        const Cut cut{.point = x + (u * lines_[j].strokes.front().radius), .normal = u * -1};
+        add_connector(lines_[i], p, x, cut);
+        ++stats_->closed_joints;
+        record(IntegrityChangeKind::ClosedJoint, i, j, end, near_end_evidence);
     }
 
     // The contours a line end touches: lines passing next to the end pixel,
@@ -391,8 +453,7 @@ private:
             }
         }
         if (!best) {
-            ++stats_->kept_contacts;
-            record(IntegrityChangeKind::KeptContact, i, contours.front(), end, no_crossing_evidence);
+            join_side(i, end, contours);
             return;
         }
         const Vec2 x = p + (d * best->t);
@@ -423,42 +484,72 @@ private:
         record(IntegrityChangeKind::ClippedEnd, i, best_line, end, contact_evidence);
     }
 
-    // Lines that drew the same pixels: where the player saw one, the other
-    // one's stroke is removed along those pixels.
-    void merge_runs() {
-        std::map<std::pair<std::size_t, std::size_t>, std::vector<std::size_t>> shared;
-        for (std::size_t k = 0; k < drawn_.size();) {
-            std::size_t n = k;
-            while (n < drawn_.size() && drawn_[n].first == drawn_[k].first) {
-                ++n;
+    // A line end beside a contour, pointing along or away from it: a
+    // connector from the end to the contour's nearest point, cut along the
+    // contour's near edge.
+    void join_side(std::size_t i, std::size_t end, const std::vector<std::size_t>& contours) {
+        const Vec2 p = end_point(lines_[i], end);
+        std::optional<std::tuple<Vec2, Vec2, Vec2>> best;
+        std::size_t best_line = contours.front();
+        for (const std::size_t j : contours) {
+            const auto nearest = nearest_on(j, p);
+            if (nearest && (!best || length(p - std::get<0>(*nearest)) < length(p - std::get<0>(*best)))) {
+                best = nearest;
+                best_line = j;
             }
-            for (std::size_t a = k; a < n; ++a) {
-                for (std::size_t b = a + 1; b < n; ++b) {
-                    if (drawn_[a].second != drawn_[b].second) {
-                        shared[std::minmax(drawn_[a].second, drawn_[b].second)].push_back(drawn_[k].first);
-                    }
-                }
-            }
-            k = n;
         }
-        for (const auto& [pair, pixels] : shared) {
-            if (pixels.size() >= 2) {
-                merge_pair(pair.first, pair.second, pixels);
-                merge_pair(pair.second, pair.first, pixels);
+        const double distance = best ? length(p - std::get<0>(*best)) : 1e300;
+        if (!best || distance > max_across || distance == 0) {
+            ++stats_->kept_contacts;
+            record(IntegrityChangeKind::KeptContact, i, contours.front(), end, no_crossing_evidence);
+            return;
+        }
+        const Vec2 x = std::get<0>(*best);
+        const Vec2 u = (p - x) * (1 / distance);
+        const double radius = lines_[best_line].strokes.front().radius;
+        const Cut cut{.point = x + (u * radius), .normal = u * -1};
+        if (!cut.keeps(centre_of(end))) {
+            ++stats_->kept_contacts;
+            record(IntegrityChangeKind::KeptContact, i, best_line, end, on_contour_evidence);
+            return;
+        }
+        add_connector(lines_[i], p, x, cut);
+        // The line itself is cut too where nothing but its end lies past the
+        // edge.
+        Stroke& stroke = lines_[i].strokes.front();
+        const bool front = at_front(lines_[i], end);
+        bool only_end = true;
+        for (std::size_t k = 0; k < stroke.points.size(); ++k) {
+            const bool is_end = front ? k == 0 : k + 1 == stroke.points.size();
+            only_end = only_end && (is_end || cut.keeps(stroke.points[k]));
+        }
+        if (only_end) {
+            stroke.cuts.push_back(cut);
+        }
+        ++stats_->clipped_ends;
+        record(IntegrityChangeKind::ClippedEnd, i, best_line, end, side_evidence);
+    }
+
+    // A line's stroke is removed along the pixels it drew that show
+    // another object at 1x: half a pixel to each side of their centres,
+    // so the stroke's ends still reach into the object over it. A boundary
+    // drawn by two lines thus shows once, in the colour seen at 1x, and no
+    // sliver of a covered line shows between the strokes over it.
+    void hide_runs() {
+        for (std::size_t i = 0; i < lines_.size(); ++i) {
+            std::vector<std::size_t> hidden;
+            std::ranges::copy_if(lines_[i].path, std::back_inserter(hidden),
+                                 [&](std::size_t p) { return !seen(p, i); });
+            if (!hidden.empty()) {
+                hide(i, hidden);
             }
         }
     }
 
-    // Removes the runs of `lower` on shared pixels where `upper` is seen.
-    void merge_pair(std::size_t lower, std::size_t upper, const std::vector<std::size_t>& pixels) {
-        std::vector<std::size_t> hidden;
-        std::ranges::copy_if(pixels, std::back_inserter(hidden), [&](std::size_t p) { return seen(p, upper); });
-        if (hidden.empty()) {
-            return;
-        }
+    void hide(std::size_t i, const std::vector<std::size_t>& hidden) {
         std::vector<Stroke> pieces;
         bool changed = false;
-        for (Stroke& stroke : lines_[lower].strokes) {
+        for (Stroke& stroke : lines_[i].strokes) {
             if (stroke.points.size() < 2) {
                 pieces.push_back(std::move(stroke));
                 continue;
@@ -484,13 +575,12 @@ private:
                     ++n;
                 }
                 const double cut_from = std::max(along[k] - 0.5, 0.0);
-                const double cut_to = std::min(along[n - 1] + 0.5, end);
                 if (cut_from > kept_from) {
                     Stroke piece = stroke;
                     piece.points = sub_polyline(stroke.points, kept_from, cut_from);
                     pieces.push_back(std::move(piece));
                 }
-                kept_from = cut_to;
+                kept_from = std::min(along[n - 1] + 0.5, end);
                 k = n;
             }
             if (kept_from < end) {
@@ -500,10 +590,18 @@ private:
             }
             changed = true;
         }
-        lines_[lower].strokes = std::move(pieces);
+        lines_[i].strokes = std::move(pieces);
         if (changed) {
+            const std::int32_t over = owners_[hidden.front()];
             ++stats_->merged_runs;
-            record(IntegrityChangeKind::MergedRun, lower, upper, hidden.front(), merge_evidence);
+            stats_->integrity_changes.push_back(IntegrityChange{
+                .kind = IntegrityChangeKind::MergedRun,
+                .primitive = lines_[i].primitive,
+                .other = over,
+                .x = pixel_x(hidden.front()),
+                .y = pixel_y(hidden.front()),
+                .evidence = hidden_evidence,
+            });
         }
     }
 
@@ -536,6 +634,7 @@ void apply_stroke_integrity(std::vector<Layer>& layers, std::span<const StrokeLi
             .primitive = line.primitive,
             .path = line.path,
             .strokes = {std::get<Stroke>(layers[it->second])},
+            .connectors = {},
         });
     }
     Pass pass(std::move(pass_lines), owners, stats);
@@ -543,6 +642,8 @@ void apply_stroke_integrity(std::vector<Layer>& layers, std::span<const StrokeLi
     std::map<std::int32_t, std::vector<Stroke>> result;
     for (Line& line : pass.take()) {
         result[line.primitive] = std::move(line.strokes);
+        auto& strokes = result[line.primitive];
+        strokes.insert(strokes.end(), line.connectors.begin(), line.connectors.end());
     }
     std::vector<Layer> rebuilt;
     rebuilt.reserve(layers.size());

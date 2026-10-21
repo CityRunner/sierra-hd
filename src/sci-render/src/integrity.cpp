@@ -105,6 +105,21 @@ struct LineInfo {
 
     [[nodiscard]] std::size_t last() const { return path.back(); }
 
+    // Whether one of the line's strokes covers p (its cuts included).
+    [[nodiscard]] bool covers(Vec2 p) const {
+        for (const vector::Stroke* stroke : strokes) {
+            const auto& points = stroke->points;
+            for (std::size_t i = 0; i < points.size(); ++i) {
+                if (segment_distance(p, points[i], points[std::min(i + 1, points.size() - 1)]).first <=
+                        stroke->radius &&
+                    stroke->kept(p)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     // The distance from p to the nearest stroke, and p's side of that
     // stroke's nearest segment.
     [[nodiscard]] std::pair<double, double> nearest(Vec2 p) const {
@@ -246,49 +261,52 @@ struct Window {
     [[nodiscard]] bool contains(int sx, int sy) const { return sx >= left && sx < right && sy >= top && sy < bottom; }
 };
 
-// Whether samples showing `a` connect to samples showing `b` inside the
-// window, through samples showing either.
-bool meet_within(const Grid& grid, const Window& w, std::int32_t a, std::int32_t b) {
-    std::map<std::size_t, bool> seen;
-    std::vector<std::pair<int, int>> pending;
+// Whether a sample showing the line, inside the window, lies in or next to
+// (one sample away from) the other line's stroke shape, whatever is drawn
+// over that shape: a gap between the two strokes, not what covers them,
+// breaks a joint.
+bool meet_within(const Grid& grid, const Window& w, std::int32_t line, const LineInfo& other) {
+    const double step = 1.0 / grid.density();
     for (int sy = w.top; sy < w.bottom; ++sy) {
         for (int sx = w.left; sx < w.right; ++sx) {
-            if (grid.at(sx, sy) == a) {
-                seen[grid.index(sx, sy)] = true;
-                pending.emplace_back(sx, sy);
-            }
-        }
-    }
-    while (!pending.empty()) {
-        const auto [x, y] = pending.back();
-        pending.pop_back();
-        for (const auto [dx, dy] : four_neighbours) {
-            const int nx = x + dx;
-            const int ny = y + dy;
-            if (!w.contains(nx, ny) || seen.contains(grid.index(nx, ny))) {
+            if (grid.at(sx, sy) != line) {
                 continue;
             }
-            const std::int32_t s = grid.at(nx, ny);
-            if (s == b) {
-                return true;
-            }
-            if (s == a) {
-                seen[grid.index(nx, ny)] = true;
-                pending.emplace_back(nx, ny);
+            const Vec2 p = grid.point(sx, sy);
+            for (const auto [dx, dy] :
+                 {std::pair{0, 0}, std::pair{1, 0}, std::pair{-1, 0}, std::pair{0, 1}, std::pair{0, -1}}) {
+                if (other.covers({.x = p.x + (dx * step), .y = p.y + (dy * step)})) {
+                    return true;
+                }
             }
         }
     }
     return false;
 }
 
+// The smallest gap between samples showing the line in the window and the
+// other line's strokes (cuts ignored); the window's size if none shows.
+double joint_gap(const Grid& grid, const Window& w, std::int32_t line, const LineInfo& other) {
+    double gap = static_cast<double>(w.right - w.left) / grid.density();
+    for (int sy = w.top; sy < w.bottom; ++sy) {
+        for (int sx = w.left; sx < w.right; ++sx) {
+            if (grid.at(sx, sy) == line) {
+                gap = std::min(gap, other.nearest(grid.point(sx, sy)).first - other.strokes.front()->radius);
+            }
+        }
+    }
+    return std::max(gap, 0.0);
+}
+
 void add_case(Integrity& result, IntegrityKind kind, std::pair<std::int32_t, std::int32_t> primitives,
-              std::size_t pixel) {
+              std::size_t pixel, double size) {
     result.cases.push_back(IntegrityCase{
         .kind = kind,
         .primitive = primitives.first,
         .other = primitives.second,
         .x = pixel_x(pixel),
         .y = pixel_y(pixel),
+        .size = size,
     });
 }
 
@@ -328,14 +346,16 @@ Groups owned_groups(const OneX& one, const std::vector<LineInfo>& lines) {
 // The owned groups that one 4-connected group of samples showing a line
 // touches; the samples are marked seen.
 std::vector<std::int32_t> component_groups(const Grid& grid, const OneX& one, const Groups& groups, int sx, int sy,
-                                           std::vector<bool>& seen) {
+                                           std::vector<bool>& seen, int& samples) {
     const std::int32_t line = grid.at(sx, sy);
     std::vector<std::int32_t> touched;
+    samples = 0;
     std::vector<std::pair<int, int>> pending{{sx, sy}};
     seen[grid.index(sx, sy)] = true;
     while (!pending.empty()) {
         const auto [x, y] = pending.back();
         pending.pop_back();
+        ++samples;
         const std::size_t pixel = grid.pixel_of(x, y);
         if (one.owner[pixel] == line) {
             touched.push_back(groups.of_pixel[pixel]);
@@ -366,10 +386,12 @@ void check_groups(const Grid& grid, const OneX& one, const std::vector<LineInfo>
             if (line < 0 || seen[grid.index(sx, sy)] || !lines[static_cast<std::size_t>(line)].is_line) {
                 continue;
             }
-            const std::vector<std::int32_t> touched = component_groups(grid, one, groups, sx, sy, seen);
+            int samples = 0;
+            const std::vector<std::int32_t> touched = component_groups(grid, one, groups, sx, sy, seen, samples);
             if (touched.empty()) {
                 ++result.fragments;
-                add_case(result, IntegrityKind::Fragment, {line, no_primitive}, grid.pixel_of(sx, sy));
+                add_case(result, IntegrityKind::Fragment, {line, no_primitive}, grid.pixel_of(sx, sy),
+                         samples / static_cast<double>(grid.density() * grid.density()));
             }
             for (const std::int32_t g : touched) {
                 ++components[static_cast<std::size_t>(g)];
@@ -383,7 +405,7 @@ void check_groups(const Grid& grid, const OneX& one, const std::vector<LineInfo>
         }
         ++(components[g] == 0 ? result.hidden_groups : result.split_groups);
         ++result.breaks;
-        add_case(result, IntegrityKind::Break, {groups.line[g], no_primitive}, groups.pixel[g]);
+        add_case(result, IntegrityKind::Break, {groups.line[g], no_primitive}, groups.pixel[g], components[g]);
     }
 }
 
@@ -419,10 +441,13 @@ void check_joints(const Grid& grid, const OneX& one, const std::vector<LineInfo>
     const auto joints = find_joints(one, lines);
     result.joints = static_cast<int>(joints.size());
     for (const auto& [line, other, end, q] : joints) {
-        if (!meet_within(grid, Window::around(end, q, 1, grid.density()), line, other)) {
+        if (!meet_within(grid, Window::around(end, q, 1, grid.density()), line,
+                         lines[static_cast<std::size_t>(other)])) {
             ++result.broken_joints;
             ++result.breaks;
-            add_case(result, IntegrityKind::Break, {line, other}, end);
+            add_case(result, IntegrityKind::Break, {line, other}, end,
+                     joint_gap(grid, Window::around(end, q, 1, grid.density()), line,
+                               lines[static_cast<std::size_t>(other)]));
         }
     }
 }
@@ -527,10 +552,11 @@ void check_overshoot(const Grid& grid, const OneX& one, const std::vector<LineIn
             }
             for (const std::int32_t m : contours_at(l, end, one, lines, drawn)) {
                 ++result.contacts;
-                if (overshooting_samples(grid, l, end, info, lines[static_cast<std::size_t>(m)]) >=
-                    min_overshoot_samples) {
+                const int offending = overshooting_samples(grid, l, end, info, lines[static_cast<std::size_t>(m)]);
+                if (offending >= min_overshoot_samples) {
                     ++result.overshoots;
-                    add_case(result, IntegrityKind::Overshoot, {static_cast<std::int32_t>(l), m}, end);
+                    add_case(result, IntegrityKind::Overshoot, {static_cast<std::int32_t>(l), m}, end,
+                             offending / static_cast<double>(grid.density() * grid.density()));
                 }
             }
         }
@@ -553,7 +579,7 @@ void check_depth(const Grid& grid, const OneX& one, const pic::DrawTrace& trace,
             if ((state.planes & pic::plane_priority) != 0 && one.priority[pixel] > state.priority) {
                 counted[pixel] = true;
                 ++result.depth_violations;
-                add_case(result, IntegrityKind::Depth, {p, one.owner[pixel]}, pixel);
+                add_case(result, IntegrityKind::Depth, {p, one.owner[pixel]}, pixel, 1);
             }
         }
     }
@@ -602,9 +628,11 @@ void check_doubled(const Grid& grid, const OneX& one, const std::vector<LineInfo
             std::vector<std::size_t> others;
             std::ranges::copy_if(pixels, std::back_inserter(others),
                                  [&](std::size_t p) { return one.owner[p] == seen; });
-            if (samples_showing(grid, shown, others) >= threshold) {
+            const int samples = samples_showing(grid, shown, others);
+            if (samples >= threshold) {
                 ++result.doubled;
-                add_case(result, IntegrityKind::Doubled, {shown, seen}, others.front());
+                add_case(result, IntegrityKind::Doubled, {shown, seen}, others.front(),
+                         samples / static_cast<double>(grid.density() * grid.density()));
                 break;
             }
         }

@@ -26,7 +26,9 @@
 // - Break: (a) the samples showing a line over one 8-connected group of the
 //   pixels it owns at 1x are connected; (b) where the end pixel of a line
 //   touches a pixel of another line at 1x (a joint; the agreed reading of
-//   "connected" in A1), the two lines' samples meet near that pixel.
+//   "connected" in A1), a sample showing the line lies in or next to the
+//   other line's stroke near that pixel. What is drawn over the other line
+//   there is a matter of occlusion, which (a) and the depth check measure.
 //
 // The checks only read the scene; they never change it.
 #pragma once
@@ -51,6 +53,10 @@ struct IntegrityCase {
     std::int32_t other = -1;
     int x = 0;
     int y = 0;
+    // How large it is, in original pixels: the area shown for fragments,
+    // overshoots and doubled boundaries, the gap for broken joints, the
+    // number of pieces for split groups (0 when hidden).
+    double size = 0;
 };
 
 struct Integrity {
