@@ -35,6 +35,15 @@
 
 namespace sci::vm {
 
+namespace {
+
+// ABS<int16>: -32768 stays -32768.
+std::int16_t abs16(std::int16_t value) {
+    return static_cast<std::int16_t>(value < 0 ? -value : value);
+}
+
+} // namespace
+
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): kept close to kInitBresen.
 Reg k_init_bresen(Machine& machine, std::span<Reg> args) {
     const SelectorCache& s = machine.selector();
@@ -60,7 +69,7 @@ Reg k_init_bresen(Machine& machine, std::span<Reg> args) {
         dx = x_step;
         dy = y_step;
         incr = 1;
-        if (std::abs(delta_x) >= std::abs(delta_y)) {
+        if (abs16(delta_x) >= abs16(delta_y)) {
             x_axis = 1;
             if (delta_x < 0) {
                 dx = i16(-dx);
@@ -156,7 +165,7 @@ Reg k_do_bresen(Machine& machine, std::span<Reg> args) {
         }
         // SCI0: completed when less than one step is left.
         const bool completed =
-            x_axis != 0 ? std::abs(mover_x - client_x) < std::abs(dx) : std::abs(mover_y - client_y) < std::abs(dy);
+            x_axis != 0 ? std::abs(mover_x - client_x) < abs16(dx) : std::abs(mover_y - client_y) < abs16(dy);
         if (completed) {
             client_x = mover_x;
             client_y = mover_y;
@@ -229,7 +238,7 @@ Reg k_set_jump(Machine& machine, std::span<Reg> args) {
         if (dx + dy < 0) {
             c = (2 * std::abs(dy)) / dx; // dy is negative and |dy| > |dx|.
         } else {
-            c = std::max((dx * 3 / 2 - dy) / dx, 1);
+            c = std::max(((dx * 3 / 2) - dy) / dx, 1);
         }
     }
     const int tmp = (c * dx) + dy;

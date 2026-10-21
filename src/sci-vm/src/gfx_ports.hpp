@@ -147,7 +147,7 @@ public:
     void kernel_graph_adjust_priority(int top, int bottom) { priority_bands_init(14, top, bottom); }
 
     [[nodiscard]] std::uint8_t kernel_coordinate_to_priority(int y) const;
-    [[nodiscard]] int kernel_priority_to_coordinate(int priority) const;
+    [[nodiscard]] int kernel_priority_to_coordinate(int priority_value) const;
     [[nodiscard]] std::vector<Reg> engine_hunks() const;
 
     [[nodiscard]] Window* pic_window() const { return pic_window_; }

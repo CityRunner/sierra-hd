@@ -288,7 +288,6 @@ Reg k_device_info(Machine& machine, std::span<Reg> args) {
     case 2: // Paths equal.
         return number(match_path(segments.get_string(args[2]), segments.get_string(args[1])) ? 1 : 0);
     case 3: // Is floppy: never.
-        return null_reg;
     case 4: // The configuration path: none.
         return null_reg;
     case 5: // The save catalogue's name, for deleting saves.

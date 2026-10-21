@@ -509,7 +509,9 @@ std::uint8_t Ports::kernel_coordinate_to_priority(int y) const {
     return priority_bands_[static_cast<std::size_t>(y)];
 }
 
-int Ports::kernel_priority_to_coordinate(int priority) const {
+int Ports::kernel_priority_to_coordinate(int priority_value) const {
+    // kernelPriorityToCoordinate takes a byte.
+    const auto priority = static_cast<int>(static_cast<unsigned>(priority_value) & 0xFFU);
     if (priority <= priority_band_count_) {
         for (int y = 0; y <= priority_bottom_; ++y) {
             if (std::cmp_equal(priority_bands_[static_cast<std::size_t>(y)], priority)) {

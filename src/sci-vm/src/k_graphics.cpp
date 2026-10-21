@@ -181,7 +181,7 @@ Reg k_text_size(Machine& machine, std::span<Reg> args) {
     const SegManager& segments = machine.segments();
     const std::span<Reg> dest = segments.deref_regs(args[0], 4);
     const std::string text = segments.get_string(args[1]);
-    const int font = args[2].to_uint16();
+    const int font = args[2].to_sint16();                            // int16 in kernelTextSize: -1 keeps the font.
     const int max_width = args.size() > 3 ? args[3].to_sint16() : 0; // int16 in kernelTextSize.
     if (dest.empty()) {
         return machine.acc();
@@ -301,7 +301,11 @@ Reg k_draw_pic(Machine& machine, std::span<Reg> args) {
         add_to = args[2].is_null();
     }
     if (args.size() >= 4) {
-        ega_palette = args[3].to_uint16();
+        // int16 in kDrawPic; the picture takes 0 for anything but 0 to 3.
+        ega_palette = args[3].to_sint16();
+        if (ega_palette < 0 || ega_palette >= 4) {
+            ega_palette = 0;
+        }
     }
     gfx(machine).paint().kernel_draw_picture(picture, animation, blackout, mirrored, add_to, ega_palette);
     return machine.acc();
