@@ -5,12 +5,18 @@ on its own SCI0 interpreter written in C++23. The vector backgrounds are
 re-rendered at high resolution; sprites stay original and are scaled by an
 integer factor. Game logic behaves exactly as in the original.
 
-**Status: milestone 3.** Resources load; pictures, views and fonts draw at 1x
-exactly as in ScummVM; and pictures render as HD vector backgrounds at any
-integer scale. The interpreter itself does not exist yet.
+**Status: milestone 4b (kernel coverage).**
+- The interpreter runs the game: every kernel function the game's scripts
+  use is implemented, with the menus, dialogs and the text parser.
+- Scenario recordings across the main areas give the same kernel calls and
+  the same screens as ScummVM, call by call and pixel for pixel.
+- In HD mode the backgrounds are vector art at any integer scale. Sprites
+  and text are still drawn as enlarged original pixels; HD sprites come
+  later. Sound is silent until milestone 7.
+- The milestone reports are in `reports/`.
 
-You need your own copy of the game (English DOS EGA release). No game files
-are included, and none are ever committed.
+You need your own copy of the game (English DOS EGA release; the GOG
+release works). No game files are included, and none are ever committed.
 
 ## Building
 
@@ -40,18 +46,24 @@ From a Visual Studio developer prompt with LLVM 23.1.4 first on `PATH`, run
 
 ## Running
 
-    build/release/src/app/sierra-hd /path/to/game
+    build/release/src/app/sierra-hd /path/to/game            # the game
+    build/release/src/app/sierra-hd --viewer /path/to/game   # the room viewer of release 0.1
 
-Release v0.1 is the room viewer in a window. It shows every picture (HD or
-original, visual or priority map), every view with its animation, and every
-font, at any whole-number scale. `sierra-hd --help` lists the keys, and
-`docs/USER-README.md` is the user guide that ships with the binaries. The
-program reads `sierra-hd.ini` and `hints/` next to the executable; in a
-build tree, copy `hints/` next to it, or the HD pictures are drawn without
-hints.
+- **In the game:** F12 switches between HD and the original look, and F11
+  or Alt+Enter toggles fullscreen.
+- **The room viewer** shows every picture (HD or original, visual or
+  priority map), every view with its animation, and every font.
+- **Analysis:** the first launch analyses all pictures for HD, behind a
+  progress bar, and keeps the result in `cache/`.
+- **Files:** the program reads `sierra-hd.ini` and `hints/` next to the
+  executable. In a build tree, copy `hints/` next to it, or the HD pictures
+  are drawn without hints.
+- **Help:** `sierra-hd --help` lists the keys and options.
+  `docs/USER-README.md` is the user guide that ships with the binaries.
 
-Release binaries for Linux and Windows are built by the release workflow
-(`.github/workflows/release.yml`) and attached to the GitHub releases.
+Release binaries for Linux, Windows and macOS are built by the release
+workflow (`.github/workflows/release.yml`) for version tags and attached to
+the GitHub releases.
 
 The development room viewer writes the same images to PNG files
 (`tools/room-viewer/README.md`):
@@ -61,6 +73,7 @@ The development room viewer writes the same images to PNG files
 
 ## Checks
 
+    scripts/pre-push.sh                                # everything below, the sanitizers, fuzzing and ARM64
     docker/run.sh scripts/check-format.sh              # clang-format
     docker/run.sh python3 scripts/check-repo-policy.py # no game data, no float
     docker/run.sh python3 scripts/check-hints.py       # hint files against their schema
@@ -79,7 +92,22 @@ The development room viewer writes the same images to PNG files
 - `reports/`: milestone reports
 - `THIRD_PARTY.md`: third-party components and their licences
 
-## Licence
+## How it is developed
+
+The project is built milestone by milestone against a written
+specification, with ScummVM as the behavioural reference. The changes to
+that specification are in `docs/SPEC_ADDENDA.md`, every decision is in
+`docs/ASSUMPTIONS.md`, and each milestone ends with a report in `reports/`.
+Most of the code is written by Claude, Anthropic's AI model, through Claude
+Code. See `CONTRIBUTING.md` before opening an issue or a pull request.
+
+## Licence and trademarks
 
 GPL version 3 or later (see `LICENSE`). The SCI logic is ported from
-ScummVM, which is GPL v3 or later.
+ScummVM, which is GPL v3 or later; `THIRD_PARTY.md` lists the ported code
+and the vendored components.
+
+This is an unofficial project, not affiliated with or endorsed by Sierra,
+Activision or ScummVM. *The Colonel's Bequest* and Sierra are trademarks of
+their respective owners. The repository contains no game data: you need
+your own copy of the game.
