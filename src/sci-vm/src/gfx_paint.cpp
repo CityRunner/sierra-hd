@@ -84,15 +84,20 @@ void Paint::draw_picture(int picture, bool mirrored, bool add_to, int ega_palett
         graphics_->faults().raise(std::format("pic.{:03}: {}", picture, drawn.error().message));
         return;
     }
+    const std::vector<std::uint8_t> visual_before = add_to ? screen.visual_map() : std::vector<std::uint8_t>{};
     screen.visual_map() = maps_.visual;
     screen.priority_map() = maps_.priority;
     screen.control_map() = maps_.control;
+    if (add_to) {
+        screen.cover_changes(visual_before);
+    } else {
+        screen.uncover_picture();
+    }
     if (drawn->priority_bands) {
         ports.priority_bands_init(*drawn->priority_bands);
     }
     if (!add_to) {
-        drawn_picture_ =
-            Picture{.number = picture, .mirrored = mirrored, .ega_palette = ega_palette, .visual = screen.visual_map()};
+        drawn_picture_ = Picture{.number = picture, .mirrored = mirrored, .ega_palette = ega_palette};
     }
 }
 

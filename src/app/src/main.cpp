@@ -4,6 +4,7 @@
 // release v0.1 (milestone 3a) with --viewer.
 //
 //   sierra-hd [--viewer] [game folder]
+//   sierra-hd [--replay <file>] [--seed <n>] [game folder]
 //   sierra-hd --version | --help
 //
 // The configuration file sierra-hd.ini and the hint files (hints/) are
@@ -13,18 +14,21 @@
 #include "game_screen.hpp"
 #include "hd_pictures.hpp"
 #include "sci/core/assert.hpp"
+#include "sci/core/error.hpp"
 #include "sci/core/fp_profile.hpp"
 #include "sci/core/log.hpp"
 #include "sci/platform/config.hpp"
 #include "sci/platform/game_files.hpp"
 #include "sci/platform/identify.hpp"
 #include "sci/platform/thread_executor.hpp"
+#include "sci/vm/events.hpp"
 #include "sci/vm/game.hpp"
 #include "viewer.hpp"
 
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
@@ -36,6 +40,7 @@
 #include <print>
 #include <source_location>
 #include <span>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -50,7 +55,12 @@ namespace fs = std::filesystem;
 using sci::app::Command;
 
 constexpr std::string_view help_text = "usage: sierra-hd [--viewer] [game folder]\n"
+                                       "       sierra-hd [--replay <file>] [--seed <n>] [game folder]\n"
                                        "       sierra-hd --version | --help\n"
+                                       "\n"
+                                       "--replay plays the input of a replay file\n"
+                                       "(docs/formats/replay-and-trace.md) into the game, with the\n"
+                                       "random seed of --seed (default 0); keyboard and mouse still work.\n"
                                        "\n"
                                        "In the game:\n"
                                        "  F12               HD or original mode\n"
@@ -669,20 +679,73 @@ private:
     SDL_Cursor* cursor_ = nullptr;
 };
 
-int run(std::span<char*> args) {
+struct Options {
+    bool viewer = false;
+    std::optional<fs::path> game_folder;
+    std::optional<fs::path> replay;
+    std::optional<std::uint32_t> seed;
+};
+
+// The command line, or nothing if it is not valid.
+std::optional<Options> parse_options(std::span<char*> args) {
+    Options options;
+    for (std::size_t i = 1; i < args.size(); ++i) {
+        const std::string_view arg = args[i];
+        const bool has_value = i + 1 < args.size();
+        if (arg == "--viewer") {
+            options.viewer = true;
+        } else if (arg == "--replay" && has_value) {
+            options.replay = fs::path(args[++i]);
+        } else if (arg == "--seed" && has_value) {
+            const std::string_view value = args[++i];
+            std::uint32_t seed = 0;
+            const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), seed);
+            if (error != std::errc{} || end != value.data() + value.size()) {
+                return std::nullopt;
+            }
+            options.seed = seed;
+        } else if (!arg.starts_with('-') && !options.game_folder) {
+            options.game_folder = fs::path(arg);
+        } else {
+            return std::nullopt;
+        }
+    }
+    if (options.viewer && (options.replay || options.seed)) {
+        return std::nullopt;
+    }
+    return options;
+}
+
+// The input events of a replay file; an error message if it cannot be read.
+sci::core::Result<std::vector<sci::vm::InputEvent>> read_replay(const fs::path& path) {
+    std::ifstream file(path, std::ios::binary);
+    std::stringstream text;
+    text << file.rdbuf();
+    if (!file) {
+        return sci::core::make_error(sci::core::ErrorCode::NotFound, std::format("Cannot read {}", path.string()));
+    }
+    return sci::vm::parse_replay(text.str());
+}
+
+int run(const Options& options) {
     const fs::path base = base_path();
     const fs::path config_path = base / "sierra-hd.ini";
     auto config = load_config(config_path);
     if (!config) {
         return 1;
     }
-    bool viewer_mode = false;
-    for (const char* arg : args.subspan(1)) {
-        if (std::string_view(arg) == "--viewer") {
-            viewer_mode = true;
-        } else {
-            config->game_folder = fs::path(arg);
+    if (options.game_folder) {
+        config->game_folder = *options.game_folder;
+    }
+    const bool viewer_mode = options.viewer;
+    std::vector<sci::vm::InputEvent> replay;
+    if (options.replay) {
+        auto events = read_replay(*options.replay);
+        if (!events) {
+            show_error(nullptr, std::format("{}: {}", options.replay->string(), events.error().message));
+            return 1;
         }
+        replay = std::move(*events);
     }
     const std::unique_ptr<SDL_Window, SdlDeleter> window(
         SDL_CreateWindow("sierra-hd", sci::app::screen_width * 3, sci::app::screen_height * 3,
@@ -713,8 +776,13 @@ int run(std::span<char*> args) {
         sci::app::HdPictures pictures(game->manager, hint_directory(base), executor);
         sci::app::DirectoryFileStore files(base / "files", game->files);
         GameHost host(window.get(), renderer.get(), game->manager, pictures, *config);
-        // A different seed every time, as ScummVM seeds its random source.
-        sci::vm::Game running(game->manager, host, &files, static_cast<std::uint32_t>(SDL_GetPerformanceCounter()));
+        // A different seed every time, as ScummVM seeds its random source;
+        // a replay's run starts from a known one.
+        const std::uint32_t seed = options.replay
+                                       ? options.seed.value_or(0)
+                                       : options.seed.value_or(static_cast<std::uint32_t>(SDL_GetPerformanceCounter()));
+        sci::vm::Game running(game->manager, host, &files, seed);
+        running.schedule(replay);
         if (const auto fault = running.run()) {
             show_error(window.get(), std::format("The interpreter stopped: {}", *fault));
             result = 1;
@@ -732,10 +800,8 @@ int main(int argc, char** argv) {
         std::println("sierra-hd {}", SCI_VERSION);
         return 0;
     }
-    const auto is_option = [](const char* arg) {
-        return std::string_view(arg).starts_with('-') && std::string_view(arg) != "--viewer";
-    };
-    if (args.size() > 3 || std::ranges::any_of(args.subspan(1), is_option)) {
+    const auto options = parse_options(args);
+    if (!options) {
         std::print("{}", help_text);
         return args.size() == 2 && std::string_view(args[1]) == "--help" ? 0 : 2;
     }
@@ -750,7 +816,7 @@ int main(int argc, char** argv) {
         std::println(stderr, "Cannot start SDL: {}", SDL_GetError());
         return 1;
     }
-    const int result = run(args);
+    const int result = run(*options);
     SDL_Quit();
     return result;
 }

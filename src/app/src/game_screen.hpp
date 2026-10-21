@@ -46,7 +46,7 @@ private:
     HdBackground background_;
     std::vector<std::uint8_t> frame_;
     std::vector<std::uint8_t> last_visual_;
-    std::vector<std::uint8_t> last_picture_visual_;
+    std::vector<std::uint8_t> last_cover_;
     int last_picture_ = -2;
     bool last_mirrored_ = false;
     int last_ega_palette_ = 0;

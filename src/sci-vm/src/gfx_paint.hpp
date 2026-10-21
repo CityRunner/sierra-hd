@@ -67,14 +67,13 @@ public:
     void kernel_graph_redraw_box(Rect rect);
     Reg kernel_display(const std::string& text, std::span<Reg> args);
 
-    // The last picture drawn without adding to the previous one, with the
-    // visual map as it left it, for the HD background; and the one shown,
-    // which a transition (or a redraw under a window) makes the drawn one.
+    // The last picture drawn without adding to the previous one, for the HD
+    // background; and the one shown, which a transition (or a redraw under a
+    // window) makes the drawn one.
     struct Picture {
         int number = -1;
         bool mirrored = false;
         int ega_palette = 0;
-        std::vector<std::uint8_t> visual;
     };
 
     void picture_shown() { shown_picture_ = drawn_picture_; }

@@ -103,7 +103,7 @@ bool Files::close(std::uint16_t number) {
     return true;
 }
 
-std::optional<std::string> Files::read_line(std::uint16_t number, int max_size, std::string& error) {
+std::optional<Files::Line> Files::read_line(std::uint16_t number, int max_size, std::string& error) {
     Handle* file = handle(number);
     if (file == nullptr) {
         return std::nullopt;
@@ -113,6 +113,7 @@ std::optional<std::string> Files::read_line(std::uint16_t number, int max_size, 
         return std::nullopt;
     }
     std::string line;
+    std::size_t bytes = 0;
     const std::vector<std::uint8_t>& data = *file->in;
     if (max_size > 1 && file->position < data.size()) {
         // SeekableReadStream::readLine: up to and with a line feed; a
@@ -132,11 +133,12 @@ std::optional<std::string> Files::read_line(std::uint16_t number, int max_size, 
         if (const auto nul = line.find('\0'); nul != std::string::npos) {
             line.resize(nul);
         }
+        bytes = line.size();
         if (!line.empty() && line.back() == '\n') {
             line.pop_back();
         }
     }
-    return line;
+    return Line{.text = std::move(line), .bytes = bytes};
 }
 
 std::optional<std::size_t> Files::write(std::uint16_t number, std::string_view text) {

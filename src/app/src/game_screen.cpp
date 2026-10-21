@@ -195,8 +195,8 @@ void GameScreen::draw_pixel(const vm::ShownScreen& shown, const render::RgbaImag
     const int width = screen_width * scale_;
     const std::size_t at = (static_cast<std::size_t>(y) * screen_width) + static_cast<std::size_t>(x);
     const std::uint8_t color = shown.visual[at];
-    const bool from_picture = background != nullptr && y >= picture_top && at < shown.picture_visual.size() &&
-                              shown.picture_visual[at] == color;
+    const bool from_picture =
+        background != nullptr && y >= picture_top && at < shown.cover.size() && shown.cover[at] == 0;
     const render::Rgb8 rgb = render::ega_palette[color & 0x0FU];
     for (int dy = 0; dy < scale_; ++dy) {
         const int row = (y * scale_) + dy;
@@ -224,18 +224,17 @@ void GameScreen::draw_pixel(const vm::ShownScreen& shown, const render::RgbaImag
 
 void GameScreen::update(const vm::ShownScreen& shown, platform::GraphicsMode mode, int scale) {
     const std::size_t pixels = static_cast<std::size_t>(screen_width) * screen_height;
-    if (shown.visual.size() != pixels) {
+    if (shown.visual.size() != pixels || shown.cover.size() != pixels) {
         return; // Nothing shown yet.
     }
     const render::RgbaImage* background = nullptr;
     if (mode == platform::GraphicsMode::Hd && shown.picture >= 0) {
         background = background_(shown.picture, shown.mirrored, shown.ega_palette, scale);
     }
-    const bool picture_changed = shown.picture != last_picture_ || shown.mirrored != last_mirrored_ ||
-                                 shown.ega_palette != last_ega_palette_ ||
-                                 !std::ranges::equal(shown.picture_visual, last_picture_visual_);
+    const bool picture_changed =
+        shown.picture != last_picture_ || shown.mirrored != last_mirrored_ || shown.ega_palette != last_ega_palette_;
     const bool full = scale != scale_ || mode != mode_ || last_visual_.size() != pixels ||
-                      (mode == platform::GraphicsMode::Hd && picture_changed);
+                      last_cover_.size() != pixels || (mode == platform::GraphicsMode::Hd && picture_changed);
     if (scale != scale_) {
         scale_ = scale;
         frame_.assign(pixels * static_cast<std::size_t>(scale) * static_cast<std::size_t>(scale) * 4, 0);
@@ -248,7 +247,7 @@ void GameScreen::update(const vm::ShownScreen& shown, platform::GraphicsMode mod
     for (int y = 0; y < screen_height; ++y) {
         for (int x = 0; x < screen_width; ++x) {
             const std::size_t at = (static_cast<std::size_t>(y) * screen_width) + static_cast<std::size_t>(x);
-            if (!full && shown.visual[at] == last_visual_[at]) {
+            if (!full && shown.visual[at] == last_visual_[at] && shown.cover[at] == last_cover_[at]) {
                 continue;
             }
             draw_pixel(shown, background, x, y);
@@ -265,7 +264,7 @@ void GameScreen::update(const vm::ShownScreen& shown, platform::GraphicsMode mod
                               .height = (bottom - top + 1) * scale_});
     }
     last_visual_.assign(shown.visual.begin(), shown.visual.end());
-    last_picture_visual_.assign(shown.picture_visual.begin(), shown.picture_visual.end());
+    last_cover_.assign(shown.cover.begin(), shown.cover.end());
     last_picture_ = shown.picture;
     last_mirrored_ = shown.mirrored;
     last_ega_palette_ = shown.ega_palette;

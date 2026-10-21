@@ -191,6 +191,8 @@ int main(int argc, char** argv) {
     options.trace = [&](std::string_view line) { trace << line << '\n'; };
     std::uint32_t next_screen = 0;
     if (!screens.empty()) {
+        std::error_code created;
+        std::filesystem::create_directories(screens, created);
         options.on_tick = [&](std::uint32_t tick, std::span<const std::uint8_t> shown) {
             if (tick >= next_screen) {
                 write_screen(screens / std::format("{:06}.ppm", tick), shown);

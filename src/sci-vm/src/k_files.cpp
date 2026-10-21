@@ -89,16 +89,17 @@ Reg k_file_io_read_string(Machine& machine, std::span<Reg> args) {
         machine.faults().raise(error);
         return null_reg;
     }
-    const std::string read = line.value_or(std::string{});
+    const std::string read = line ? line->text : std::string{};
+    const std::size_t bytes_read = line ? line->bytes : 0;
     const SegmentRef dest = machine.segments().dereference(args[0]);
     if (!dest.valid()) {
         machine.faults().raise(
             std::format("kFileIO(readString): invalid destination {:04x}:{:04x}", args[0].segment, args[0].offset));
         return null_reg;
     }
-    if (std::cmp_greater(read.size(), dest.max_size)) {
+    if (std::cmp_greater(bytes_read, dest.max_size)) {
         machine.faults().raise(std::format("kFileIO(readString) attempting to read {} bytes into buffer of size {}",
-                                           read.size(), dest.max_size));
+                                           bytes_read, dest.max_size));
         return null_reg;
     }
     max_size = std::min(max_size, static_cast<std::size_t>(dest.max_size));
@@ -106,7 +107,7 @@ Reg k_file_io_read_string(Machine& machine, std::span<Reg> args) {
     std::vector<std::uint8_t> buffer(max_size, 0);
     std::copy_n(read.begin(), std::min(read.size(), max_size), buffer.begin());
     machine.segments().memcpy(args[0], buffer);
-    return read.empty() ? null_reg : args[0];
+    return bytes_read == 0 ? null_reg : args[0];
 }
 
 Reg k_file_io_write_string(Machine& machine, std::span<Reg> args) {

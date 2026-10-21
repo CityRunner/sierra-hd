@@ -60,7 +60,7 @@ ShownScreen Game::screen() const {
     shown.picture = picture.number;
     shown.mirrored = picture.mirrored;
     shown.ega_palette = picture.ega_palette;
-    shown.picture_visual = picture.visual;
+    shown.cover = screen.shown_cover();
     const Cursor& cursor = graphics.cursor();
     shown.cursor = cursor.visible() ? cursor.shape() : -1;
     shown.mouse = state_->subsystems.events().mouse();
@@ -69,6 +69,12 @@ ShownScreen Game::screen() const {
 
 void Game::input(const SciEvent& event) {
     state_->subsystems.events().push(event);
+}
+
+void Game::schedule(std::span<const InputEvent> events) {
+    for (const InputEvent& event : events) {
+        state_->subsystems.events().schedule(event);
+    }
 }
 
 void Game::move_mouse(Point position) {

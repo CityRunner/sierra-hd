@@ -42,12 +42,12 @@ struct ShownScreen {
     std::span<const std::uint8_t> visual;
     // Counts the changes of `visual`.
     std::uint64_t serial = 0;
-    // The picture shown, as drawn without later additions, and the visual
-    // map it left: where `visual` differs, something is drawn over it.
+    // The picture shown (as drawn without later additions), and the cover
+    // map: 1 where something else is drawn over it, 0 where it shows.
     int picture = -1;
     bool mirrored = false;
     int ega_palette = 0;
-    std::span<const std::uint8_t> picture_visual;
+    std::span<const std::uint8_t> cover;
     // The mouse cursor: its resource, or -1 when hidden; the mouse in 1x.
     int cursor = -1;
     Point mouse;
@@ -68,6 +68,8 @@ public:
     [[nodiscard]] ShownScreen screen() const;
     // Input now. Mouse events carry their position in 1x.
     void input(const SciEvent& event);
+    // Input due at game ticks (a replay file), alongside the host's.
+    void schedule(std::span<const InputEvent> events);
     void move_mouse(Point position);
     // Ends the game at its next event poll, as quitting ScummVM does.
     void quit();
