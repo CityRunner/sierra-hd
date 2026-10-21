@@ -778,6 +778,113 @@ The customer decided:
 - **Release v0.1** is tagged after the merge, as a GitHub pre-release.
   **Decided.**
 
+## Milestone 4a: the VM boot gate (2026-10-21)
+
+Reference and comparison:
+
+- **ScummVM's Event Recorder is not used** (spec section 7). It records
+  the backend's events with millisecond timestamps of real time, in a
+  binary file tied to ScummVM's event manager and its own timer and random
+  seeding, and replays them only inside ScummVM. A replay must instead be
+  timed in game ticks, be readable by both interpreters and be written by
+  hand for short scenarios. The format is our own text format
+  (`docs/formats/replay-and-trace.md`). **Decided.**
+- **The deterministic mode of the reference** is the patch
+  `tools/scummvm-patches/0003-deterministic-trace.patch`: a virtual clock
+  advanced only by ScummVM's sleeps and waits and by kGetEvent's 10 ms
+  delay; the music timer once per base tempo of the driver on that clock
+  (4 ms for AdLib); the `sci` random source seeded with the run's seed at
+  initGame; a fixed date (1990-01-01 12:00); replayed input and a virtual
+  mouse; every kernel call written to the trace. At the stop the patch
+  calls `quitGame()`, so the game ends at its next event poll. **Decided.**
+- **Reference runs use the AdLib driver** (`--music-driver=adlib`), whose
+  timer sets the music timing. MT-32 timing is compared at milestone 7.
+  **Decided.**
+- **Detected features are fixed for this game**, with the values the
+  reference detects (`--debugflags` output): graphics functions of late
+  SCI0, the early-SCI0 kSetCursor, move counts incremented, no fast cast,
+  no pseudo mouse, DOS (modifiers with 0x0200). Only the SCI0-late code
+  paths of ScummVM are ported. **Decided.**
+
+Behaviour kept from ScummVM's release build:
+
+- **Reading an uninitialised temporary** warns and gives 0, as ScummVM's
+  release build does, unless a workaround gives another value. **Decided.**
+- **`error()` becomes a fault**: the first message is kept and the
+  interpreter stops (`Faults`); warnings go to the log category `vm`.
+  ScummVM's asserts are faults too (for example a song volume above 127).
+  **Decided.**
+- **Unported kernel functions fault** with "<name> is not implemented".
+  For 4b: Parse, Said, MenuSelect, DrawControl, HiliteControl,
+  EditControl, the four file functions, SaveGame, RestoreGame,
+  CheckSaveGame, GetSaveFiles, DoAvoider, SetJump. kDeviceInfo compares
+  paths for equality where ScummVM matches a pattern; 4b ports
+  `matchString`. **Decided.**
+- **Script patches**: the 16 entries of ScummVM's Laura Bow 1 table are
+  ported with their signatures and comments; ScummVM applies no generic
+  patches. In the tested release four apply, at the same offsets as in the
+  reference: the obstacle collision fix (script 998), the two speed-test
+  patches (script 99) and the copy-protection random fix (script 414).
+  **Decided.**
+
+Determinism (spec section 5.3):
+
+- **sin and cos** (kTimesSin, kTimesCos, kSinDiv, kCosDiv, kGetDistance)
+  come from a table of glibc's results for the angles -360 to 360
+  (`scripts/gen-trigonometry.py`), so they are the reference's on every
+  platform. Correctly rounded values differ from glibc's at four angles.
+  Other angles use the angle modulo 360, which can differ from glibc's
+  result in the last bits. **Decided.**
+- **kSqrt and kGetDistance** compute in binary32 in ScummVM. Since only
+  `double` is allowed, each step is computed in `double` and rounded to
+  binary32: for addition, multiplication and square root this gives the
+  binary32 result exactly (53 >= 2 x 24 + 2). **Decided.**
+- **kStrCmp** returns what glibc's strcmp and strncmp return, the
+  difference of the first differing bytes. The C library only fixes the
+  sign; the optimised build returned 1 where glibc returns 70, which the
+  ASan run found. **Decided.**
+- **Animate's sort** is a stable sort with ScummVM's comparator, which is a
+  total order (it ends on the given order), so the result is the one
+  ScummVM's unstable sort gives. **Decided.**
+
+Graphics at 1x:
+
+- **The display map is the visual map.** ScummVM keeps both; they hold the
+  same pixels when EGA undithering is off, ScummVM's default and the
+  reference's setting. Showing bits only checks the rectangle, since
+  presenting the screen is the program's job. **Decided.**
+- **Transitions take no virtual time**, except the palette fade (22 sleeps
+  of two ticks), because ScummVM waits for the other transitions in real
+  time, which the virtual clock does not see. **Decided.**
+- **kDrawPic supports only the default picture window** (top 10, 320 x
+  190), the one sci-pic draws into; another faults. The game uses only
+  this one. **Decided.**
+- **kMenuSelect** (the interactive menu) is 4b; entries, attributes, the
+  bar and the status line are ported. **Decided.**
+
+Sound:
+
+- **The music player is in sci-vm, not sci-audio** (spec section 4.1 lists
+  the silent driver under sci-audio). As in ScummVM, the player keys songs
+  by VM object, writes their signals and is driven by kDoSound, so it
+  belongs with the kernel functions; what reaches the silent driver is
+  dropped. The device layer (OPL, MT-32, mixer) goes into sci-audio at
+  milestone 7, under this player. **Assumed; for the customer to
+  confirm.**
+- The game has no SCI0 sound with a digital sample, so one faults.
+  ScummVM's volume round trip through its configuration value always
+  returns the same volume, so kDoSound MasterVolume is a plain set. The
+  master volume starts at 11, ScummVM's default music volume of 192.
+  **Decided.**
+
+Scope:
+
+- **The program does not run the VM yet, and the analysis cache stays
+  deferred.** The 4a gate needs only the deterministic runs. Running the
+  game in the window, with the cache of spec section 10.2, is proposed
+  for 4b. **Assumed; for the customer to confirm** (the cache was
+  deferred to milestone 4 at the 3a gate).
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with
@@ -785,7 +892,7 @@ The customer decided:
   the milestone 3 gate).
 - ScummVM's Event Recorder is evaluated as the basis of the replay format
   before that format is designed (spec section 7, needed from milestone 4a).
-  **Pending.**
+  **Decided** at milestone 4a: not used (see there).
 
 ## Milestone 0 placeholders
 

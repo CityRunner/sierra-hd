@@ -24,6 +24,10 @@ and compares the traces; the reference side is the patch
   is seeded with the seed of the run (default 0) when the game starts or
   restarts.
 - **Date and time.** `kGetTime` returns Monday 1990-01-01, 12:00:00.
+- **Stopping.** At the stop tick or call count the reference calls
+  `quitGame()`, so the game gets a quit event at its next poll of the
+  event queue and stops at that kernel call. sci-vm does the same (and,
+  should the game never poll, stops a minute of virtual time later).
 - **Input.** Only replayed events reach the game; host input is ignored
   except for quitting. The mouse position is virtual: it starts at the
   centre of the screen (160, 100), follows replayed mouse events and is
