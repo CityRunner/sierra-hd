@@ -1,0 +1,12 @@
+sierra-hd replay 1
+# Opens the menu with Escape, walks it with the arrows, closes it.
+600 key 27
+640 key 19712
+680 key 20480
+720 key 20480
+760 key 19200
+800 key 27
+# Opens the menu again and chooses the first item of the first menu.
+1200 key 27
+1240 key 19200
+1300 key 13

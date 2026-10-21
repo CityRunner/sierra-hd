@@ -77,6 +77,48 @@ SCI_TEST(queue_delivers_input_when_due_and_peeks_without_removing) {
     SCI_CHECK(queue.get(0x7FFF, 25).type == sci::vm::event_none);
 }
 
+SCI_TEST(pushed_keys_take_the_mouse_position_and_mouse_events_set_it) {
+    EventQueue queue;
+    queue.push(sci::vm::SciEvent{
+        .type = sci::vm::event_key_down,
+        .modifiers = sci::vm::modifier_none,
+        .character = 'a',
+        .mouse = {.x = 1, .y = 2},
+    });
+    queue.push(sci::vm::SciEvent{
+        .type = sci::vm::event_mouse_press,
+        .modifiers = sci::vm::modifier_shift,
+        .character = 0,
+        .mouse = {.x = 30, .y = 40},
+    });
+    SCI_CHECK(queue.mouse() == sci::vm::Point{.x = 30, .y = 40});
+    queue.push(sci::vm::SciEvent{
+        .type = sci::vm::event_key_up,
+        .modifiers = sci::vm::modifier_none,
+        .character = 'a',
+        .mouse = {.x = 5, .y = 6},
+    });
+    queue.push(sci::vm::SciEvent{
+        .type = sci::vm::event_mouse_release,
+        .modifiers = sci::vm::modifier_none,
+        .character = 0,
+        .mouse = {.x = 50, .y = 60},
+    });
+    SCI_CHECK(queue.mouse() == sci::vm::Point{.x = 50, .y = 60});
+    // The key down came before any mouse event: the start position.
+    const auto key_down = queue.get(0x7FFF, 0);
+    SCI_CHECK(key_down.type == sci::vm::event_key_down && key_down.character == 'a');
+    SCI_CHECK(key_down.mouse == sci::vm::Point{.x = 160, .y = 100});
+    const auto press = queue.get(0x7FFF, 0);
+    SCI_CHECK(press.type == sci::vm::event_mouse_press && press.modifiers == sci::vm::modifier_shift);
+    SCI_CHECK(press.mouse == sci::vm::Point{.x = 30, .y = 40});
+    // The key up came after the press: its position, not the key's own.
+    const auto key_up = queue.get(0x7FFF, 0);
+    SCI_CHECK(key_up.type == sci::vm::event_key_up && key_up.mouse == sci::vm::Point{.x = 30, .y = 40});
+    const auto release = queue.get(0x7FFF, 0);
+    SCI_CHECK(release.type == sci::vm::event_mouse_release && release.mouse == sci::vm::Point{.x = 50, .y = 60});
+}
+
 SCI_TEST(a_quit_request_comes_with_the_next_poll) {
     EventQueue queue;
     queue.request_quit();
@@ -93,6 +135,34 @@ SCI_TEST(wait_sleeps_the_rest_of_the_ticks_since_the_last_wait) {
     clock.advance(200);
     SCI_CHECK(clock.wait(1) == 12); // No sleep; 200 ms passed.
     SCI_CHECK(clock.millis() == 300);
+}
+
+SCI_TEST(an_elapsed_time_read_right_after_another_lets_1_ms_pass) {
+    Clock clock;
+    // The first read never advances, whatever its call number.
+    clock.read_elapsed(5);
+    SCI_CHECK(clock.millis() == 0);
+    // Kernel calls 6 and 7 read again with nothing between.
+    clock.read_elapsed(6);
+    SCI_CHECK(clock.millis() == 1);
+    clock.read_elapsed(7);
+    SCI_CHECK(clock.millis() == 2);
+    // Call 8 was something else: the read in call 9 is not a busy wait.
+    clock.read_elapsed(9);
+    SCI_CHECK(clock.millis() == 2);
+    clock.read_elapsed(10);
+    SCI_CHECK(clock.millis() == 3);
+    // The same call again is no later read either.
+    clock.read_elapsed(10);
+    SCI_CHECK(clock.millis() == 3);
+
+    Clock first;
+    first.read_elapsed(1);
+    SCI_CHECK(first.millis() == 0);
+    first.read_elapsed(3);
+    SCI_CHECK(first.millis() == 0);
+    first.read_elapsed(4);
+    SCI_CHECK(first.millis() == 1);
 }
 
 SCI_TEST(throttler_sleeps_only_when_triggered) {

@@ -189,6 +189,9 @@ public:
     // The kernel-call log: every call with its arguments and result.
     void set_kernel_log(std::function<void(const KernelCall&)> log) { kernel_log_ = std::move(log); }
 
+    // The kernel calls made so far, counting the one in progress.
+    [[nodiscard]] std::uint64_t kernel_calls() const { return kernel_calls_; }
+
     // Where scripts may write a workaround solution (trackOriginAndFindWorkaround).
     WorkaroundSolution find_workaround(int index, std::span<const WorkaroundEntry> list);
 
@@ -207,6 +210,9 @@ public:
 
     // EngineState::shrinkStackToBase.
     void shrink_stack_to_base();
+
+    // Where the running run_vm started: 0 unless a kernel function invoked it.
+    [[nodiscard]] int execution_stack_base() const { return execution_stack_base_; }
 
 private:
     struct Variables {
@@ -256,6 +262,7 @@ private:
     int gc_count_down_ = 0;
     std::uint32_t steps_ = 0;
     std::function<void(const KernelCall&)> kernel_log_;
+    std::uint64_t kernel_calls_ = 0;
 };
 
 } // namespace sci::vm

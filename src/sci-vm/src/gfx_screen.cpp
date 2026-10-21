@@ -26,7 +26,10 @@
 
 #include "gfx_screen.hpp"
 
+#include "sci/pic/picture_maps.hpp"
+
 #include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <utility>
 
@@ -50,7 +53,8 @@ std::int16_t read16(std::span<const std::uint8_t> memory, std::size_t at) {
 
 Screen::Screen()
     : visual_(static_cast<std::size_t>(width) * height, 0), priority_(static_cast<std::size_t>(width) * height, 0),
-      control_(static_cast<std::size_t>(width) * height, 0) {
+      control_(static_cast<std::size_t>(width) * height, 0), cover_(static_cast<std::size_t>(width) * height, 1),
+      shown_(static_cast<std::size_t>(width) * height, 0), shown_cover_(static_cast<std::size_t>(width) * height, 1) {
 }
 
 void Screen::put_pixel(int x, int y, std::uint8_t draw_mask, std::uint8_t color, std::uint8_t priority,
@@ -58,6 +62,7 @@ void Screen::put_pixel(int x, int y, std::uint8_t draw_mask, std::uint8_t color,
     const std::size_t offset = index(x, y);
     if ((draw_mask & mask_visual) != 0) {
         visual_[offset] = color;
+        cover_[offset] = 1;
     }
     if ((draw_mask & mask_priority) != 0) {
         priority_[offset] = priority;
@@ -170,7 +175,7 @@ void Screen::bits_save(const Rect& rect, std::uint8_t mask, std::span<std::uint8
     };
     if ((mask & mask_visual) != 0) {
         save(visual_);
-        save(visual_); // The display map.
+        save(cover_); // In place of the display map.
     }
     if ((mask & mask_priority) != 0) {
         save(priority_);
@@ -205,13 +210,42 @@ void Screen::bits_restore(std::span<const std::uint8_t> memory) {
     };
     if ((mask & mask_visual) != 0) {
         restore(&visual_);
-        restore(nullptr); // The display map, the same pixels here.
+        restore(&cover_); // In place of the display map.
     }
     if ((mask & mask_priority) != 0) {
         restore(&priority_);
     }
     if ((mask & mask_control) != 0) {
         restore(&control_);
+    }
+}
+
+void Screen::show(const Rect& rect) {
+    Rect clipped = rect;
+    clipped.clip(Rect::from(0, 0, width, height));
+    bool changed = false;
+    for (int y = clipped.top; y < clipped.bottom; ++y) {
+        for (int x = clipped.left; x < clipped.right; ++x) {
+            const std::size_t i = index(x, y);
+            changed = changed || shown_[i] != visual_[i] || shown_cover_[i] != cover_[i];
+            shown_[i] = visual_[i];
+            shown_cover_[i] = cover_[i];
+        }
+    }
+    if (changed) {
+        ++shown_serial_;
+    }
+}
+
+void Screen::uncover_picture() {
+    std::fill(cover_.begin() + static_cast<std::ptrdiff_t>(index(0, pic::picture_top)), cover_.end(), 0);
+}
+
+void Screen::cover_changes(std::span<const std::uint8_t> visual_before) {
+    for (std::size_t i = 0; i < cover_.size() && i < visual_before.size(); ++i) {
+        if (visual_[i] != visual_before[i]) {
+            cover_[i] = 1;
+        }
     }
 }
 

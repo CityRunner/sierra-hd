@@ -1,25 +1,35 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// sierra-hd, release v0.1: the room viewer in a window (spec section 12,
-// milestone 3a). The interpreter itself follows from milestone 4.
+// sierra-hd: the game in a window (milestone 4b), and the room viewer of
+// release v0.1 (milestone 3a) with --viewer.
 //
-//   sierra-hd [game folder]
+//   sierra-hd [--viewer] [game folder]
+//   sierra-hd [--replay <file>] [--seed <n>] [game folder]
 //   sierra-hd --version | --help
 //
 // The configuration file sierra-hd.ini and the hint files (hints/) are
 // next to the executable (spec section 10.2).
 
+#include "file_store.hpp"
+#include "game_screen.hpp"
+#include "hd_pictures.hpp"
 #include "sci/core/assert.hpp"
+#include "sci/core/error.hpp"
 #include "sci/core/fp_profile.hpp"
 #include "sci/core/log.hpp"
 #include "sci/platform/config.hpp"
 #include "sci/platform/game_files.hpp"
 #include "sci/platform/identify.hpp"
 #include "sci/platform/thread_executor.hpp"
+#include "sci/vm/events.hpp"
+#include "sci/vm/game.hpp"
 #include "viewer.hpp"
 
 #include <SDL3/SDL.h>
 #include <algorithm>
+#include <array>
+#include <charconv>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <format>
@@ -30,18 +40,33 @@
 #include <print>
 #include <source_location>
 #include <span>
+#include <sstream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
+
+// SDL's window coordinates (single precision). They only place the pointer;
+// nothing that is drawn depends on them, and arithmetic on them is in double.
+using SdlCoordinate = decltype(SDL_FPoint::x);
 
 namespace fs = std::filesystem;
 using sci::app::Command;
 
-constexpr std::string_view help_text = "usage: sierra-hd [game folder]\n"
+constexpr std::string_view help_text = "usage: sierra-hd [--viewer] [game folder]\n"
+                                       "       sierra-hd [--replay <file>] [--seed <n>] [game folder]\n"
                                        "       sierra-hd --version | --help\n"
                                        "\n"
-                                       "Keys:\n"
+                                       "--replay plays the input of a replay file\n"
+                                       "(docs/formats/replay-and-trace.md) into the game, with the\n"
+                                       "random seed of --seed (default 0); keyboard and mouse still work.\n"
+                                       "\n"
+                                       "In the game:\n"
+                                       "  F12               HD or original mode\n"
+                                       "  F11, Alt+Enter    fullscreen\n"
+                                       "\n"
+                                       "In the room viewer (--viewer):\n"
                                        "  Left, Right       previous or next picture, view or font\n"
                                        "  Up, Down          views: previous or next loop\n"
                                        "  Tab               pictures, views, fonts\n"
@@ -154,9 +179,14 @@ public:
 
     void present(sci::app::Viewer& viewer) {
         const std::vector<sci::app::Rect> dirty = viewer.take_dirty();
-        const std::vector<std::uint8_t>& frame = viewer.frame();
-        const int width = sci::app::screen_width * viewer.scale();
-        const int height = sci::app::screen_height * viewer.scale();
+        present(viewer.frame(), viewer.scale(), dirty);
+    }
+
+    // The frame at 320N x 200N; `dirty` are the rectangles changed since the
+    // last frame.
+    void present(const std::vector<std::uint8_t>& frame, int scale, const std::vector<sci::app::Rect>& dirty) {
+        const int width = sci::app::screen_width * scale;
+        const int height = sci::app::screen_height * scale;
         if (!texture_ || width != width_ || height != height_) {
             texture_.reset(
                 SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height));
@@ -191,13 +221,22 @@ public:
         SDL_SetRenderViewport(renderer_, &target);
         SDL_RenderTexture(renderer_, texture_.get(), nullptr, nullptr);
         SDL_RenderPresent(renderer_);
+        offset_x_ = target.x;
+        offset_y_ = target.y;
     }
+
+    // Where the frame starts in the output, in physical pixels.
+    [[nodiscard]] int offset_x() const { return offset_x_; }
+
+    [[nodiscard]] int offset_y() const { return offset_y_; }
 
 private:
     SDL_Renderer* renderer_;
     std::unique_ptr<SDL_Texture, SdlDeleter> texture_;
     int width_ = 0;
     int height_ = 0;
+    int offset_x_ = 0;
+    int offset_y_ = 0;
 };
 
 std::optional<sci::platform::Config> load_config(const fs::path& path) {
@@ -219,6 +258,7 @@ std::optional<sci::platform::Config> load_config(const fs::path& path) {
 struct Game {
     sci::resource::ResourceManager manager;
     sci::platform::Identification identification;
+    std::vector<sci::resource::GameFile> files; // For the files the game reads.
 };
 
 // Opens and identifies the game in the configured folder, asking for the
@@ -251,12 +291,14 @@ std::optional<Game> open_game(SDL_Window* window, sci::platform::Config& config,
         sci::core::log(sci::core::LogLevel::Warning, sci::core::LogCategory::General, warning);
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "sierra-hd", warning.c_str(), window);
     }
+    std::vector<sci::resource::GameFile> copies = *files;
     auto manager = sci::resource::ResourceManager::open(std::move(*files));
     if (!manager) {
         show_error(window, std::format("Cannot open the game: {}", manager.error().message));
         return std::nullopt;
     }
-    return Game{.manager = std::move(*manager), .identification = std::move(*identification)};
+    return Game{
+        .manager = std::move(*manager), .identification = std::move(*identification), .files = std::move(copies)};
 }
 
 // The hint files next to the executable. They are made for the tested
@@ -325,15 +367,385 @@ void event_loop(SDL_Window* window, SDL_Renderer* renderer, sci::app::Viewer& vi
     }
 }
 
-int run(std::span<char*> args) {
+// The SDL key event as a neutral key press (getScummVMEvent's view of it).
+sci::app::KeyPress key_press(const SDL_KeyboardEvent& key) {
+    using Key = sci::app::KeyPress::Key;
+    sci::app::KeyPress press;
+    press.shift = (key.mod & SDL_KMOD_SHIFT) != 0;
+    press.ctrl = (key.mod & SDL_KMOD_CTRL) != 0;
+    press.alt = (key.mod & SDL_KMOD_ALT) != 0;
+    press.num_lock = (key.mod & SDL_KMOD_NUM) != 0;
+
+    struct Keypad {
+        SDL_Keycode code;
+        Key key;
+        char character;
+    };
+
+    static constexpr std::array<Keypad, 16> keypad{{
+        {SDLK_KP_0, Key::Insert, '0'},
+        {SDLK_KP_1, Key::End, '1'},
+        {SDLK_KP_2, Key::Down, '2'},
+        {SDLK_KP_3, Key::PageDown, '3'},
+        {SDLK_KP_4, Key::Left, '4'},
+        {SDLK_KP_5, Key::Center, '5'},
+        {SDLK_KP_6, Key::Right, '6'},
+        {SDLK_KP_7, Key::Home, '7'},
+        {SDLK_KP_8, Key::Up, '8'},
+        {SDLK_KP_9, Key::PageUp, '9'},
+        {SDLK_KP_PERIOD, Key::Delete, '.'},
+        {SDLK_KP_ENTER, Key::Enter, 0},
+        {SDLK_KP_PLUS, Key::Character, '+'},
+        {SDLK_KP_MINUS, Key::Character, '-'},
+        {SDLK_KP_MULTIPLY, Key::Character, '*'},
+        {SDLK_KP_DIVIDE, Key::Character, '/'},
+    }};
+    for (const Keypad& k : keypad) {
+        if (key.key == k.code) {
+            press.key = k.key;
+            press.character = k.character;
+            press.keypad = true;
+            return press;
+        }
+    }
+    switch (key.key) {
+    case SDLK_RETURN:
+        press.key = Key::Enter;
+        return press;
+    case SDLK_ESCAPE:
+        press.key = Key::Escape;
+        return press;
+    case SDLK_BACKSPACE:
+        press.key = Key::Backspace;
+        return press;
+    case SDLK_TAB:
+        press.key = Key::Tab;
+        return press;
+    case SDLK_UP:
+        press.key = Key::Up;
+        return press;
+    case SDLK_DOWN:
+        press.key = Key::Down;
+        return press;
+    case SDLK_LEFT:
+        press.key = Key::Left;
+        return press;
+    case SDLK_RIGHT:
+        press.key = Key::Right;
+        return press;
+    case SDLK_HOME:
+        press.key = Key::Home;
+        return press;
+    case SDLK_END:
+        press.key = Key::End;
+        return press;
+    case SDLK_PAGEUP:
+        press.key = Key::PageUp;
+        return press;
+    case SDLK_PAGEDOWN:
+        press.key = Key::PageDown;
+        return press;
+    case SDLK_INSERT:
+        press.key = Key::Insert;
+        return press;
+    case SDLK_DELETE:
+        press.key = Key::Delete;
+        return press;
+    default:
+        break;
+    }
+    if (key.key >= SDLK_F1 && key.key <= SDLK_F10) {
+        press.key = Key::Function;
+        press.function = static_cast<int>(key.key - SDLK_F1) + 1;
+        return press;
+    }
+    // The character with Shift (and Caps Lock) applied.
+    const SDL_Keycode shifted = SDL_GetKeyFromScancode(key.scancode, key.mod, false);
+    if (shifted >= 0x20 && shifted < 0x7F) {
+        press.key = Key::Character;
+        press.character = static_cast<char>(shifted);
+    }
+    return press;
+}
+
+// Runs the game (spec sections 7 and 10.1): the interpreter runs on this,
+// the main thread, and while it waits, the host shows its screen and passes
+// the input on, until the wait's real time has passed.
+class GameHost final : public sci::vm::GameHost {
+public:
+    GameHost(SDL_Window* window, SDL_Renderer* renderer, const sci::resource::ResourceManager& manager,
+             sci::app::HdPictures& pictures, sci::platform::Config& config)
+        : window_(window), renderer_(renderer), manager_(&manager), presenter_(renderer), config_(&config),
+          screen_([&pictures](int picture, bool mirrored, int palette, int scale) {
+              return pictures.get(picture, mirrored, palette, scale);
+          }),
+          start_(SDL_GetTicks()) {}
+
+    void wait(sci::vm::Game& game, std::uint32_t milliseconds) override {
+        virtual_ += milliseconds;
+        while (true) {
+            SDL_Event event;
+            while (SDL_PollEvent(&event)) {
+                handle(game, event);
+            }
+            present(game);
+            const std::uint64_t now = SDL_GetTicks() - start_;
+            if (now >= virtual_) {
+                // Far behind (a slow machine, a dialog): catch up, no burst.
+                if (now > virtual_ + 250) {
+                    virtual_ = now;
+                }
+                return;
+            }
+            SDL_Delay(static_cast<std::uint32_t>(std::min<std::uint64_t>(virtual_ - now, 4)));
+        }
+    }
+
+private:
+    [[nodiscard]] int scale_for_window() const {
+        int width = 0;
+        int height = 0;
+        SDL_GetCurrentRenderOutputSize(renderer_, &width, &height);
+        const int fit = std::max(1, std::min(width / sci::app::screen_width, height / sci::app::screen_height));
+        return config_->scale > 0 ? std::min(config_->scale, fit) : std::min(fit, sci::platform::max_scale);
+    }
+
+    void handle(sci::vm::Game& game, const SDL_Event& event) {
+        switch (event.type) {
+        case SDL_EVENT_QUIT:
+            game.quit();
+            break;
+        case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+        case SDL_EVENT_WINDOW_EXPOSED:
+            redraw_ = true;
+            break;
+        case SDL_EVENT_KEY_DOWN: {
+            const SDL_KeyboardEvent& key = event.key;
+            if (key.key == SDLK_F11 || (key.key == SDLK_RETURN && (key.mod & SDL_KMOD_ALT) != 0)) {
+                const bool fullscreen = (SDL_GetWindowFlags(window_) & SDL_WINDOW_FULLSCREEN) != 0;
+                SDL_SetWindowFullscreen(window_, !fullscreen);
+            } else if (key.key == SDLK_F12) {
+                config_->mode = config_->mode == sci::platform::GraphicsMode::Hd ? sci::platform::GraphicsMode::Original
+                                                                                 : sci::platform::GraphicsMode::Hd;
+                redraw_ = true;
+            } else if (const auto sci_event = sci::app::sci_key_event(key_press(key))) {
+                game.input(*sci_event);
+            }
+            break;
+        }
+        case SDL_EVENT_MOUSE_MOTION:
+            last_mouse_ = to_1x(event.motion.x, event.motion.y);
+            game.move_mouse(last_mouse_);
+            break;
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_UP: {
+            last_mouse_ = to_1x(event.button.x, event.button.y);
+            std::uint16_t modifiers = sci::vm::modifier_none;
+            const SDL_Keymod keys = SDL_GetModState();
+            if ((keys & SDL_KMOD_ALT) != 0) {
+                modifiers |= sci::vm::modifier_alt;
+            }
+            if ((keys & SDL_KMOD_CTRL) != 0) {
+                modifiers |= sci::vm::modifier_ctrl;
+            }
+            if ((keys & SDL_KMOD_SHIFT) != 0) {
+                modifiers |= sci::vm::modifier_shift;
+            }
+            // The mouse driver marked the right button as Shift, the middle as Ctrl.
+            if (event.button.button == SDL_BUTTON_RIGHT) {
+                modifiers |= sci::vm::modifier_shift;
+            } else if (event.button.button == SDL_BUTTON_MIDDLE) {
+                modifiers |= sci::vm::modifier_ctrl;
+            }
+            game.input(sci::vm::SciEvent{
+                .type = event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ? sci::vm::event_mouse_press
+                                                                  : sci::vm::event_mouse_release,
+                .modifiers = modifiers,
+                .character = 0,
+                .mouse = last_mouse_,
+            });
+            break;
+        }
+        default:
+            break;
+        }
+    }
+
+    // A window position in 1x screen coordinates: the screen pixel minus the
+    // letterbox, divided by N (spec section 6.9).
+    [[nodiscard]] sci::vm::Point to_1x(SdlCoordinate x, SdlCoordinate y) const {
+        const auto density = static_cast<double>(SDL_GetWindowPixelDensity(window_));
+        const int scale = std::max(screen_.scale(), 1);
+        const int px = static_cast<int>(static_cast<double>(x) * density) - presenter_.offset_x();
+        const int py = static_cast<int>(static_cast<double>(y) * density) - presenter_.offset_y();
+        return sci::vm::Point{
+            .x = static_cast<std::int16_t>(std::clamp(px / scale, 0, sci::app::screen_width - 1)),
+            .y = static_cast<std::int16_t>(std::clamp(py / scale, 0, sci::app::screen_height - 1)),
+        };
+    }
+
+    void present(sci::vm::Game& game) {
+        const sci::vm::ShownScreen shown = game.screen();
+        const int scale = scale_for_window();
+        if (!redraw_ && shown.serial == last_serial_ && scale == screen_.scale()) {
+            update_cursor(shown, scale);
+            return;
+        }
+        screen_.update(shown, config_->mode, scale);
+        presenter_.present(screen_.frame(), screen_.scale(), redraw_ ? full_frame() : screen_.take_dirty());
+        if (redraw_) {
+            (void)screen_.take_dirty();
+        }
+        redraw_ = false;
+        last_serial_ = shown.serial;
+        update_cursor(shown, scale);
+    }
+
+    [[nodiscard]] std::vector<sci::app::Rect> full_frame() const {
+        return {sci::app::Rect{.x = 0,
+                               .y = 0,
+                               .width = sci::app::screen_width * screen_.scale(),
+                               .height = sci::app::screen_height * screen_.scale()}};
+    }
+
+    // The game's cursor as the window's cursor, scaled N x N, so it moves
+    // smoothly; and where the game put the mouse, the pointer goes too.
+    void update_cursor(const sci::vm::ShownScreen& shown, int scale) {
+        if (shown.mouse != last_mouse_) {
+            const auto density = static_cast<double>(SDL_GetWindowPixelDensity(window_));
+            const double x = (presenter_.offset_x() + (shown.mouse.x * scale) + (scale / 2)) / density;
+            const double y = (presenter_.offset_y() + (shown.mouse.y * scale) + (scale / 2)) / density;
+            SDL_WarpMouseInWindow(window_, static_cast<SdlCoordinate>(x), static_cast<SdlCoordinate>(y));
+            last_mouse_ = shown.mouse;
+        }
+        if (shown.cursor == cursor_shape_ && scale == cursor_scale_) {
+            return;
+        }
+        cursor_shape_ = shown.cursor;
+        cursor_scale_ = scale;
+        if (shown.cursor < 0) {
+            SDL_HideCursor();
+            return;
+        }
+        const auto resource = manager_->load(sci::resource::ResourceId{
+            .type = sci::resource::ResourceType::Cursor, .number = static_cast<std::uint16_t>(shown.cursor)});
+        const auto image = resource ? sci::app::decode_cursor(resource->data) : std::nullopt;
+        if (!image) {
+            SDL_HideCursor();
+            return;
+        }
+        const int size = 16 * scale;
+        SDL_Surface* surface = SDL_CreateSurface(size, size, SDL_PIXELFORMAT_RGBA32);
+        if (surface == nullptr) {
+            return;
+        }
+        const std::span<std::uint8_t> pixels(static_cast<std::uint8_t*>(surface->pixels),
+                                             static_cast<std::size_t>(surface->pitch) * static_cast<std::size_t>(size));
+        for (int y = 0; y < size; ++y) {
+            for (int x = 0; x < size; ++x) {
+                const std::size_t from =
+                    ((static_cast<std::size_t>(y / scale) * 16) + static_cast<std::size_t>(x / scale)) * 4;
+                const std::size_t to = (static_cast<std::size_t>(y) * static_cast<std::size_t>(surface->pitch)) +
+                                       (static_cast<std::size_t>(x) * 4);
+                std::copy_n(image->pixels.begin() + static_cast<std::ptrdiff_t>(from), 4,
+                            pixels.begin() + static_cast<std::ptrdiff_t>(to));
+            }
+        }
+        SDL_Cursor* cursor = SDL_CreateColorCursor(surface, image->hotspot_x * scale, image->hotspot_y * scale);
+        SDL_DestroySurface(surface);
+        if (cursor != nullptr) {
+            SDL_SetCursor(cursor);
+            if (cursor_ != nullptr) {
+                SDL_DestroyCursor(cursor_);
+            }
+            cursor_ = cursor;
+            SDL_ShowCursor();
+        }
+    }
+
+    SDL_Window* window_;
+    SDL_Renderer* renderer_;
+    const sci::resource::ResourceManager* manager_;
+    Presenter presenter_;
+    sci::platform::Config* config_;
+    sci::app::GameScreen screen_;
+    std::uint64_t start_;
+    std::uint64_t virtual_ = 0;
+    std::uint64_t last_serial_ = ~std::uint64_t{0};
+    bool redraw_ = true;
+    sci::vm::Point last_mouse_{.x = 160, .y = 100};
+    int cursor_shape_ = -2;
+    int cursor_scale_ = 0;
+    SDL_Cursor* cursor_ = nullptr;
+};
+
+struct Options {
+    bool viewer = false;
+    std::optional<fs::path> game_folder;
+    std::optional<fs::path> replay;
+    std::optional<std::uint32_t> seed;
+};
+
+// The command line, or nothing if it is not valid.
+std::optional<Options> parse_options(std::span<char*> args) {
+    Options options;
+    for (std::size_t i = 1; i < args.size(); ++i) {
+        const std::string_view arg = args[i];
+        const bool has_value = i + 1 < args.size();
+        if (arg == "--viewer") {
+            options.viewer = true;
+        } else if (arg == "--replay" && has_value) {
+            options.replay = fs::path(args[++i]);
+        } else if (arg == "--seed" && has_value) {
+            const std::string_view value = args[++i];
+            std::uint32_t seed = 0;
+            const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), seed);
+            if (error != std::errc{} || end != value.data() + value.size()) {
+                return std::nullopt;
+            }
+            options.seed = seed;
+        } else if (!arg.starts_with('-') && !options.game_folder) {
+            options.game_folder = fs::path(arg);
+        } else {
+            return std::nullopt;
+        }
+    }
+    if (options.viewer && (options.replay || options.seed)) {
+        return std::nullopt;
+    }
+    return options;
+}
+
+// The input events of a replay file; an error message if it cannot be read.
+sci::core::Result<std::vector<sci::vm::InputEvent>> read_replay(const fs::path& path) {
+    std::ifstream file(path, std::ios::binary);
+    std::stringstream text;
+    text << file.rdbuf();
+    if (!file) {
+        return sci::core::make_error(sci::core::ErrorCode::NotFound, std::format("Cannot read {}", path.string()));
+    }
+    return sci::vm::parse_replay(text.str());
+}
+
+int run(const Options& options) {
     const fs::path base = base_path();
     const fs::path config_path = base / "sierra-hd.ini";
     auto config = load_config(config_path);
     if (!config) {
         return 1;
     }
-    if (args.size() == 2) {
-        config->game_folder = fs::path(args[1]);
+    if (options.game_folder) {
+        config->game_folder = *options.game_folder;
+    }
+    const bool viewer_mode = options.viewer;
+    std::vector<sci::vm::InputEvent> replay;
+    if (options.replay) {
+        auto events = read_replay(*options.replay);
+        if (!events) {
+            show_error(nullptr, std::format("{}: {}", options.replay->string(), events.error().message));
+            return 1;
+        }
+        replay = std::move(*events);
     }
     const std::unique_ptr<SDL_Window, SdlDeleter> window(
         SDL_CreateWindow("sierra-hd", sci::app::screen_width * 3, sci::app::screen_height * 3,
@@ -354,12 +766,30 @@ int run(std::span<char*> args) {
     SDL_SetRenderVSync(renderer.get(), 1);
     SDL_SetWindowTitle(window.get(), std::format("sierra-hd {} - {}", SCI_VERSION, game->identification.name).c_str());
     sci::platform::ThreadExecutor executor;
-    sci::app::Viewer viewer(game->manager, hint_directory(base), executor, config->mode, config->scale);
-    event_loop(window.get(), renderer.get(), viewer);
-    config->mode = viewer.mode();
-    config->scale = viewer.chosen_scale();
+    int result = 0;
+    if (viewer_mode) {
+        sci::app::Viewer viewer(game->manager, hint_directory(base), executor, config->mode, config->scale);
+        event_loop(window.get(), renderer.get(), viewer);
+        config->mode = viewer.mode();
+        config->scale = viewer.chosen_scale();
+    } else {
+        sci::app::HdPictures pictures(game->manager, hint_directory(base), executor);
+        sci::app::DirectoryFileStore files(base / "files", game->files);
+        GameHost host(window.get(), renderer.get(), game->manager, pictures, *config);
+        // A different seed every time, as ScummVM seeds its random source;
+        // a replay's run starts from a known one.
+        const std::uint32_t seed = options.replay
+                                       ? options.seed.value_or(0)
+                                       : options.seed.value_or(static_cast<std::uint32_t>(SDL_GetPerformanceCounter()));
+        sci::vm::Game running(game->manager, host, &files, seed);
+        running.schedule(replay);
+        if (const auto fault = running.run()) {
+            show_error(window.get(), std::format("The interpreter stopped: {}", *fault));
+            result = 1;
+        }
+    }
     std::ofstream(config_path) << sci::platform::format_config(*config);
-    return 0;
+    return result;
 }
 
 } // namespace
@@ -370,7 +800,8 @@ int main(int argc, char** argv) {
         std::println("sierra-hd {}", SCI_VERSION);
         return 0;
     }
-    if (args.size() > 2 || (args.size() == 2 && std::string_view(args[1]).starts_with('-'))) {
+    const auto options = parse_options(args);
+    if (!options) {
         std::print("{}", help_text);
         return args.size() == 2 && std::string_view(args[1]) == "--help" ? 0 : 2;
     }
@@ -385,7 +816,7 @@ int main(int argc, char** argv) {
         std::println(stderr, "Cannot start SDL: {}", SDL_GetError());
         return 1;
     }
-    const int result = run(args);
+    const int result = run(*options);
     SDL_Quit();
     return result;
 }

@@ -10,6 +10,7 @@
 #include "gfx_animate.hpp"
 #include "gfx_cache.hpp"
 #include "gfx_compare.hpp"
+#include "gfx_controls.hpp"
 #include "gfx_cursor.hpp"
 #include "gfx_menu.hpp"
 #include "gfx_paint.hpp"
@@ -43,6 +44,8 @@ public:
     // On a restart (SciEngine::runGame): the menus go.
     void on_restart_game() { menu().reset(); }
 
+    [[nodiscard]] bool attached() const { return machine_ != nullptr; }
+
     [[nodiscard]] Machine& machine() { return *machine_; }
 
     [[nodiscard]] Faults& faults();
@@ -59,6 +62,8 @@ public:
 
     [[nodiscard]] Compare& compare() { return *compare_; }
 
+    [[nodiscard]] Controls& controls() { return *controls_; }
+
     [[nodiscard]] Animate& animate() { return *animate_; }
 
     [[nodiscard]] Cursor& cursor() { return *cursor_; }
@@ -72,6 +77,8 @@ public:
     // SciEngine::strSplit: the text up to a marker of another language
     // (%F, #G and so on), with the subtitle language after `separator`.
     [[nodiscard]] std::string str_split(std::string_view text, const char* separator);
+    // SciEngine::getSciLanguageString: the part of `text` in `language`.
+    [[nodiscard]] static std::string language_text(std::string_view text, int language);
 
 private:
     Machine* machine_ = nullptr;
@@ -81,6 +88,7 @@ private:
     std::unique_ptr<Paint> paint_;
     std::unique_ptr<Text> text_;
     std::unique_ptr<Compare> compare_;
+    std::unique_ptr<Controls> controls_;
     std::unique_ptr<Animate> animate_;
     std::unique_ptr<Cursor> cursor_;
     std::unique_ptr<Menu> menu_;

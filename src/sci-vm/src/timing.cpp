@@ -34,7 +34,18 @@ void Clock::set_music_timer(std::function<void()> timer, std::uint32_t tempo_mic
     music_due_ = microseconds_ + tempo_microseconds;
 }
 
+void Clock::read_elapsed(std::uint64_t call) {
+    // Calls count from 1, so 0 means no read yet.
+    if (last_elapsed_read_ != 0 && call == last_elapsed_read_ + 1) {
+        advance(1);
+    }
+    last_elapsed_read_ = call;
+}
+
 void Clock::advance(std::uint32_t milliseconds) {
+    if (wait_hook_) {
+        wait_hook_(milliseconds);
+    }
     microseconds_ += static_cast<std::uint64_t>(milliseconds) * 1000;
     while (music_timer_ && tempo_ != 0 && music_due_ <= microseconds_) {
         music_due_ += tempo_;

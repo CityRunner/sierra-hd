@@ -4,10 +4,13 @@ sci_add_library(NAME sci-vm
         src/bytecode.cpp
         src/component.cpp
         src/events.cpp
+        src/files.cpp
+        src/game.cpp
         src/gc.cpp
         src/gfx_animate.cpp
         src/gfx_cache.cpp
         src/gfx_compare.cpp
+        src/gfx_controls.cpp
         src/gfx_cursor.cpp
         src/gfx_menu.cpp
         src/gfx_paint.cpp
@@ -16,6 +19,7 @@ sci_add_library(NAME sci-vm
         src/gfx_text.cpp
         src/graphics.cpp
         src/interpreter.cpp
+        src/k_files.cpp
         src/k_graphics.cpp
         src/k_lists.cpp
         src/k_math.cpp

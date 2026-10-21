@@ -27,6 +27,8 @@
 
 #pragma once
 
+#include "gfx_rect.hpp"
+#include "sci/vm/events.hpp"
 #include "sci/vm/reg.hpp"
 
 #include <cstdint>
@@ -36,6 +38,7 @@
 namespace sci::vm {
 
 class Graphics;
+struct Port;
 
 inline constexpr std::uint16_t menu_said = 0x6d;
 inline constexpr std::uint16_t menu_text = 0x6e;
@@ -77,6 +80,9 @@ public:
     Reg kernel_get_attribute(std::uint16_t menu_id, std::uint16_t item_id, std::uint16_t attribute);
     void kernel_draw_status(const std::string& text, int pen_color, int back_color);
     void kernel_draw_menu_bar(bool clear);
+    // kMenuSelect: an event for the menu (Escape, a menu key, a click on
+    // the bar, or a Said event); the item chosen as (menu << 8) | item.
+    Reg kernel_select(Reg event_object, bool pause_sound);
 
     [[nodiscard]] const std::list<MenuEntry>& menus() const { return list_; }
 
@@ -86,12 +92,37 @@ private:
     MenuItemEntry* find_item(std::uint16_t menu_id, std::uint16_t item_id);
     void draw_bar();
     void calculate_menu_width();
+    void calculate_menu_and_item_width();
+    MenuItemEntry* interactive_get_item(std::uint16_t menu_id, std::uint16_t item_id, bool menu_changed);
+    void draw_menu(std::uint16_t old_menu_id, std::uint16_t new_menu_id);
+    void remove_menu();
+    void invert_menu_selection(std::uint16_t item_id);
+    void interactive_start(bool pause_sound);
+    void interactive_end(bool pause_sound);
+    [[nodiscard]] std::uint16_t mouse_find_menu_selection(GPoint position) const;
+    [[nodiscard]] std::uint16_t mouse_find_menu_item_selection(GPoint position, std::uint16_t menu_id) const;
+    void open_for_keyboard(std::uint16_t menu_id, std::uint16_t item_id);
+    bool keyboard_step(SciEvent event, MenuItemEntry*& current, std::uint16_t& new_menu_id, std::uint16_t& new_item_id,
+                       MenuItemEntry*& chosen);
+    bool keyboard_click(GPoint position, MenuItemEntry*& current, std::uint16_t& new_menu_id,
+                        std::uint16_t& new_item_id, MenuItemEntry*& chosen);
+    MenuItemEntry* interactive_with_keyboard();
+    MenuItemEntry* interactive_with_mouse();
+    MenuItemEntry* match_key(std::uint16_t key_press, std::uint16_t key_modifier);
+    MenuItemEntry* match_said();
+    // Whether the interactive loop must end: a fault, or the run stopping.
+    [[nodiscard]] bool interrupted();
 
     Graphics* graphics_;
     std::list<MenuEntry> list_;
     std::list<MenuItemEntry> items_;
     std::uint16_t current_menu_ = 1;
     std::uint16_t current_item_ = 1;
+    Rect menu_rect_; // The open menu (GfxMenu::_menuRect).
+    Reg menu_save_handle_;
+    Reg bar_save_handle_;
+    Port* old_port_ = nullptr;
+    bool mouse_old_state_ = false;
 };
 
 } // namespace sci::vm

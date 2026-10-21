@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Runs the reference ScummVM with an isolated configuration that shows the
 # original 1x output: no scaler, no aspect-ratio correction, no filtering and
-# no EGA undithering. Saves and settings stay inside the build directory.
+# no EGA undithering, and the game's own save and restore dialogs (as
+# sci-vm runs them) instead of ScummVM's. Saves and settings stay inside the
+# build directory.
 #
 #   tools/reference-scummvm/run.sh <build directory> [<game folder>] [scummvm options...]
 #
@@ -27,6 +29,7 @@ fullscreen=false
 disable_dithering=false
 music_driver=null
 confirm_exit=false
+originalsaveload=true
 savepath=${build_dir}/saves
 INI
 

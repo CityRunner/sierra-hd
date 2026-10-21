@@ -64,7 +64,9 @@ public:
     void draw_line(GPoint start, GPoint end, std::uint8_t color, std::uint8_t priority, std::uint8_t control);
 
     // Saved bits: the rectangle, the mask, then the maps' pixels, laid out as
-    // GfxScreen::bitsSave does (the visual map twice: visual and display).
+    // GfxScreen::bitsSave does. Where ScummVM saves its display map, a copy
+    // of the visual map here, the cover map is saved instead (same size; the
+    // scripts never read saved bits).
     [[nodiscard]] static std::size_t bits_data_size(const Rect& rect, std::uint8_t mask);
     void bits_save(const Rect& rect, std::uint8_t mask, std::span<std::uint8_t> memory) const;
     [[nodiscard]] static Rect bits_rect(std::span<const std::uint8_t> memory);
@@ -77,7 +79,28 @@ public:
 
     [[nodiscard]] std::vector<std::uint8_t>& control_map() { return control_; }
 
+    // The cover map: 1 where something other than the picture drew into the
+    // visual map since the picture was drawn (sprites, text, windows, the
+    // menu bar), else 0. It tells the HD presentation where the picture
+    // still shows. Drawing a picture uncovers its port; a picture added to
+    // it covers what it changed.
+    void uncover_picture();
+    void cover_changes(std::span<const std::uint8_t> visual_before);
+
     [[nodiscard]] std::int16_t kernel_pic_not_valid(std::int16_t new_value);
+
+    // What the player sees: ScummVM copies the display map to the screen
+    // only in bitsShow and the transitions (copyRectToScreen). `rect` is in
+    // screen coordinates.
+    void show(const Rect& rect);
+
+    [[nodiscard]] const std::vector<std::uint8_t>& shown() const { return shown_; }
+
+    // The cover map of what is shown.
+    [[nodiscard]] const std::vector<std::uint8_t>& shown_cover() const { return shown_cover_; }
+
+    // Counts the changes of what is shown.
+    [[nodiscard]] std::uint64_t shown_serial() const { return shown_serial_; }
 
     // 0, 1 or 2: whether the picture shown is out of date.
     [[nodiscard]] int pic_not_valid() const { return pic_not_valid_; }
@@ -92,6 +115,10 @@ private:
     std::vector<std::uint8_t> visual_;
     std::vector<std::uint8_t> priority_;
     std::vector<std::uint8_t> control_;
+    std::vector<std::uint8_t> cover_;
+    std::vector<std::uint8_t> shown_;
+    std::vector<std::uint8_t> shown_cover_;
+    std::uint64_t shown_serial_ = 0;
     int pic_not_valid_ = 0;
 };
 

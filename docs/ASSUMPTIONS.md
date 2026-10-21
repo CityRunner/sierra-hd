@@ -899,10 +899,63 @@ Scope:
   failure to the game, as ScummVM does when it cannot save, and log why.
   The project's save format comes at milestone 8 (spec section 9), and the
   scenario recordings do not save. **Decided.**
+- **The game's own save and restore dialogs.** ScummVM replaces the
+  game's save and restore methods with calls to its own dialogs unless
+  `originalsaveload` is set. sci-vm keeps the game's methods, and the
+  reference now runs with `originalsaveload=true`, so both run the same
+  bytecode; the boot trace is unchanged by it. **Decided.**
+- **Files the game opens** come from a `FileStore` the host supplies
+  (sci-vm does no I/O): files the game wrote, else the game folder's, as
+  ScummVM falls back to the game files. The tool uses an in-memory store
+  that starts empty, as the reference's save folder does. **Decided.**
 - **The referenced kernel functions** are found by `sci-vm-trace
   --scan-kernel`: every callk in the scripts' code blocks, after the script
   patches. The tested release references 97; DoAvoider is not among them.
   **Decided.**
+- **The game runs in the program by default** (the customer's request at
+  the 4a gate); `--viewer` keeps the room viewer of v0.1. The interpreter
+  runs on the main thread (spec section 4.3): wherever virtual time would
+  pass (kWait, the speed throttle, event polling, busy waits), sci-vm calls
+  the host, which presents the frame, reads input and returns once that
+  much real time has passed. If the program falls more than 250 ms behind
+  (a slow room entry, a dragged window), it drops the lag instead of
+  running fast to catch up. Interactive runs seed the random source from
+  the host's performance counter; the deterministic runs keep their seed.
+  **Decided.**
+- **What the player sees** is what ScummVM copies to the screen (bitsShow,
+  transitions), not the visual map drawing goes to. sci-vm keeps that
+  shown screen, and with it the picture it shows. **Decided.**
+- **HD mode while the game runs (milestone 4b approximation).** A pixel of
+  the shown screen that still equals the picture as drawn comes from the HD
+  background; any other pixel (sprites, text, windows, the menu bar)
+  is drawn as an N x N block of its EGA colour. Sprites are occluded
+  correctly because the interpreter only draws their visible pixels; a
+  sprite pixel that happens to have the background's colour at that spot
+  shows the HD background instead, which is invisible in practice. F12
+  switches between HD and original mode at any time (spec section 1);
+  F11 or Alt+Enter toggles fullscreen. **Proposed** (the HD sprite pipeline
+  belongs to milestone 5).
+- **The game's own files** (and later the saves) are kept in a `files`
+  folder next to the configuration; a file the game opens is looked for
+  there first, then in the game folder. **Proposed.**
+- **SDL's single-precision window coordinates.** SDL3 reports and takes
+  mouse and window positions as `float`; the program names that type
+  `SdlCoordinate` (via `decltype`) and does all arithmetic on it in double.
+  The values only place the pointer and never reach rendering, so the
+  floating-point profile of spec section 5.3 is unaffected. **Decided.**
+- **Busy waits on kGetTime.** Scripts (the copy-protection dialog among
+  them) wait by reading kGetTime(elapsed) until enough time has passed,
+  with no other kernel call in between. On a virtual clock no time would
+  ever pass there, so in both engines such a read lets 1 ms pass first
+  (`docs/formats/replay-and-trace.md`). Interactive runs need the same
+  rule, since they also run on virtual time paced by the host. The earlier
+  reference traces are unchanged by it. **Decided.**
+- **Screens are compared as well as kernel calls.** A kernel-call trace
+  cannot see drawing: with a wrongly signed kDisplay background colour,
+  every text box was filled white while the traces matched. The reference
+  patch and `sci-vm-trace` now also write the shown screen once a second
+  of virtual time, and the scenario gate compares both (the boot scenario:
+  61 screens identical). **Decided.**
 
 ## Spec items carried forward
 
