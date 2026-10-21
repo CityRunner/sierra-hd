@@ -104,24 +104,55 @@ void extend(std::optional<Span>& total, const std::optional<Span>& part) {
     total->right = std::max(total->right, part->right);
 }
 
+// The part of a span that the cuts keep (the cut lines are closed).
+std::optional<Span> apply_cuts(Span span, const std::vector<vector::Cut>& cuts, double y) {
+    for (const vector::Cut& cut : cuts) {
+        const double rest = cut.normal.y * (y - cut.point.y);
+        if (cut.normal.x == 0) {
+            if (rest > 0) {
+                return std::nullopt;
+            }
+            continue;
+        }
+        // normal.x * (x - point.x) + rest <= 0
+        const double bound = cut.point.x - (rest / cut.normal.x);
+        if (cut.normal.x > 0) {
+            if (bound < span.right) {
+                span.right = bound;
+                span.closed = true;
+            }
+        } else {
+            span.left = std::max(span.left, bound);
+        }
+        if (span.left > span.right) {
+            return std::nullopt;
+        }
+    }
+    return span;
+}
+
 // Spans of a layer on row y (in picture coordinates), passed to emit.
 template <typename Emit>
 void layer_spans(const vector::Layer& layer, double y, Emit emit) {
     if (const auto* stroke = std::get_if<vector::Stroke>(&layer)) {
         // Each segment's capsule is convex, so it meets the row in one span.
-        if (stroke->points.size() == 1) {
-            if (const auto span = disc_span(stroke->points[0], stroke->radius, y)) {
+        const auto emit_cut = [&](std::optional<Span> span) {
+            if (span && !stroke->cuts.empty()) {
+                span = apply_cuts(*span, stroke->cuts, y);
+            }
+            if (span) {
                 emit(*span, stroke->value);
             }
+        };
+        if (stroke->points.size() == 1) {
+            emit_cut(disc_span(stroke->points[0], stroke->radius, y));
             return;
         }
         for (std::size_t i = 0; i + 1 < stroke->points.size(); ++i) {
             std::optional<Span> span = disc_span(stroke->points[i], stroke->radius, y);
             extend(span, disc_span(stroke->points[i + 1], stroke->radius, y));
             extend(span, band_span(stroke->points[i], stroke->points[i + 1], stroke->radius, y));
-            if (span) {
-                emit(*span, stroke->value);
-            }
+            emit_cut(span);
         }
     } else if (const auto* ellipse = std::get_if<vector::Ellipse>(&layer)) {
         const double t = (y - ellipse->centre.y) / ellipse->radius_y;

@@ -5,12 +5,14 @@
 #include "sci/render/colors.hpp"
 #include "sci/render/original.hpp"
 #include "sci/render/rasterize.hpp"
+#include "sci/render/reference.hpp"
 #include "sci/vector/scene.hpp"
 #include "sci_test.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <variant>
 #include <vector>
 
 using sci::render::Rgb8;
@@ -80,13 +82,36 @@ SCI_TEST(layers_paint_over_faces_in_order) {
     Scene scene = split_scene(160, 0x11, 0x11);
     scene.layers.emplace_back(sci::vector::Box{.left = 10, .top = 10, .right = 20, .bottom = 20, .value = 0x44});
     scene.layers.emplace_back(
-        sci::vector::Stroke{.points = {{.x = 5.5, .y = 15.5}, {.x = 30.5, .y = 15.5}}, .value = 0x22});
+        sci::vector::Stroke{.points = {{.x = 5.5, .y = 15.5}, {.x = 30.5, .y = 15.5}}, .value = 0x22, .cuts = {}});
     scene.layers.emplace_back(sci::vector::Blocks{.pixels = {(50 * 320) + 50}, .values = {0xFF}});
     const auto reduced = sci::render::reduce_to_1x(scene);
     SCI_CHECK(reduced[(12 * 320) + 12] == 0x44);
     SCI_CHECK(reduced[(15 * 320) + 12] == 0x22 && reduced[(15 * 320) + 25] == 0x22);
     SCI_CHECK(reduced[(16 * 320) + 25] == 0x11 && reduced[(14 * 320) + 25] == 0x11);
     SCI_CHECK(reduced[(50 * 320) + 50] == 0xFF && reduced[(50 * 320) + 51] == 0x11);
+}
+
+SCI_TEST(cuts_end_strokes_on_a_straight_edge) {
+    Scene scene = split_scene(160, 0x11, 0x11);
+    // A horizontal stroke from x = 5.5 to 30.5, cut at x = 20 (and a
+    // diagonal cut through its other end).
+    scene.layers.emplace_back(sci::vector::Stroke{
+        .points = {{.x = 5.5, .y = 15.5}, {.x = 30.5, .y = 15.5}},
+        .value = 0x22,
+        .cuts =
+            {
+                {.point = {.x = 20, .y = 0}, .normal = {.x = 1, .y = 0}},
+                {.point = {.x = 6, .y = 15}, .normal = {.x = -1, .y = 1}},
+            },
+    });
+    const auto reduced = sci::render::reduce_to_1x(scene);
+    SCI_CHECK(reduced[(15 * 320) + 19] == 0x22 && reduced[(15 * 320) + 21] == 0x11);
+    SCI_CHECK(reduced[(15 * 320) + 10] == 0x22);
+    // The reference evaluator agrees with the rasteriser.
+    const sci::vector::Stroke& stroke = std::get<sci::vector::Stroke>(scene.layers.back());
+    SCI_CHECK(stroke.kept({.x = 19.9, .y = 15.5}) && !stroke.kept({.x = 20.1, .y = 15.5}));
+    SCI_CHECK(sci::render::reference_value(scene, {.x = 19.9, .y = 15.5}) == 0x22);
+    SCI_CHECK(sci::render::reference_value(scene, {.x = 20.1, .y = 15.5}) == 0x11);
 }
 
 SCI_TEST(fallback_faces_take_block_values) {

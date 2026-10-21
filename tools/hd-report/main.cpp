@@ -21,6 +21,7 @@
 #include "sci/platform/picture_hints.hpp"
 #include "sci/platform/thread_executor.hpp"
 #include "sci/render/acceptance.hpp"
+#include "sci/render/integrity.hpp"
 #include "sci/render/original.hpp"
 #include "sci/render/rasterize.hpp"
 #include "sci/vector/build_scene.hpp"
@@ -56,8 +57,40 @@ struct Row {
     SceneStats visual;
     SceneStats priority;
     sci::render::Acceptance acceptance;
+    sci::render::Integrity integrity;
+    std::vector<std::string> integrity_cases; // Described with command indices.
     double entry_ms = 0;
 };
+
+std::string_view kind_name(sci::render::IntegrityKind kind) {
+    switch (kind) {
+    case sci::render::IntegrityKind::Overshoot:
+        return "overshoot";
+    case sci::render::IntegrityKind::Depth:
+        return "depth";
+    case sci::render::IntegrityKind::Doubled:
+        return "doubled boundary";
+    case sci::render::IntegrityKind::Fragment:
+        return "fragment";
+    case sci::render::IntegrityKind::Break:
+        return "break";
+    }
+    return "?";
+}
+
+// The A1 cases of a picture, naming primitives by their PIC command.
+std::vector<std::string> describe_cases(const sci::render::Integrity& integrity, const sci::pic::DrawTrace& trace) {
+    const auto command = [&](std::int32_t p) {
+        return p < 0 ? std::string("-") : std::format("{}", trace.primitives[static_cast<std::size_t>(p)].command);
+    };
+    std::vector<std::string> lines;
+    lines.reserve(integrity.cases.size());
+    for (const auto& c : integrity.cases) {
+        lines.push_back(std::format("{} at ({}, {}): command {}{}", kind_name(c.kind), c.x, c.y, command(c.primitive),
+                                    c.other >= 0 ? std::format(" and {}", command(c.other)) : std::string()));
+    }
+    return lines;
+}
 
 std::optional<Options> parse_options(std::span<char*> args) {
     if (args.size() < 3) {
@@ -126,8 +159,11 @@ std::optional<Row> analyse(const sci::resource::ResourceManager& manager, std::u
         .visual = visual.stats,
         .priority = priority.stats,
         .acceptance = sci::render::check_acceptance(visual.scene, drawn->maps, drawn->trace),
+        .integrity = sci::render::check_integrity(visual.scene, drawn->maps, drawn->trace, executor),
+        .integrity_cases = {},
         .entry_ms = std::chrono::duration<double, std::milli>(end - start).count(),
     };
+    row.integrity_cases = describe_cases(row.integrity, drawn->trace);
     (void)frame;
     (void)priority_map;
     if (options.images) {
@@ -192,6 +228,23 @@ std::string report(const std::vector<Row>& rows, int scale) {
     for (const Row& row : rows) {
         text += table_row(row);
     }
+    text += "\n## A1 checks (spec section 6.10)\n\n"
+            "Columns: contacts / overshoots; depth violations (pixels); lines drawing the same pixels / doubled "
+            "boundaries; fragments; owned line groups and joints / breaks (`docs/SPEC_ADDENDA.md`, "
+            "`sci/render/integrity.hpp`).\n\n"
+            "| Pic | Overshoot | Depth | Doubled | Fragments | Breaks |\n|---|---|---|---|---|---|\n";
+    for (const Row& row : rows) {
+        const auto& i = row.integrity;
+        text +=
+            std::format("| {} | {} / {} | {} | {} / {} | {} | {} + {} / {} |\n", row.number, i.contacts, i.overshoots,
+                        i.depth_violations, i.shared_pairs, i.doubled, i.fragments, i.line_groups, i.joints, i.breaks);
+    }
+    text += "\n## A1 cases\n\n";
+    for (const Row& row : rows) {
+        for (const std::string& c : row.integrity_cases) {
+            text += std::format("- pic {}: {}\n", row.number, c);
+        }
+    }
     text += "\n## Fallbacks (mixed faces of the visual plane)\n\n" + fallback_list(rows);
     text += "\n## Hints used\n\n" + hint_list(rows, true);
     text += "\n## Hints left out\n\n" + hint_list(rows, false);
@@ -214,6 +267,39 @@ void print_summary(const std::vector<Row>& rows) {
     std::println("{} pictures: worst agreement {:.3f}%, {} swaps, {} untouched line pixels, {} failing; slowest "
                  "room entry {:.0f} ms",
                  rows.size(), 100 * worst, swaps, untouched, failing, slowest);
+    sci::render::Integrity total;
+    for (const Row& row : rows) {
+        total.contacts += row.integrity.contacts;
+        total.overshoots += row.integrity.overshoots;
+        total.depth_violations += row.integrity.depth_violations;
+        total.shared_pairs += row.integrity.shared_pairs;
+        total.doubled += row.integrity.doubled;
+        total.fragments += row.integrity.fragments;
+        total.line_groups += row.integrity.line_groups;
+        total.joints += row.integrity.joints;
+        total.breaks += row.integrity.breaks;
+        total.split_groups += row.integrity.split_groups;
+        total.hidden_groups += row.integrity.hidden_groups;
+        total.broken_joints += row.integrity.broken_joints;
+    }
+    std::println("A1: {} overshoots of {} contacts, {} depth pixels, {} doubled of {} shared pairs, {} fragments, "
+                 "{} breaks ({} line groups, {} joints)",
+                 total.overshoots, total.contacts, total.depth_violations, total.doubled, total.shared_pairs,
+                 total.fragments, total.breaks, total.line_groups, total.joints);
+    std::println("A1 breaks: {} groups split, {} groups hidden, {} joints broken", total.split_groups,
+                 total.hidden_groups, total.broken_joints);
+    int joints = 0;
+    int clipped = 0;
+    int kept = 0;
+    int merged = 0;
+    for (const Row& row : rows) {
+        joints += row.visual.closed_joints;
+        clipped += row.visual.clipped_ends;
+        kept += row.visual.kept_contacts;
+        merged += row.visual.merged_runs;
+    }
+    std::println("A1 pass: {} joints closed, {} ends clipped, {} contacts kept, {} runs merged", joints, clipped, kept,
+                 merged);
 }
 
 } // namespace

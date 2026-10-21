@@ -8,6 +8,7 @@
 // its centre is (x + 0.5, y + 0.5).
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <variant>
 #include <vector>
@@ -51,15 +52,30 @@ struct ScanEdge {
     std::int32_t face_after = 0;
 };
 
+// A straight cut through a stroke: the stroke shows only where
+// (p - point) . normal <= 0. Cuts end lines exactly at the contour they end
+// on (spec section 6.10).
+struct Cut {
+    Vec2 point;
+    Vec2 normal;
+
+    [[nodiscard]] bool keeps(Vec2 p) const { return ((p.x - point.x) * normal.x) + ((p.y - point.y) * normal.y) <= 0; }
+};
+
 // A stroke along a polyline (a PIC line, or a curve fitted to a chain of
 // lines), 1 original pixel wide: every point within `radius` of the
-// polyline.
+// polyline that every cut keeps. A line may have several strokes.
 struct Stroke {
     std::int32_t source = -1; // Index of the primitive in the draw trace (the first, for a chain).
     std::vector<Vec2> points; // At least one point; one point is a dot.
     double radius = 0.5;
     std::uint8_t value = 0;
     bool fitted = false; // Along a curve fitted to a chain of lines.
+    std::vector<Cut> cuts;
+
+    [[nodiscard]] bool kept(Vec2 p) const {
+        return std::ranges::all_of(cuts, [&](const Cut& cut) { return cut.keeps(p); });
+    }
 };
 
 // A solid circle brush, drawn as the ellipse inscribed in its box.
