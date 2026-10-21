@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 add_subdirectory(platform)
 
+# The ARM64 build for qemu-user (preset cross-aarch64) runs the tests; its
+# sysroot has no ARM64 window-system libraries for SDL3.
+if(NOT SCI_BUILD_APP)
+    return()
+endif()
+
 add_executable(sierra-hd src/main.cpp src/file_store.cpp src/game_screen.cpp src/hd_pictures.cpp src/viewer.cpp)
 target_link_libraries(sierra-hd PRIVATE
     sci-core sci-resource sci-pic sci-vector sci-view sci-text sci-audio sci-render sci-vm sci-platform

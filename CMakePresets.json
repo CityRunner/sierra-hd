@@ -26,7 +26,7 @@
     {
       "name": "cross-aarch64", "inherits": "base", "displayName": "Release for Linux ARM64 under qemu-user (container)",
       "toolchainFile": "${sourceDir}/cmake/toolchains/aarch64-linux-gnu.cmake",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "SCI_BUILD_APP": "OFF" }
     },
     {
       "name": "windows-base", "hidden": true, "inherits": "base",

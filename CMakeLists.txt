@@ -13,9 +13,17 @@ endif()
 option(SCI_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
 option(SCI_BUILD_TESTS "Build the unit and fuzz tests" ON)
 option(SCI_BUILD_TOOLS "Build the development tools under tools/" ON)
+option(SCI_BUILD_APP "Build the program (sierra-hd) and SDL3; off for the ARM64 tests under qemu-user" ON)
 option(SCI_DEBUG_HIGHLIGHT "Development only: let the room viewer highlight vector replacements" OFF)
 option(SCI_WITHOUT_STROKE_INTEGRITY
        "Development only: build scenes without the stroke integrity pass (the A1 baseline; golden tests fail)" OFF)
+
+# With ccache as the compiler launcher (CI; CMake takes it from the
+# environment), clang-cl writes debug information into the objects (/Z7):
+# ccache cannot cache compilations that share a PDB (/Zi, CMake's default).
+if(CMAKE_CXX_COMPILER_LAUNCHER MATCHES "ccache")
+    set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>")
+endif()
 
 # The project does not use C++ modules; scanning would require clang-scan-deps.
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
@@ -34,7 +42,9 @@ add_subdirectory(src/sci-text)
 add_subdirectory(src/sci-audio)
 add_subdirectory(src/sci-render)
 add_subdirectory(src/sci-vm)
-include(SciThirdParty)
+if(SCI_BUILD_APP)
+    include(SciThirdParty)
+endif()
 add_subdirectory(src/app)
 
 if(SCI_BUILD_TESTS)
