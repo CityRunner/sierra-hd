@@ -197,3 +197,21 @@ SCI_TEST(digital_samples_stop_the_machine) {
     const MusicEntry& entry = player.add(sound, 1, 0, 1);
     SCI_CHECK(entry.resource && entry.resource->has_digital_sample && player.faults.raised());
 }
+
+SCI_TEST(pause_all_counts_and_resumes_only_when_the_count_returns_to_zero) {
+    Player player;
+    MusicEntry& sound = player.add(signal_and_cue_song, 1, 0, 1);
+    player.music.sound_play(sound);
+    player.music.pause_all(true);
+    player.music.pause_all(true);
+    SCI_CHECK(sound.status == SoundStatus::Paused);
+    player.music.pause_all(false);
+    SCI_CHECK(sound.status == SoundStatus::Paused); // Still paused once.
+    player.music.pause_all(false);
+    SCI_CHECK(sound.status == SoundStatus::Playing);
+    // Below zero (ScummVM's autosave) the songs are left alone.
+    player.music.pause_all(false);
+    player.music.pause_all(true);
+    SCI_CHECK(sound.status == SoundStatus::Playing);
+    SCI_CHECK(!player.faults.raised());
+}

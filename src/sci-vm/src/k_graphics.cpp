@@ -483,4 +483,39 @@ Reg k_draw_menu_bar(Machine& machine, std::span<Reg> args) {
     return machine.acc();
 }
 
+Reg k_menu_select(Machine& machine, std::span<Reg> args) {
+    const bool pause_sound = args.size() <= 1 || !args[1].is_null();
+    return gfx(machine).menu().kernel_select(args[0], pause_sound);
+}
+
+Reg k_draw_control(Machine& machine, std::span<Reg> args) {
+    const Reg control = args[0];
+    // Mostly no result; text codes would leave rectangles in the accumulator.
+    machine.set_acc(null_reg);
+    const std::string name = machine.segments().object_name(control);
+    // The "Change Directory" button is disabled: the save folder is fixed.
+    if (name == "changeDirI" || name == "changeDirItem") {
+        const SelectorCache& s = machine.selector();
+        const auto state =
+            static_cast<unsigned>(static_cast<std::uint16_t>(machine.read_selector_value(control, s.state)));
+        machine.write_selector_value(control, s.state,
+                                     static_cast<int>((state | control_style_disabled) & ~control_style_enabled));
+    }
+    gfx(machine).controls().draw_control(control, false);
+    return machine.acc();
+}
+
+Reg k_hilite_control(Machine& machine, std::span<Reg> args) {
+    gfx(machine).controls().draw_control(args[0], true);
+    return machine.acc();
+}
+
+Reg k_edit_control(Machine& machine, std::span<Reg> args) {
+    const Reg control = args[0];
+    if (!control.is_null() && machine.read_selector_value(control, machine.selector().type) == control_type_textedit) {
+        gfx(machine).controls().kernel_textedit_change(control, args[1]);
+    }
+    return machine.acc();
+}
+
 } // namespace sci::vm

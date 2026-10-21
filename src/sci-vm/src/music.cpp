@@ -351,6 +351,26 @@ void Music::sound_kill(MusicEntry& sound) {
     }
 }
 
+void Music::pause_all(bool pause) {
+    const bool already_unpaused = global_pause_ <= 0;
+    global_pause_ += pause ? 1 : -1;
+    const bool still_unpaused = global_pause_ <= 0;
+    // The counter may go below 0 (ScummVM's autosave); the songs are only
+    // changed when it crosses 0 or goes above 1.
+    if (already_unpaused && still_unpaused) {
+        return;
+    }
+    // Over the live list, as ScummVM's iterator goes: resuming may sort the
+    // list in place, and the loop then goes on in the new order.
+    for (const auto& song : play_list_) {
+        if (pause) {
+            sound_pause(*song);
+        } else {
+            sound_resume(*song);
+        }
+    }
+}
+
 void Music::sound_pause(MusicEntry& sound) {
     ++sound.pause_counter;
     if (sound.status != SoundStatus::Playing) {

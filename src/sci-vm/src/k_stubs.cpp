@@ -24,14 +24,6 @@ Reg k_do_avoider(Machine& machine, std::span<Reg> /*args*/) {
     return not_implemented(machine, "k_do_avoider");
 }
 
-Reg k_draw_control(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_draw_control");
-}
-
-Reg k_edit_control(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_edit_control");
-}
-
 Reg k_file_io_close(Machine& machine, std::span<Reg> /*args*/) {
     return not_implemented(machine, "k_file_io_close");
 }
@@ -50,14 +42,6 @@ Reg k_file_io_write_string(Machine& machine, std::span<Reg> /*args*/) {
 
 Reg k_get_save_files(Machine& machine, std::span<Reg> /*args*/) {
     return not_implemented(machine, "k_get_save_files");
-}
-
-Reg k_hilite_control(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_hilite_control");
-}
-
-Reg k_menu_select(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_menu_select");
 }
 
 Reg k_parse(Machine& machine, std::span<Reg> /*args*/) {

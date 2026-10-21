@@ -29,6 +29,8 @@ inline constexpr std::uint16_t event_key_up = 1U << 3U;
 inline constexpr std::uint16_t event_direction = 1U << 6U;
 inline constexpr std::uint16_t event_said = 1U << 7U;
 inline constexpr std::uint16_t event_quit = 1U << 11U;
+// Every event type (kSciEventAny, all but peek).
+inline constexpr std::uint16_t event_any = 0x7FFF;
 inline constexpr std::uint16_t event_peek = 1U << 15U;
 inline constexpr std::uint16_t key_enter = 13;
 inline constexpr std::uint16_t key_escape = 27;

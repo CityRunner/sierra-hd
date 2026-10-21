@@ -10,6 +10,7 @@
 #include "gfx_animate.hpp"
 #include "gfx_cache.hpp"
 #include "gfx_compare.hpp"
+#include "gfx_controls.hpp"
 #include "gfx_cursor.hpp"
 #include "gfx_menu.hpp"
 #include "gfx_paint.hpp"
@@ -59,6 +60,8 @@ public:
 
     [[nodiscard]] Compare& compare() { return *compare_; }
 
+    [[nodiscard]] Controls& controls() { return *controls_; }
+
     [[nodiscard]] Animate& animate() { return *animate_; }
 
     [[nodiscard]] Cursor& cursor() { return *cursor_; }
@@ -81,6 +84,7 @@ private:
     std::unique_ptr<Paint> paint_;
     std::unique_ptr<Text> text_;
     std::unique_ptr<Compare> compare_;
+    std::unique_ptr<Controls> controls_;
     std::unique_ptr<Animate> animate_;
     std::unique_ptr<Cursor> cursor_;
     std::unique_ptr<Menu> menu_;
