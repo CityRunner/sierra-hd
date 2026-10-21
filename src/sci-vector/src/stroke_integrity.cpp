@@ -16,14 +16,19 @@ namespace sci::vector::detail {
 namespace {
 
 // A line end reaches the contour it ends on if the contour is this close
-// across (original pixels): a pixel and a half covers every way a 1x end
-// pixel can touch a line. Along the line's direction it may move at most
-// max_end_move; at a shallower angle the line runs along the contour.
-constexpr double max_across = 1.5;
+// across (original pixels): a 1x end pixel touching a line is at most 1.5
+// pixels from its path, and the fitted contour may lie another half pixel
+// away. Along the line's direction it may move at most max_end_move; at a
+// shallower angle the line runs along the contour.
+constexpr double max_across = 2.0;
 constexpr double max_end_move = 3.0;
 
 // Ends closer than this already join (their discs overlap by a quarter).
 constexpr double joined = 0.75;
+
+// A stroke point this far past the line's end pixel along the line belongs
+// to a spur (original pixels); fitted curves stay closer.
+constexpr double spur_tolerance = 0.5;
 
 // Pixels of a hidden run this far apart along the line belong to one run.
 constexpr double run_gap = 1.5;
@@ -33,7 +38,7 @@ constexpr const char* contact_evidence = "1x: the line end touches the contour, 
 constexpr const char* near_end_evidence = "1x: the line end touches the other line next to its end";
 constexpr const char* side_evidence = "1x: the line end lies beside the contour, which is seen there";
 constexpr const char* hidden_evidence = "1x: another object is seen on these pixels of the line";
-constexpr const char* no_crossing_evidence = "kept: the line does not reach the contour within 1.5 pixels across";
+constexpr const char* no_crossing_evidence = "kept: the line does not reach the contour within 2 pixels across";
 constexpr const char* passes_evidence = "kept: the line crosses the contour's edge elsewhere";
 constexpr const char* on_contour_evidence = "kept: the end pixel lies on the contour's stroke";
 
@@ -217,6 +222,9 @@ public:
     }
 
     void run() {
+        for (Line& line : lines_) {
+            trim_spurs(line);
+        }
         clip_ends();
         close_joints();
         hide_runs();
@@ -225,6 +233,33 @@ public:
     std::vector<Line> take() { return std::move(lines_); }
 
 private:
+    // Removes the points of the line's stroke that lie past its own end
+    // pixels along the line: where a fitted edge reaches a junction on a
+    // contour, the stroke runs out to it and back. How an end meets a
+    // contour is decided by this pass.
+    static void trim_spurs(Line& line) {
+        auto& points = line.strokes.front().points;
+        if (points.size() < 3 || line.first() == line.last()) {
+            return;
+        }
+        const bool front = at_front(line, line.first());
+        const Vec2 a = centre_of(front ? line.first() : line.last());
+        const Vec2 b = centre_of(front ? line.last() : line.first());
+        const double span = length(b - a);
+        const auto along = [&](Vec2 p) { return dot(p - a, b - a) / span; };
+        std::vector<Vec2> kept{points.front()};
+        for (std::size_t k = 1; k + 1 < points.size(); ++k) {
+            const double t = along(points[k]);
+            if (t >= -spur_tolerance && t <= span + spur_tolerance && kept.back() != points[k]) {
+                kept.push_back(points[k]);
+            }
+        }
+        if (kept.back() != points.back()) {
+            kept.push_back(points.back());
+        }
+        points = std::move(kept);
+    }
+
     [[nodiscard]] bool seen(std::size_t pixel, std::size_t line) const {
         return owners_[pixel] == lines_[line].primitive;
     }

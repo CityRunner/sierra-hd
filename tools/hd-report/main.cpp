@@ -252,6 +252,27 @@ std::string report(const std::vector<Row>& rows, int scale) {
     return text;
 }
 
+// The class of an A1 case for the size summary, and its size bucket.
+std::pair<std::string, std::size_t> size_class(const sci::render::IntegrityCase& c) {
+    const bool joint = c.kind == sci::render::IntegrityKind::Break && c.other >= 0;
+    const bool group = c.kind == sci::render::IntegrityKind::Break && c.other < 0;
+    std::string name(kind_name(c.kind));
+    if (c.kind == sci::render::IntegrityKind::Overshoot) {
+        name = "overshoot, other";
+        if (c.past_at_1x) {
+            name = "overshoot, end pixel past the contour at 1x";
+        } else if (c.along_contour) {
+            name = "overshoot, under 30 degrees";
+        }
+    } else if (joint) {
+        name = c.meets_another ? "broken joint (gap), end meets another line" : "broken joint (gap), alone";
+    } else if (group) {
+        return {"split/hidden group", std::min<std::size_t>(static_cast<std::size_t>(c.size), 3)};
+    }
+    const std::array<double, 3> limits = joint ? std::array{0.125, 0.25, 0.5} : std::array{0.0625, 0.25, 1.0};
+    return {name, static_cast<std::size_t>(std::ranges::count_if(limits, [&](double l) { return c.size > l; }))};
+}
+
 void print_summary(const std::vector<Row>& rows) {
     double worst = 1;
     int swaps = 0;
@@ -272,6 +293,8 @@ void print_summary(const std::vector<Row>& rows) {
     for (const Row& row : rows) {
         total.contacts += row.integrity.contacts;
         total.overshoots += row.integrity.overshoots;
+        total.overshoots_past_at_1x += row.integrity.overshoots_past_at_1x;
+        total.overshoots_along += row.integrity.overshoots_along;
         total.depth_violations += row.integrity.depth_violations;
         total.shared_pairs += row.integrity.shared_pairs;
         total.doubled += row.integrity.doubled;
@@ -282,13 +305,17 @@ void print_summary(const std::vector<Row>& rows) {
         total.split_groups += row.integrity.split_groups;
         total.hidden_groups += row.integrity.hidden_groups;
         total.broken_joints += row.integrity.broken_joints;
+        total.broken_joints_meeting_another += row.integrity.broken_joints_meeting_another;
     }
     std::println("A1: {} overshoots of {} contacts, {} depth pixels, {} doubled of {} shared pairs, {} fragments, "
                  "{} breaks ({} line groups, {} joints)",
                  total.overshoots, total.contacts, total.depth_violations, total.doubled, total.shared_pairs,
                  total.fragments, total.breaks, total.line_groups, total.joints);
-    std::println("A1 breaks: {} groups split, {} groups hidden, {} joints broken", total.split_groups,
-                 total.hidden_groups, total.broken_joints);
+    std::println("A1 overshoots: {} where the end pixel lies past the contour at 1x, {} at under 30 degrees",
+                 total.overshoots_past_at_1x, total.overshoots_along);
+    std::println("A1 breaks: {} groups split, {} groups hidden, {} joints broken ({} where the end meets another "
+                 "line it touches)",
+                 total.split_groups, total.hidden_groups, total.broken_joints, total.broken_joints_meeting_another);
     int joints = 0;
     int clipped = 0;
     int kept = 0;
@@ -305,18 +332,8 @@ void print_summary(const std::vector<Row>& rows) {
     std::map<std::string, std::array<int, 4>> sizes;
     for (const Row& row : rows) {
         for (const auto& c : row.integrity.cases) {
-            const bool joint = c.kind == sci::render::IntegrityKind::Break && c.other >= 0;
-            const bool group = c.kind == sci::render::IntegrityKind::Break && c.other < 0;
-            std::string name(kind_name(c.kind));
-            if (joint) {
-                name = "broken joint (gap)";
-            } else if (group) {
-                name = "split/hidden group";
-            }
-            const std::array<double, 3> limits = joint ? std::array{0.125, 0.25, 0.5} : std::array{0.0625, 0.25, 1.0};
-            const auto bucket =
-                static_cast<std::size_t>(std::ranges::count_if(limits, [&](double l) { return c.size > l; }));
-            ++sizes[name][group ? std::min<std::size_t>(static_cast<std::size_t>(c.size), 3) : bucket];
+            const auto [name, bucket] = size_class(c);
+            ++sizes[name][bucket];
         }
     }
     for (const auto& [name, counts] : sizes) {

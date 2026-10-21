@@ -57,6 +57,13 @@ struct IntegrityCase {
     // overshoots and doubled boundaries, the gap for broken joints, the
     // number of pieces for split groups (0 when hidden).
     double size = 0;
+    // For a broken joint: the end meets another line it touches at 1x.
+    bool meets_another = false;
+    // For an overshoot: the end pixel's centre itself lies inside the
+    // contour's stroke or beyond its line (1x shows the line past it).
+    bool past_at_1x = false;
+    // For an overshoot: the line meets the contour at under 30 degrees.
+    bool along_contour = false;
 };
 
 struct Integrity {
@@ -65,13 +72,18 @@ struct Integrity {
     int joints = 0;       // Joints between lines at 1x.
     int line_groups = 0;  // 8-connected groups of owned line pixels.
     int overshoots = 0;
-    int depth_violations = 0; // Pixels.
+    int overshoots_past_at_1x = 0; // Of the overshoots: see IntegrityCase::past_at_1x.
+    int overshoots_along = 0;      // Of the others: see IntegrityCase::along_contour.
+    int depth_violations = 0;      // Pixels.
     int doubled = 0;
     int fragments = 0;
     int breaks = 0;        // The three below.
     int split_groups = 0;  // Owned line groups shown in pieces.
     int hidden_groups = 0; // Owned line groups not shown at all.
     int broken_joints = 0;
+    // Broken joints whose end meets another line it touches at 1x: an end
+    // touching lines that lie apart in HD cannot meet them all.
+    int broken_joints_meeting_another = 0;
     std::vector<IntegrityCase> cases;
 
     [[nodiscard]] bool passes() const {

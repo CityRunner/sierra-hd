@@ -440,15 +440,35 @@ find_joints(const OneX& one, const std::vector<LineInfo>& lines) {
 void check_joints(const Grid& grid, const OneX& one, const std::vector<LineInfo>& lines, Integrity& result) {
     const auto joints = find_joints(one, lines);
     result.joints = static_cast<int>(joints.size());
-    for (const auto& [line, other, end, q] : joints) {
-        if (!meet_within(grid, Window::around(end, q, 1, grid.density()), line,
-                         lines[static_cast<std::size_t>(other)])) {
-            ++result.broken_joints;
-            ++result.breaks;
-            add_case(result, IntegrityKind::Break, {line, other}, end,
-                     joint_gap(grid, Window::around(end, q, 1, grid.density()), line,
-                               lines[static_cast<std::size_t>(other)]));
+    std::vector<bool> met(joints.size());
+    for (std::size_t j = 0; j < joints.size(); ++j) {
+        const auto& [line, other, end, q] = joints[j];
+        met[j] =
+            meet_within(grid, Window::around(end, q, 1, grid.density()), line, lines[static_cast<std::size_t>(other)]);
+    }
+    // Joints of one end are adjacent (sorted by line and end).
+    const auto same_end = [&](std::size_t a, std::size_t b) {
+        return std::get<0>(joints[a]) == std::get<0>(joints[b]) && std::get<2>(joints[a]) == std::get<2>(joints[b]);
+    };
+    for (std::size_t j = 0; j < joints.size(); ++j) {
+        if (met[j]) {
+            continue;
         }
+        const auto& [line, other, end, q] = joints[j];
+        bool met_other = false;
+        for (std::size_t k = j; k > 0 && same_end(k - 1, j); --k) {
+            met_other = met_other || met[k - 1];
+        }
+        for (std::size_t k = j + 1; k < joints.size() && same_end(k, j); ++k) {
+            met_other = met_other || met[k];
+        }
+        ++result.broken_joints;
+        ++result.breaks;
+        result.broken_joints_meeting_another += met_other ? 1 : 0;
+        add_case(
+            result, IntegrityKind::Break, {line, other}, end,
+            joint_gap(grid, Window::around(end, q, 1, grid.density()), line, lines[static_cast<std::size_t>(other)]));
+        result.cases.back().meets_another = met_other;
     }
 }
 
@@ -515,28 +535,58 @@ std::vector<std::int32_t> contours_at(std::size_t line, std::size_t end, const O
 // Samples near the end showing the line inside the contour's strokes or
 // beyond the contour's line (through the centres of its end pixels; a
 // stroke's own segments can run either way, connectors included).
-int overshooting_samples(const Grid& grid, std::size_t line, std::size_t end, const LineInfo& info,
-                         const LineInfo& contour) {
+// The samples near the end that show the line inside the contour's stroke
+// or beyond its line, and whether the end pixel's centre itself lies there
+// (1x shows the line past the contour).
+std::pair<int, bool> overshooting_samples(const Grid& grid, std::size_t line, std::size_t end, const LineInfo& info,
+                                          const LineInfo& contour) {
     const std::size_t inner = end == info.first() ? info.path[1] : info.path[info.path.size() - 2];
     const Vec2 a = centre_of(contour.first());
     const Vec2 b = centre_of(contour.last());
     const auto side = [&](Vec2 p) { return ((b.x - a.x) * (p.y - a.y)) - ((b.y - a.y) * (p.x - a.x)); };
     const double inner_side = side(centre_of(inner));
     const double radius = contour.strokes.front()->radius;
+    const auto past = [&](Vec2 p) {
+        const double s = side(p);
+        const bool beyond = inner_side != 0 && s != 0 && (s > 0) != (inner_side > 0);
+        return beyond || contour.nearest(p).first <= radius;
+    };
     const Window w = Window::around(end, end, 2, grid.density());
     int offending = 0;
     for (int sy = w.top; sy < w.bottom; ++sy) {
         for (int sx = w.left; sx < w.right; ++sx) {
-            if (std::cmp_not_equal(grid.at(sx, sy), line)) {
-                continue;
+            if (std::cmp_equal(grid.at(sx, sy), line) && past(grid.point(sx, sy))) {
+                ++offending;
             }
-            const Vec2 p = grid.point(sx, sy);
-            const double s = side(p);
-            const bool beyond = inner_side != 0 && s != 0 && (s > 0) != (inner_side > 0);
-            offending += beyond || contour.nearest(p).first <= radius ? 1 : 0;
         }
     }
-    return offending;
+    return {offending, past(centre_of(end))};
+}
+
+// Whether the line meets the contour at a shallow angle (under 30
+// degrees, from its last three pixels and the contour's end points): it
+// runs along the contour rather than ending on it.
+bool runs_along(const LineInfo& info, std::size_t end, const LineInfo& contour) {
+    const std::size_t n = info.path.size();
+    const std::size_t inner = end == info.first() ? info.path[std::min<std::size_t>(2, n - 1)]
+                                                  : info.path[n - 1 - std::min<std::size_t>(2, n - 1)];
+    const Vec2 d{.x = centre_of(end).x - centre_of(inner).x, .y = centre_of(end).y - centre_of(inner).y};
+    const Vec2 a = centre_of(contour.first());
+    const Vec2 b = centre_of(contour.last());
+    const Vec2 e{.x = b.x - a.x, .y = b.y - a.y};
+    const double lengths = std::sqrt(((d.x * d.x) + (d.y * d.y)) * ((e.x * e.x) + (e.y * e.y)));
+    return lengths > 0 && std::abs((d.x * e.y) - (d.y * e.x)) < 0.5 * lengths;
+}
+
+// Records an overshoot; `classes` holds its past_at_1x and along_contour.
+void add_overshoot(Integrity& result, std::pair<std::int32_t, std::int32_t> primitives, std::size_t end, double size,
+                   std::pair<bool, bool> classes) {
+    ++result.overshoots;
+    result.overshoots_past_at_1x += classes.first ? 1 : 0;
+    result.overshoots_along += !classes.first && classes.second ? 1 : 0;
+    add_case(result, IntegrityKind::Overshoot, primitives, end, size);
+    result.cases.back().past_at_1x = classes.first;
+    result.cases.back().along_contour = classes.second;
 }
 
 void check_overshoot(const Grid& grid, const OneX& one, const std::vector<LineInfo>& lines, Integrity& result) {
@@ -552,11 +602,12 @@ void check_overshoot(const Grid& grid, const OneX& one, const std::vector<LineIn
             }
             for (const std::int32_t m : contours_at(l, end, one, lines, drawn)) {
                 ++result.contacts;
-                const int offending = overshooting_samples(grid, l, end, info, lines[static_cast<std::size_t>(m)]);
+                const LineInfo& contour = lines[static_cast<std::size_t>(m)];
+                const auto [offending, past_at_1x] = overshooting_samples(grid, l, end, info, contour);
                 if (offending >= min_overshoot_samples) {
-                    ++result.overshoots;
-                    add_case(result, IntegrityKind::Overshoot, {static_cast<std::int32_t>(l), m}, end,
-                             offending / static_cast<double>(grid.density() * grid.density()));
+                    add_overshoot(result, {static_cast<std::int32_t>(l), m}, end,
+                                  offending / static_cast<double>(grid.density() * grid.density()),
+                                  {past_at_1x, runs_along(info, end, contour)});
                 }
             }
         }
