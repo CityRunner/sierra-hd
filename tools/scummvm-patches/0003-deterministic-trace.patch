@@ -1,0 +1,641 @@
+# sierra-hd: the deterministic mode and kernel-call trace (milestone 4).
+#
+# With SIERRA_HD_TRACE=<file> set, the SCI engine runs on a virtual clock
+# (time passes only where the engine sleeps or waits), drives the music timer
+# from that clock, seeds its random source with SIERRA_HD_SEED (default 0),
+# returns a fixed date and time, takes input only from SIERRA_HD_REPLAY
+# (docs/formats/replay.md), and writes every kernel call with its arguments
+# and result to the trace file. SIERRA_HD_STOP_TICK and SIERRA_HD_STOP_CALLS
+# end the game. Used by tools/vm-trace to compare sci-vm with ScummVM
+# (engines/sci/sierra_hd_trace.cpp describes the details).
+diff -ruN a/engines/sci/engine/kevent.cpp b/engines/sci/engine/kevent.cpp
+--- a/engines/sci/engine/kevent.cpp	2026-10-20 11:49:32.000000000 +0000
++++ b/engines/sci/engine/kevent.cpp	2026-10-21 13:35:18.830811873 +0000
+@@ -22,6 +22,7 @@
+ #include "common/system.h"
+ 
+ #include "sci/sci.h"
++#include "sci/sierra_hd_trace.h"
+ #include "sci/engine/features.h"
+ #include "sci/engine/guest_additions.h"
+ #include "sci/engine/kernel.h"
+@@ -278,7 +279,10 @@
+ 		if (++s->_eventCounter > 2 ||
+ 			(g_sci->_gfxAnimate->isFastCastEnabled() &&
+ 			!s->variables[VAR_GLOBAL][kGlobalVarFastCast].isNull())) {
+-			g_system->delayMillis(10);
++			if (sierraHdDeterministic())
++				sierraHdAdvance(10);
++			else
++				g_system->delayMillis(10);
+ 		}
+ 	}
+ 
+diff -ruN a/engines/sci/engine/kmisc.cpp b/engines/sci/engine/kmisc.cpp
+--- a/engines/sci/engine/kmisc.cpp	2026-10-20 11:49:32.000000000 +0000
++++ b/engines/sci/engine/kmisc.cpp	2026-10-21 13:35:29.396918543 +0000
+@@ -25,6 +25,7 @@
+ #include "common/translation.h"
+ 
+ #include "sci/sci.h"
++#include "sci/sierra_hd_trace.h"
+ #include "sci/debug.h"
+ #include "sci/event.h"
+ #include "sci/engine/state.h"
+@@ -304,6 +305,23 @@
+ 	KGETTIME_DATE = 3
+ };
+ 
++// sierra-hd: a fixed date and time in the deterministic mode, 1990-01-01
++// 12:00:00 (a Monday).
++static void sierraHdTimeAndDate(TimeDate &timeDate) {
++	if (!sierraHdDeterministic()) {
++		g_system->getTimeAndDate(timeDate);
++		return;
++	}
++	timeDate = TimeDate();
++	timeDate.tm_sec = 0;
++	timeDate.tm_min = 0;
++	timeDate.tm_hour = 12;
++	timeDate.tm_mday = 1;
++	timeDate.tm_mon = 0;
++	timeDate.tm_year = 90;
++	timeDate.tm_wday = 1;
++}
++
+ reg_t kGetTime(EngineState *s, int argc, reg_t *argv) {
+ 	TimeDate loc_time;
+ 	uint16 retval = 0; // Avoid spurious warning
+@@ -321,7 +339,7 @@
+ 		debugC(kDebugLevelTime, "GetTime(elapsed) returns %d", retval);
+ 		break;
+ 	case KGETTIME_TIME_12HOUR :
+-		g_system->getTimeAndDate(loc_time);
++		sierraHdTimeAndDate(loc_time);
+ 		loc_time.tm_hour %= 12;
+ 		if (loc_time.tm_hour == 0) {
+ 			loc_time.tm_hour = 12;
+@@ -330,13 +348,13 @@
+ 		debugC(kDebugLevelTime, "GetTime(12h) returns %d", retval);
+ 		break;
+ 	case KGETTIME_TIME_24HOUR :
+-		g_system->getTimeAndDate(loc_time);
++		sierraHdTimeAndDate(loc_time);
+ 		retval = (loc_time.tm_hour << 11) | (loc_time.tm_min << 5) | (loc_time.tm_sec >> 1);
+ 		debugC(kDebugLevelTime, "GetTime(24h) returns %d", retval);
+ 		break;
+ 	case KGETTIME_DATE :
+ 	{
+-		g_system->getTimeAndDate(loc_time);
++		sierraHdTimeAndDate(loc_time);
+ 		// SCI0 late: Year since 1920 (0 = 1920, 1 = 1921, etc)
+ 		// SCI01 and newer: Year since 1980 (0 = 1980, 1 = 1981, etc)
+ 		// Atari ST SCI0 late versions use the newer base year.
+diff -ruN a/engines/sci/engine/state.cpp b/engines/sci/engine/state.cpp
+--- a/engines/sci/engine/state.cpp	2026-10-20 11:49:32.000000000 +0000
++++ b/engines/sci/engine/state.cpp	2026-10-21 13:35:18.830527820 +0000
+@@ -27,6 +27,7 @@
+ #include "sci/engine/guest_additions.h"
+ #include "sci/engine/kernel.h"
+ #include "sci/engine/state.h"
++#include "sci/sierra_hd_trace.h"
+ #include "sci/engine/selector.h"
+ #include "sci/engine/vm.h"
+ #include "sci/engine/script.h"
+@@ -123,12 +124,12 @@
+ 
+ void EngineState::speedThrottler(uint32 neededSleep) {
+ 	if (_throttleTrigger) {
+-		uint32 curTime = g_system->getMillis();
++		uint32 curTime = sierraHdDeterministic() ? sierraHdMillis() : g_system->getMillis();
+ 		uint32 duration = curTime - _throttleLastTime;
+ 
+ 		if (duration < neededSleep) {
+ 			g_sci->sleep(neededSleep - duration);
+-			_throttleLastTime = g_system->getMillis();
++			_throttleLastTime = sierraHdDeterministic() ? sierraHdMillis() : g_system->getMillis();
+ 		} else {
+ 			_throttleLastTime = curTime;
+ 		}
+@@ -137,7 +138,7 @@
+ }
+ 
+ uint16 EngineState::wait(uint16 ticks) {
+-	uint32 time = g_system->getMillis();
++	uint32 time = sierraHdDeterministic() ? sierraHdMillis() : g_system->getMillis();
+ 
+ 	uint32 ms = ticks * 1000 / 60;
+ 	uint32 duration = time - lastWaitTime;
+diff -ruN a/engines/sci/engine/vm.cpp b/engines/sci/engine/vm.cpp
+--- a/engines/sci/engine/vm.cpp	2026-10-20 11:49:32.000000000 +0000
++++ b/engines/sci/engine/vm.cpp	2026-10-21 13:34:51.007337572 +0000
+@@ -29,6 +29,7 @@
+ #include "sci/engine/guest_additions.h"
+ #include "sci/engine/state.h"
+ #include "sci/engine/kernel.h"
++#include "sci/sierra_hd_trace.h"
+ #include "sci/engine/object.h"
+ #include "sci/engine/script.h"
+ #include "sci/engine/seg_manager.h"
+@@ -316,7 +317,7 @@
+ 	s->_executionStack.push_back(xstack);
+ }
+ 
+-static void callKernelFunc(EngineState *s, int kernelCallNr, int argc) {
++static void callKernelFuncUntraced(EngineState *s, int kernelCallNr, int argc) {
+ 	Kernel *kernel = g_sci->getKernel();
+ 
+ 	if (kernelCallNr >= (int)kernel->_kernelFuncs.size())
+@@ -430,6 +431,31 @@
+ 		s->_executionStack.pop_back();
+ }
+ 
++// sierra-hd: in the deterministic mode, every kernel call is traced with
++// its arguments (as the script passed them) and its result.
++static void callKernelFunc(EngineState *s, int kernelCallNr, int argc) {
++	if (!sierraHdDeterministic()) {
++		callKernelFuncUntraced(s, kernelCallNr, argc);
++		return;
++	}
++	Kernel *kernel = g_sci->getKernel();
++	const reg_t *argv = s->xs->sp + 1;
++	Common::Array<reg_t> arguments(argv, argc);
++	const char *name = "?";
++	int first = 0;
++	if (kernelCallNr >= 0 && kernelCallNr < (int)kernel->_kernelFuncs.size()) {
++		const KernelFunction &kernelCall = kernel->_kernelFuncs[kernelCallNr];
++		name = kernelCall.name;
++		if (kernelCall.subFunctionCount && argc >= 1 && !argv[0].isPointer() &&
++			argv[0].toUint16() < kernelCall.subFunctionCount && kernelCall.subFunctions[argv[0].toUint16()].name) {
++			name = kernelCall.subFunctions[argv[0].toUint16()].name;
++			first = 1;
++		}
++	}
++	callKernelFuncUntraced(s, kernelCallNr, argc);
++	sierraHdTraceKernel(name, argc - first, arguments.data() + first, s->r_acc);
++}
++
+ int readPMachineInstruction(const byte *src, byte &extOpcode, int16 opparams[4]) {
+ 	uint offset = 0;
+ 	extOpcode = src[offset++]; // Get "extended" opcode (lower bit has special meaning)
+diff -ruN a/engines/sci/event.cpp b/engines/sci/event.cpp
+--- a/engines/sci/event.cpp	2026-10-20 11:49:32.000000000 +0000
++++ b/engines/sci/event.cpp	2026-10-21 13:35:43.682769949 +0000
+@@ -25,6 +25,7 @@
+ 
+ #include "sci/sci.h"
+ #include "sci/event.h"
++#include "sci/sierra_hd_trace.h"
+ #include "sci/console.h"
+ #include "sci/engine/state.h"
+ #include "sci/engine/kernel.h"
+@@ -454,12 +455,32 @@
+ 		updateScreen();
+ 	}
+ 
++	if (sierraHdDeterministic()) {
++		// sierra-hd: host input is drained and ignored except for quitting;
++		// the replayed events due at this tick are queued instead.
++		Common::Event hostEvent;
++		while (g_system->getEventManager()->pollEvent(hostEvent)) {
++			if (hostEvent.type == Common::EVENT_QUIT || hostEvent.type == Common::EVENT_RETURN_TO_LAUNCHER) {
++				SciEvent quit = event;
++				quit.type = kSciEventQuit;
++				_events.push_back(quit);
++			}
++		}
++		SciEvent replayed = event;
++		while (sierraHdNextEvent(replayed))
++			_events.push_back(replayed);
++		event.type = kSciEventNone;
++		event.modifiers = kSciKeyModNone;
++		event.character = 0;
++		event.mousePos = sierraHdMouse();
++	} else {
+ 	// Get all queued events from graphics driver
+ 	do {
+ 		event = getScummVMEvent();
+ 		if (event.type != kSciEventNone)
+ 			_events.push_back(event);
+ 	} while (event.type != kSciEventNone);
++	}
+ 
+ 	// Search for matching event in queue
+ 	Common::List<SciEvent>::iterator iter = _events.begin();
+diff -ruN a/engines/sci/graphics/cursor.cpp b/engines/sci/graphics/cursor.cpp
+--- a/engines/sci/graphics/cursor.cpp	2026-10-20 11:49:32.000000000 +0000
++++ b/engines/sci/graphics/cursor.cpp	2026-10-21 13:35:18.829509469 +0000
+@@ -36,6 +36,7 @@
+ #include "sci/graphics/coordadjuster.h"
+ #include "sci/graphics/view.h"
+ #include "sci/graphics/cursor.h"
++#include "sci/sierra_hd_trace.h"
+ #include "sci/graphics/maciconbar.h"
+ 
+ namespace Sci {
+@@ -276,6 +277,9 @@
+ 	if (!_isVisible)
+ 		return;
+ 
++	if (sierraHdDeterministic())
++		sierraHdSetMouse(pos);
++
+ 	if (!_upscaledHires) {
+ 		_screen->gfxDriver()->setMousePos(pos);
+ 	} else {
+@@ -320,7 +324,7 @@
+ }
+ 
+ Common::Point GfxCursor::getPosition() {
+-	Common::Point mousePos = g_sci->_gfxScreen->gfxDriver()->getMousePos();
++	Common::Point mousePos = sierraHdDeterministic() ? sierraHdMouse() : g_sci->_gfxScreen->gfxDriver()->getMousePos();
+ 
+ 	if (_upscaledHires)
+ 		_screen->adjustBackUpscaledCoordinates(mousePos.y, mousePos.x);
+diff -ruN a/engines/sci/module.mk b/engines/sci/module.mk
+--- a/engines/sci/module.mk	2026-10-20 19:14:11.639584440 +0000
++++ b/engines/sci/module.mk	2026-10-21 13:35:43.683418245 +0000
+@@ -8,6 +8,7 @@
+ 	metaengine.o \
+ 	sci.o \
+ 	sierra_hd_dump_graphics.o \
++	sierra_hd_trace.o \
+ 	util.o \
+ 	engine/features.o \
+ 	engine/file.o \
+diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
+--- a/engines/sci/sci.cpp	2026-10-20 19:14:11.639725328 +0000
++++ b/engines/sci/sci.cpp	2026-10-21 13:35:18.830239609 +0000
+@@ -28,6 +28,7 @@
+ #include "engines/util.h"
+ 
+ #include "sci/sci.h"
++#include "sci/sierra_hd_trace.h"
+ #include "sci/debug.h"
+ #include "sci/console.h"
+ #include "sci/event.h"
+@@ -568,7 +569,9 @@
+ 	if (_vocabulary)
+ 		_vocabulary->reset();
+ 
+-	_gamestate->lastWaitTime = _gamestate->_screenUpdateTime = _system->getMillis();
++	_gamestate->lastWaitTime = _gamestate->_screenUpdateTime = sierraHdDeterministic() ? sierraHdMillis() : _system->getMillis();
++	if (sierraHdDeterministic())
++		_rng.setSeed(sierraHdSeed());
+ 
+ 	// Load game language into printLang property of game object
+ 	setSciLanguage();
+@@ -959,6 +962,14 @@
+ 		return;
+ 	}
+ 
++	// sierra-hd: virtual time passes at once; the event queue is still
++	// pumped once, as on every pass of the loop below.
++	if (sierraHdDeterministic()) {
++		_eventMan->getSciEvent(kSciEventPeek);
++		sierraHdAdvance(msecs);
++		return;
++	}
++
+ 	const uint32 wakeUpTime = _system->getMillis() + msecs;
+ 
+ 	for (;;) {
+@@ -1099,6 +1110,8 @@
+ }
+ 
+ uint32 SciEngine::getTickCount() {
++	if (sierraHdDeterministic())
++		return sierraHdMillis() * 60 / 1000;
+ 	return getTotalPlayTime() * 60 / 1000;
+ }
+ void SciEngine::setTickCount(const uint32 ticks) {
+diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
+--- a/engines/sci/sierra_hd_trace.cpp	1970-01-01 00:00:00.000000000 +0000
++++ b/engines/sci/sierra_hd_trace.cpp	2026-10-21 13:36:13.540131806 +0000
+@@ -0,0 +1,251 @@
++/* sierra-hd reference tooling for ScummVM's SCI engine.
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * The deterministic mode of milestone 4, on when SIERRA_HD_TRACE names a
++ * file:
++ *
++ * - Time is virtual. It advances only where the engine sleeps or waits
++ *   (SciEngine::sleep, the extra 10 ms delay in kGetEvent), never with the
++ *   host clock. Game ticks are 1/60 s of virtual time.
++ * - The music timer runs on the virtual clock, once per base tempo of the
++ *   driver, on the main thread; the driver's own timer is not installed.
++ * - The "sci" random source is seeded with SIERRA_HD_SEED (default 0).
++ * - Date and time are fixed: 1990-01-01, 12:00:00.
++ * - Input comes only from SIERRA_HD_REPLAY (docs/formats/replay.md in
++ *   sierra-hd); host input other than quitting is ignored. The mouse
++ *   position is virtual too.
++ * - Every kernel call is written to the trace file, one line each:
++ *     <call> <tick> <name>(<arguments>) = <result>
++ *   with values as unsigned decimal numbers, or <segment>:<offset> in hex
++ *   for pointers.
++ * - SIERRA_HD_STOP_TICK and SIERRA_HD_STOP_CALLS end the game when the tick
++ *   or the number of kernel calls reaches them.
++ */
++
++#define FORBIDDEN_SYMBOL_ALLOW_ALL
++
++#include "sci/sierra_hd_trace.h"
++
++#include "common/list.h"
++#include "common/mutex.h"
++#include "common/str.h"
++#include "common/textconsole.h"
++#include "sci/event.h"
++#include "sci/sci.h"
++#include "sci/sound/music.h"
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++namespace Sci {
++
++namespace {
++
++struct ReplayEvent {
++	uint32 tick;
++	SciEvent event;
++};
++
++struct State {
++	bool initialised = false;
++	bool on = false;
++	FILE *trace = nullptr;
++	uint32 seed = 0;
++	uint64 microseconds = 0;
++	uint64 musicDue = 0;
++	uint32 tempo = 0;
++	SciMusic *music = nullptr;
++	uint32 calls = 0;
++	uint32 stopTick = 0xFFFFFFFF;
++	uint32 stopCalls = 0xFFFFFFFF;
++	Common::Point mouse;
++	Common::List<ReplayEvent> replay;
++};
++
++State &state();
++
++uint32 numberFrom(const char *name, uint32 fallback) {
++	const char *value = getenv(name);
++	return value ? (uint32)strtoul(value, nullptr, 10) : fallback;
++}
++
++SciEvent makeEvent(SciEventType type, uint16 character, uint16 modifiers, const Common::Point &position) {
++	SciEvent event = SciEvent();
++	event.type = type;
++	event.modifiers = (SciKeyModifiers)modifiers;
++	event.character = character;
++	event.mousePos = position;
++	return event;
++}
++
++// Reads the replay file: "sierra-hd replay 1", then one event per line.
++void readReplay(State &s, const char *path) {
++	FILE *file = fopen(path, "r");
++	if (!file)
++		error("sierra-hd: cannot read the replay file %s", path);
++	char line[1024];
++	bool header = false;
++	Common::Point position;
++	while (fgets(line, sizeof(line), file)) {
++		line[strcspn(line, "\r\n")] = 0;
++		if (!line[0] || line[0] == '#')
++			continue;
++		if (!header) {
++			if (strcmp(line, "sierra-hd replay 1") != 0)
++				error("sierra-hd: %s is not a version 1 replay file", path);
++			header = true;
++			continue;
++		}
++		unsigned long tick = 0;
++		char kind[16] = {0};
++		int consumed = 0;
++		if (sscanf(line, "%lu %15s %n", &tick, kind, &consumed) < 2)
++			error("sierra-hd: bad replay line: %s", line);
++		const char *rest = line + consumed;
++		unsigned int a = 0, b = 0, c = 0;
++		ReplayEvent replayEvent;
++		replayEvent.tick = (uint32)tick;
++		if (strcmp(kind, "text") == 0) {
++			for (const char *p = rest; *p; ++p) {
++				replayEvent.event = makeEvent(kSciEventKeyDown, (byte)*p, kSciKeyModNone, position);
++				s.replay.push_back(replayEvent);
++			}
++			replayEvent.event = makeEvent(kSciEventKeyDown, kSciKeyEnter, kSciKeyModNone, position);
++			s.replay.push_back(replayEvent);
++		} else if (strcmp(kind, "key") == 0 && sscanf(rest, "%u %u", &a, &b) >= 1) {
++			replayEvent.event = makeEvent(kSciEventKeyDown, (uint16)a, (uint16)b, position);
++			s.replay.push_back(replayEvent);
++		} else if ((strcmp(kind, "down") == 0 || strcmp(kind, "up") == 0) && sscanf(rest, "%u %u %u", &a, &b, &c) >= 2) {
++			position = Common::Point((int16)a, (int16)b);
++			replayEvent.event = makeEvent(strcmp(kind, "down") == 0 ? kSciEventMousePress : kSciEventMouseRelease, 0, (uint16)c, position);
++			s.replay.push_back(replayEvent);
++		} else if (strcmp(kind, "move") == 0 && sscanf(rest, "%u %u", &a, &b) == 2) {
++			position = Common::Point((int16)a, (int16)b);
++			replayEvent.event = makeEvent(kSciEventNone, 0, 0, position);
++			s.replay.push_back(replayEvent);
++		} else {
++			error("sierra-hd: bad replay line: %s", line);
++		}
++	}
++	fclose(file);
++}
++
++State &state() {
++	static State s;
++	if (!s.initialised) {
++		s.initialised = true;
++		const char *trace = getenv("SIERRA_HD_TRACE");
++		if (trace && *trace) {
++			s.on = true;
++			s.trace = fopen(trace, "w");
++			if (!s.trace)
++				error("sierra-hd: cannot write the trace file %s", trace);
++			s.seed = numberFrom("SIERRA_HD_SEED", 0);
++			s.stopTick = numberFrom("SIERRA_HD_STOP_TICK", 0xFFFFFFFF);
++			s.stopCalls = numberFrom("SIERRA_HD_STOP_CALLS", 0xFFFFFFFF);
++			const char *replay = getenv("SIERRA_HD_REPLAY");
++			if (replay && *replay)
++				readReplay(s, replay);
++		}
++	}
++	return s;
++}
++
++uint32 currentTick(const State &s) {
++	return (uint32)(s.microseconds * 60 / 1000000);
++}
++
++void checkStop(State &s) {
++	if (currentTick(s) >= s.stopTick || s.calls >= s.stopCalls) {
++		if (s.trace)
++			fflush(s.trace);
++		g_sci->quitGame();
++	}
++}
++
++void writeValue(FILE *file, reg_t value) {
++	if (value.getSegment() == 0)
++		fprintf(file, "%u", value.getOffset());
++	else
++		fprintf(file, "%x:%04x", value.getSegment(), value.getOffset());
++}
++
++} // End of anonymous namespace
++
++bool sierraHdDeterministic() {
++	return state().on;
++}
++
++uint32 sierraHdSeed() {
++	return state().seed;
++}
++
++uint32 sierraHdMillis() {
++	return (uint32)(state().microseconds / 1000);
++}
++
++void sierraHdAdvance(uint32 milliseconds) {
++	State &s = state();
++	s.microseconds += (uint64)milliseconds * 1000;
++	while (s.music && s.tempo && s.musicDue <= s.microseconds) {
++		s.musicDue += s.tempo;
++		Common::StackLock lock(s.music->_mutex);
++		s.music->onTimer();
++	}
++	checkStop(s);
++}
++
++void sierraHdSetMusic(SciMusic *music, uint32 tempoMicroseconds) {
++	State &s = state();
++	s.music = music;
++	s.tempo = tempoMicroseconds;
++	s.musicDue = s.microseconds + tempoMicroseconds;
++}
++
++void sierraHdTraceKernel(const char *name, int argc, const reg_t *argv, reg_t result) {
++	State &s = state();
++	if (!s.trace)
++		return;
++	fprintf(s.trace, "%u %u %s(", s.calls, currentTick(s), name);
++	for (int i = 0; i < argc; ++i) {
++		if (i)
++			fputc(',', s.trace);
++		writeValue(s.trace, argv[i]);
++	}
++	fputs(") = ", s.trace);
++	writeValue(s.trace, result);
++	fputc('\n', s.trace);
++	++s.calls;
++	checkStop(s);
++}
++
++bool sierraHdNextEvent(SciEvent &event) {
++	State &s = state();
++	while (!s.replay.empty() && s.replay.front().tick <= currentTick(s)) {
++		event = s.replay.front().event;
++		s.replay.pop_front();
++		// Mouse events carry their position; key events the current one.
++		if (event.type == kSciEventKeyDown)
++			event.mousePos = s.mouse;
++		else
++			s.mouse = event.mousePos;
++		if (event.type != kSciEventNone)
++			return true;
++	}
++	return false;
++}
++
++Common::Point sierraHdMouse() {
++	return state().mouse;
++}
++
++void sierraHdSetMouse(const Common::Point &position) {
++	state().mouse = position;
++}
++
++} // End of namespace Sci
+diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
+--- a/engines/sci/sierra_hd_trace.h	1970-01-01 00:00:00.000000000 +0000
++++ b/engines/sci/sierra_hd_trace.h	2026-10-21 13:33:55.352784058 +0000
+@@ -0,0 +1,45 @@
++/* sierra-hd reference tooling for ScummVM's SCI engine.
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * The deterministic mode and kernel-call trace of milestone 4 (see
++ * sierra_hd_trace.cpp).
++ */
++
++#ifndef SCI_SIERRA_HD_TRACE_H
++#define SCI_SIERRA_HD_TRACE_H
++
++#include "common/scummsys.h"
++#include "common/rect.h"
++#include "sci/engine/vm_types.h"
++
++namespace Sci {
++
++class SciMusic;
++struct SciEvent;
++
++// Whether the deterministic mode is on (SIERRA_HD_TRACE is set).
++bool sierraHdDeterministic();
++// The seed of the "sci" random source (SIERRA_HD_SEED, default 0).
++uint32 sierraHdSeed();
++// The virtual clock, in milliseconds since the engine started.
++uint32 sierraHdMillis();
++// Advances the virtual clock; runs the music timer once per base tempo
++// of virtual time crossed.
++void sierraHdAdvance(uint32 milliseconds);
++// The music the virtual clock drives.
++void sierraHdSetMusic(SciMusic *music, uint32 tempoMicroseconds);
++// Writes one kernel call to the trace.
++void sierraHdTraceKernel(const char *name, int argc, const reg_t *argv, reg_t result);
++// The next replayed event due at the current tick, if any.
++bool sierraHdNextEvent(SciEvent &event);
++// The virtual mouse position.
++Common::Point sierraHdMouse();
++void sierraHdSetMouse(const Common::Point &position);
++
++} // End of namespace Sci
++
++#endif
+diff -ruN a/engines/sci/sound/music.cpp b/engines/sci/sound/music.cpp
+--- a/engines/sci/sound/music.cpp	2026-10-20 11:49:32.000000000 +0000
++++ b/engines/sci/sound/music.cpp	2026-10-21 13:35:43.683169371 +0000
+@@ -33,6 +33,7 @@
+ #include "sci/engine/state.h"
+ #include "sci/sound/midiparser_sci.h"
+ #include "sci/sound/music.h"
++#include "sci/sierra_hd_trace.h"
+ 
+ //#define DEBUG_REMAP
+ 
+@@ -158,8 +159,13 @@
+ 	}
+ 
+ 	if (_pMidiDrv && !_pMidiDrv->open()) {
+-		_pMidiDrv->setTimerCallback(this, &miditimerCallback);
+ 		_dwTempo = _pMidiDrv->getBaseTempo();
++		// sierra-hd: in the deterministic mode the virtual clock runs the
++		// music timer, not the driver.
++		if (sierraHdDeterministic())
++			sierraHdSetMusic(this, _dwTempo);
++		else
++			_pMidiDrv->setTimerCallback(this, &miditimerCallback);
+ 	} else {
+ 		if (g_sci->getGameId() == GID_FUNSEEKER ||
+ 			(g_sci->getGameId() == GID_GK2 && g_sci->isDemo())) {
