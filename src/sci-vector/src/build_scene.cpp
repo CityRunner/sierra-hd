@@ -15,6 +15,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -668,6 +669,20 @@ struct PlaneHints {
     std::vector<HintGap> gaps;
 };
 
+std::string_view kind_name(HintPrimitive primitive) {
+    switch (primitive) {
+    case HintPrimitive::Line:
+        return "a line";
+    case HintPrimitive::Arc:
+        return "arcs";
+    case HintPrimitive::Spline:
+        return "a spline";
+    case HintPrimitive::Ellipse:
+        return "an ellipse";
+    }
+    return "a spline";
+}
+
 detail::CurveKind curve_kind(HintPrimitive primitive) {
     switch (primitive) {
     case HintPrimitive::Line:
@@ -724,7 +739,7 @@ private:
 };
 
 void reject_hint(SceneStats& stats, int picture, const std::string& id, std::string reason) {
-    stats.rejected_hints.push_back(RejectedHint{.picture = picture, .id = id, .reason = std::move(reason)});
+    stats.rejected_hints.push_back(HintOutcome{.picture = picture, .id = id, .detail = std::move(reason)});
 }
 
 // A chain hint's lines in this plane; nothing if it has fewer than two
@@ -858,6 +873,13 @@ Partition close_hinted_gaps(std::vector<TopoSegment> topology, const PlaneHints&
     }
     if (Partition closed = partition(all, view, trace); no_worse(closed, base)) {
         stats.hint_gaps += static_cast<int>(candidates.size());
+        for (const auto& candidate : candidates) {
+            stats.applied_hints.push_back(HintOutcome{
+                .picture = candidate.first->picture,
+                .id = candidate.first->hint->id,
+                .detail = "gap closed",
+            });
+        }
         return closed;
     }
     for (const auto& [gap, connector] : candidates) {
@@ -865,6 +887,8 @@ Partition close_hinted_gaps(std::vector<TopoSegment> topology, const PlaneHints&
         if (Partition closed = partition(topology, view, trace); no_worse(closed, base)) {
             base = std::move(closed);
             ++stats.hint_gaps;
+            stats.applied_hints.push_back(
+                HintOutcome{.picture = gap->picture, .id = gap->hint->id, .detail = "gap closed"});
         } else {
             topology.pop_back();
             reject_hint(stats, gap->picture, gap->hint->id, "closing it adds mixed faces or 1x blocks");
@@ -1162,6 +1186,12 @@ Curves fit_with_hints(const detail::Arrangement& arrangement, const std::vector<
         for (std::size_t h = 0; h < hints.chains.size(); ++h) {
             if (enabled[h] && check.fitted[h]) {
                 ++stats.hint_chains;
+                stats.applied_hints.push_back(HintOutcome{
+                    .picture = hints.chains[h].picture,
+                    .id = hints.chains[h].hint->id,
+                    .detail = std::format("{} lines fitted as {}", hints.chains[h].lines.size(),
+                                          kind_name(hints.chains[h].hint->primitive)),
+                });
             } else if (enabled[h]) {
                 drop(h, "its lines form no chain");
             }

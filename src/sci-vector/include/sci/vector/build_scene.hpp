@@ -28,11 +28,11 @@ struct Fallback {
     int bottom = 0;
 };
 
-// A hint the analysis did not use, and why.
-struct RejectedHint {
+// What the analysis did with a hint: how it was used, or why not.
+struct HintOutcome {
     int picture = 0; // PIC resource number.
     std::string id;
-    std::string reason;
+    std::string detail;
 };
 
 // What the analysis did, for the replacement report.
@@ -59,9 +59,10 @@ struct SceneStats {
     int rejected_fits = 0;           // Fits left out because they would change the faces.
     std::vector<Fallback> fallbacks; // The mixed faces.
     // Hints (spec section 6.7).
-    int hint_chains = 0;                      // Chain hints fitted as they ask.
-    int hint_gaps = 0;                        // Gap hints closed.
-    std::vector<RejectedHint> rejected_hints; // Hints left out; the automatic result stands there.
+    int hint_chains = 0;                     // Chain hints fitted as they ask.
+    int hint_gaps = 0;                       // Gap hints closed.
+    std::vector<HintOutcome> applied_hints;  // Hints used, with what they changed.
+    std::vector<HintOutcome> rejected_hints; // Hints left out; the automatic result stands there.
 };
 
 struct BuiltScene {

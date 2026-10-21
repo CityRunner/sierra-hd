@@ -79,7 +79,7 @@ SCI_TEST(chain_hints_must_keep_the_line_pixels) {
     const auto hinted = build(drawn, hints);
     SCI_CHECK(hinted.stats.hint_chains == 0 && hinted.stats.rejected_hints.size() == 1);
     SCI_CHECK(hinted.stats.rejected_hints[0].id == "bent" &&
-              hinted.stats.rejected_hints[0].reason == "the curve misses pixels of its lines");
+              hinted.stats.rejected_hints[0].detail == "the curve misses pixels of its lines");
 }
 
 SCI_TEST(hints_for_commands_without_lines_are_rejected) {

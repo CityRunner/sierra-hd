@@ -322,60 +322,69 @@ int candidates(const sci::resource::ResourceManager& manager, std::uint16_t numb
     return 0;
 }
 
-int check(const sci::resource::ResourceManager& manager, const fs::path& directory) {
+// Checks one hint file against the game and prints what the vector path
+// does with it.
+bool check_file(const sci::resource::ResourceManager& manager, const fs::path& path) {
     bool ok = true;
+    std::ifstream file(path, std::ios::binary);
+    const std::string text((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    const auto hints = sci::vector::parse_hints(text);
+    if (!hints) {
+        std::println("{}: {}", path.filename().string(), hints.error().message);
+        return false;
+    }
+    if (path.filename().string() != sci::vector::hint_file_name(hints->picture)) {
+        std::println("{}: the file is named for another picture", path.filename().string());
+        return false;
+    }
+    const auto number = static_cast<std::uint16_t>(hints->picture);
+    const auto resource =
+        manager.load(sci::resource::ResourceId{.type = sci::resource::ResourceType::Pic, .number = number});
+    if (!resource || !sci::vector::hints_match(*hints, resource->data)) {
+        std::println("{}: does not match the picture's data", path.filename().string());
+        return false;
+    }
+    const std::array numbers{number};
+    const auto drawn = sci::tools::draw_pictures(manager, numbers);
+    if (!drawn) {
+        return false;
+    }
+    const std::array<const sci::vector::PictureHints*, 1> per_picture{&*hints};
+    const auto visual = sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual, per_picture);
+    const auto priority =
+        sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Priority, per_picture);
+    std::println("{}: {} chains, {} gaps; visual {} fitted, {} closed; priority {} fitted, {} closed",
+                 path.filename().string(), hints->chains.size(), hints->gaps.size(), visual.stats.hint_chains,
+                 visual.stats.hint_gaps, priority.stats.hint_chains, priority.stats.hint_gaps);
+    for (const auto* stats : {&visual.stats, &priority.stats}) {
+        for (const auto& rejected : stats->rejected_hints) {
+            std::println("  {} plane, {}: {}", stats == &visual.stats ? "visual" : "priority", rejected.id,
+                         rejected.detail);
+            // A reference to a command without a line is an error in the file.
+            ok = ok && !rejected.detail.ends_with("draws no line");
+        }
+    }
+    return ok;
+}
+
+int check(const sci::resource::ResourceManager& manager, const fs::path& directory) {
     std::vector<fs::path> files;
-    for (const auto& entry : fs::directory_iterator(directory)) {
+    std::error_code error;
+    const fs::directory_iterator entries(directory, error);
+    if (error) {
+        std::println(stderr, "{}: {}", directory.string(), error.message());
+        return 1;
+    }
+    for (const auto& entry : entries) {
         const std::string name = entry.path().filename().string();
         if (name.starts_with("pic.") && name.ends_with(".json")) {
             files.push_back(entry.path());
         }
     }
     std::ranges::stable_sort(files);
+    bool ok = true;
     for (const fs::path& path : files) {
-        std::ifstream file(path, std::ios::binary);
-        const std::string text((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        const auto hints = sci::vector::parse_hints(text);
-        if (!hints) {
-            std::println("{}: {}", path.filename().string(), hints.error().message);
-            ok = false;
-            continue;
-        }
-        if (path.filename().string() != sci::vector::hint_file_name(hints->picture)) {
-            std::println("{}: the file is named for another picture", path.filename().string());
-            ok = false;
-            continue;
-        }
-        const auto number = static_cast<std::uint16_t>(hints->picture);
-        const auto resource =
-            manager.load(sci::resource::ResourceId{.type = sci::resource::ResourceType::Pic, .number = number});
-        if (!resource || !sci::vector::hints_match(*hints, resource->data)) {
-            std::println("{}: does not match the picture's data", path.filename().string());
-            ok = false;
-            continue;
-        }
-        const std::array numbers{number};
-        const auto drawn = sci::tools::draw_pictures(manager, numbers);
-        if (!drawn) {
-            ok = false;
-            continue;
-        }
-        const std::array<const sci::vector::PictureHints*, 1> per_picture{&*hints};
-        const auto visual =
-            sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual, per_picture);
-        const auto priority =
-            sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Priority, per_picture);
-        std::println("{}: {} chains, {} gaps; visual {} fitted, {} closed; priority {} fitted, {} closed",
-                     path.filename().string(), hints->chains.size(), hints->gaps.size(), visual.stats.hint_chains,
-                     visual.stats.hint_gaps, priority.stats.hint_chains, priority.stats.hint_gaps);
-        for (const auto* stats : {&visual.stats, &priority.stats}) {
-            for (const auto& rejected : stats->rejected_hints) {
-                std::println("  {} plane, {}: {}", stats == &visual.stats ? "visual" : "priority", rejected.id,
-                             rejected.reason);
-                // A reference to a command without a line is an error in the file.
-                ok = ok && !rejected.reason.ends_with("draws no line");
-            }
-        }
+        ok = check_file(manager, path) && ok;
     }
     return ok ? 0 : 1;
 }

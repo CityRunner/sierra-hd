@@ -162,14 +162,14 @@ std::string fallback_list(const std::vector<Row>& rows) {
     return text.empty() ? "None.\n" : text;
 }
 
-// Hints left out, per plane (a hint of lines in both planes may be listed
-// for each).
-std::string rejected_hint_list(const std::vector<Row>& rows) {
+// Hints used or left out, per plane (a hint of lines in both planes may
+// be listed for each).
+std::string hint_list(const std::vector<Row>& rows, bool applied) {
     std::string text;
     for (const Row& row : rows) {
         for (const auto& [plane, stats] : {std::pair{"visual", &row.visual}, std::pair{"priority", &row.priority}}) {
-            for (const auto& hint : stats->rejected_hints) {
-                text += std::format("- pic {}, {} plane, `{}`: {}\n", row.number, plane, hint.id, hint.reason);
+            for (const auto& hint : applied ? stats->applied_hints : stats->rejected_hints) {
+                text += std::format("- pic {}, {} plane, `{}`: {}\n", row.number, plane, hint.id, hint.detail);
             }
         }
     }
@@ -193,7 +193,8 @@ std::string report(const std::vector<Row>& rows, int scale) {
         text += table_row(row);
     }
     text += "\n## Fallbacks (mixed faces of the visual plane)\n\n" + fallback_list(rows);
-    text += "\n## Hints left out\n\n" + rejected_hint_list(rows);
+    text += "\n## Hints used\n\n" + hint_list(rows, true);
+    text += "\n## Hints left out\n\n" + hint_list(rows, false);
     return text;
 }
 
