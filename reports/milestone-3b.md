@@ -1,10 +1,9 @@
 # Milestone 3b: drawing order, occlusion and stroke integrity
 
-Status: **ready for review, with a decision for you.** The A1 checks find
-far fewer problems than before, but they do not reach zero. The rest comes
-from a trade-off between the checks, as A1 asks me to explain rather than
-improvise around ("Trade-off" below). Please also review the rooms side by
-side; I posted the images with the pull request.
+Status: **approved** (2026-10-21). The customer chose option 1 of the
+trade-off below: the remaining cases are accepted as listed. The hints are
+frozen, and release v0.1 follows. The text below is the report as
+reviewed.
 
 Exit criteria (addendum A1, `docs/SPEC_ADDENDA.md`):
 

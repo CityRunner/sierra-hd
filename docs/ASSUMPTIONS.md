@@ -721,7 +721,7 @@ change spec section 2. Its effect on the plan:
   degrees, and broken joints whose end meets another line it touches, are
   counted apart, so the report can show where the 1x picture itself, not
   the pass, decides the outcome. The checks are not relaxed by these
-  classes: every case still counts. **Pending** customer review.
+  classes: every case still counts. **Decided** (3b approval).
 - **The stroke integrity pass** edits the visual plane's strokes after the
   scene is built (`sci-vector/src/stroke_integrity.cpp`). The order is:
   spurs, ends on contours, joints, runs not seen. Its limits:
@@ -731,11 +731,11 @@ change spec section 2. Its effect on the plan:
   - hidden pixels 1.5 apart along the line form one run;
   - stroke points more than 0.5 past a line's end pixel are a spur.
   The priority plane is not changed: its strokes decide occlusion of
-  sprites, where the pass's reasons do not apply. **Pending** customer
-  review.
+  sprites, where the pass's reasons do not apply. **Decided** (3b
+  approval).
 - **Connectors belong to the earlier line** of a joint, and are kept apart
   from the line's own strokes. A connector of the later line would be
-  drawn over lines in between and split them. **Pending** customer review.
+  drawn over lines in between and split them. **Decided** (3b approval).
 - **No depth relations were added.**
   - The HD scene keeps path 1's drawing order. The depth check finds 15
     pixels in the whole game, all at line ends, none from layer order.
@@ -747,19 +747,36 @@ change spec section 2. Its effect on the plan:
     they are single pixels, not objects in the wrong order. So the AI step
     was not rerun, and the hint files are unchanged since 3a.
   - The vector path reads and validates relations but does not use them.
-  **Pending** customer review.
+  **Decided** (3b approval).
 - **The fallback of fitted chains to their segments** (A1, "where a fitted
   primitive cannot satisfy these rules") is not implemented. Built with no
   fitting at all, the scenes have about 3 to 5% fewer cases, so the
   fallback could remove at most that share. It would also need the checks
-  inside scene building, about 0.5 s more per room. **Pending** customer
-  decision (report, "Trade-off").
+  inside scene building, about 0.5 s more per room. **Decided**
+  (3b approval: option 1, not implemented).
 - **The baseline** is measured with the development option
   `SCI_WITHOUT_STROKE_INTEGRITY` (scenes without the pass). **Decided**
   (development only, like `SCI_DEBUG_HIGHLIGHT`).
 - **The pass's changes are reported** by kind and evidence in the report.
   `tools/hd-report --changes <file>` writes all of them (213,513,
-  24 MB), which is too large to commit. **Pending** customer review.
+  24 MB), which is too large to commit. **Decided** (3b approval).
+
+## Milestone 3b approval (2026-10-21)
+
+Milestone 3b was approved and merged
+([CityRunner/sierra-hd#6](https://github.com/CityRunner/sierra-hd/pull/6)).
+The customer decided:
+
+- **Option 1 of the trade-off**: the remaining A1 cases are accepted as
+  listed in `reports/milestone-3b-pictures.md`, by class and size. The
+  checks stay as defined; the fitted-chain fallback and a local 1x
+  fallback are not implemented. **Decided.**
+- **The side-by-side review** is approved with the gate. **Decided.**
+- **The hints are frozen** as committed at 3a (no relations were added);
+  no further spot check was asked for. From now on a change to `hints/` is
+  a reviewed commit like any other. **Decided.**
+- **Release v0.1** is tagged after the merge, as a GitHub pre-release.
+  **Decided.**
 
 ## Spec items carried forward
 
