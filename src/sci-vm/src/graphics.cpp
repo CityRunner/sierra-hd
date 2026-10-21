@@ -98,6 +98,7 @@ void Graphics::attach(Machine& machine) {
     compare_ = std::make_unique<Compare>(*this);
     cursor_ = std::make_unique<Cursor>(*this);
     menu_ = std::make_unique<Menu>(*this);
+    controls_ = std::make_unique<Controls>(*this);
     ports_->init();
 }
 

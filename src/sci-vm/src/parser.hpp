@@ -37,6 +37,12 @@ public:
 
     [[nodiscard]] const std::vector<Synonym>& synonyms() const { return synonyms_; }
 
+    // Whether the last parsed input matches the said spec at `spec`
+    // (ScummVM's said()). No match until the parser is ported, as ScummVM
+    // answers without a valid parse.
+    // NOLINTNEXTLINE(readability-convert-member-functions-to-static): the parser port needs its state here.
+    [[nodiscard]] bool said(Machine& /*machine*/, Reg /*spec*/) const { return false; }
+
 private:
     Reg parser_event_;
     std::vector<Synonym> synonyms_;

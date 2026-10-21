@@ -30,6 +30,7 @@
 #include "kernel_functions.hpp"
 #include "machine.hpp"
 #include "parser.hpp"
+#include "path_match.hpp"
 #include "sound.hpp"
 #include "subsystems.hpp"
 #include "timing.hpp"
@@ -73,9 +74,8 @@ constexpr std::array<KeyDirection, 9> key_directions{
     },
 };
 
-// Common::matchString(str, pattern, false, "/"): * any run, ? one
-// character, # one digit, \\ escapes; neither wildcard crosses a slash.
-// The end of the string counts as excluded too, as strchr finds the NUL.
+} // namespace
+
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): kept close to Common::matchString.
 bool match_path(std::string_view str, std::string_view pattern) {
     const auto at = [](std::string_view text, std::size_t i) { return i < text.size() ? text[i] : '\0'; };
@@ -154,8 +154,6 @@ bool match_path(std::string_view str, std::string_view pattern) {
         escaped = !escaped && current == '\\';
     }
 }
-
-} // namespace
 
 Reg k_restart_game(Machine& machine, std::span<Reg> /*args*/) {
     machine.shrink_stack_to_base();
