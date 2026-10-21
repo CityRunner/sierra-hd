@@ -1,0 +1,24 @@
+sierra-hd replay 1
+# The opening, with seed 0 and stop tick 6000.
+# Leaves the title with Enter and passes the copy protection (the answer
+# for seed 0), then clicks "No" to "Have you previously attended a
+# performance of The Colonel's Bequest?", which starts the opening
+# (room 77: the will and the pen). Nothing else is pressed. The opening
+# waits on the real-time clock (kGetTime 1), which the deterministic mode
+# holds at 12:00:00, so it stops after the pen has written (about tick
+# 2600) and the rest of the run is the game idling on that screen.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 move 210 127
+1002 down 210 127 0
+1006 up 210 127 0
