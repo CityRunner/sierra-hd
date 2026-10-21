@@ -198,7 +198,7 @@ Reg k_do_bresen(Machine& machine, std::span<Reg> args) {
             i2 = original_i2;
             di = original_di;
             const auto signal = static_cast<std::uint16_t>(machine.read_selector_value(client, s.signal));
-            machine.write_selector_value(client, s.signal, signal | 0x0400U); // kSignalHitObstacle
+            machine.write_selector_value(client, s.signal, static_cast<int>(signal | 0x0400U)); // kSignalHitObstacle
         }
         machine.write_selector_value(mover, s.b_i1, i1);
         machine.write_selector_value(mover, s.b_i2, i2);

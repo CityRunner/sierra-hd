@@ -41,7 +41,7 @@ public:
     void attach(Machine& machine);
 
     // On a restart (SciEngine::runGame): the menus go.
-    void on_restart_game() { menu_->reset(); }
+    void on_restart_game() { menu().reset(); }
 
     [[nodiscard]] Machine& machine() { return *machine_; }
 

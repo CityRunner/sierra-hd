@@ -22,6 +22,26 @@ void append_value(std::string& line, Reg value) {
     }
 }
 
+// One trace line, `<call> <tick> <name>(<arguments>) = <result>`, with the
+// caller's script and offset when `callers` is given.
+std::string trace_line(const KernelCall& call, std::uint32_t number, std::uint32_t tick, const SegManager* callers) {
+    std::string line = std::format("{} {} {}(", number, tick, call.name);
+    for (std::size_t i = 0; i < call.arguments.size(); ++i) {
+        if (i != 0) {
+            line += ',';
+        }
+        append_value(line, call.arguments[i]);
+    }
+    line += ") = ";
+    append_value(line, call.result);
+    if (callers != nullptr) {
+        const Script* script = callers->script_if_loaded(call.caller.segment);
+        std::format_to(std::back_inserter(line), " @{}:{:04x}", script != nullptr ? script->number() : -1,
+                       call.caller.offset);
+    }
+    return line;
+}
+
 } // namespace
 
 RunResult run_deterministic(const resource::ResourceManager& resources, const RunOptions& options) {
@@ -48,21 +68,8 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
     clock.set_advance_hook(check_stop);
     machine.set_kernel_log([&](const KernelCall& call) {
         if (options.trace) {
-            std::string line = std::format("{} {} {}(", calls, clock.ticks(), call.name);
-            for (std::size_t i = 0; i < call.arguments.size(); ++i) {
-                if (i != 0) {
-                    line += ',';
-                }
-                append_value(line, call.arguments[i]);
-            }
-            line += ") = ";
-            append_value(line, call.result);
-            if (options.trace_callers) {
-                const Script* script = machine.segments().script_if_loaded(call.caller.segment);
-                std::format_to(std::back_inserter(line), " @{}:{:04x}", script != nullptr ? script->number() : -1,
-                               call.caller.offset);
-            }
-            options.trace(line);
+            const SegManager* callers = options.trace_callers ? &machine.segments() : nullptr;
+            options.trace(trace_line(call, calls, clock.ticks(), callers));
         }
         ++calls;
         check_stop();

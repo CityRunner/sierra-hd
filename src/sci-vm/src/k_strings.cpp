@@ -83,10 +83,10 @@ int compare_strings(std::string_view first, std::string_view second, std::size_t
     return 0;
 }
 
-constexpr std::int8_t align_left = -1;
-constexpr std::int8_t align_none = 0;
-constexpr std::int8_t align_right = 1;
-constexpr std::int8_t align_center = 2;
+constexpr int align_left = -1;
+constexpr int align_none = 0;
+constexpr int align_right = 1;
+constexpr int align_center = 2;
 
 } // namespace
 
@@ -97,14 +97,14 @@ Reg k_str_end(Machine& machine, std::span<Reg> args) {
 }
 
 Reg k_str_cat(Machine& machine, std::span<Reg> args) {
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     const std::string joined = segments.get_string(args[0]) + segments.get_string(args[1]);
     segments.strcpy(args[0], joined);
     return args[0];
 }
 
 Reg k_str_cmp(Machine& machine, std::span<Reg> args) {
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     const std::string first = segments.get_string(args[0]);
     const std::string second = segments.get_string(args[1]);
     const std::size_t limit = args.size() > 2 ? args[2].to_uint16() : std::string::npos;
@@ -112,7 +112,7 @@ Reg k_str_cmp(Machine& machine, std::span<Reg> args) {
 }
 
 Reg k_str_cpy(Machine& machine, std::span<Reg> args) {
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     if (args.size() > 2) {
         const int length = args[2].to_sint16();
         if (length >= 0) {

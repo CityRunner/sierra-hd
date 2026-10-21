@@ -75,6 +75,7 @@ private:
 
 // Frees whatever the scripts can no longer reach: unreferenced clones,
 // lists, nodes, hunks, dynamic memory, and scripts marked deleted.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): ScummVM's run_gc, kept as one function.
 void Machine::run_gc() {
     Worklist work;
     work.push(acc_);
@@ -103,10 +104,9 @@ void Machine::run_gc() {
     }
     // Explicitly loaded scripts.
     for (std::size_t i = 1; i < segments_.heap_size(); ++i) {
-        if (const Script* script = segments_.script_if_loaded(static_cast<SegmentId>(i))) {
-            if (script->lockers() != 0) {
-                work.push_all(script->list_object_references());
-            }
+        const Script* script = segments_.script_if_loaded(static_cast<SegmentId>(i));
+        if (script != nullptr && script->lockers() != 0) {
+            work.push_all(script->list_object_references());
         }
     }
     // Everything reachable.

@@ -96,7 +96,7 @@ void Paint::draw_cel_and_show(int view, int loop, int cel, int left, int top, in
     const GfxView& found = graphics_->cache().view(view);
     const Rect cel_rect = Rect::from(left, top, left + found.width(loop, cel), top + found.height(loop, cel));
     draw_cel(found, loop, cel, cel_rect, priority);
-    if (graphics_->screen().pic_not_valid == 0) {
+    if (graphics_->screen().pic_not_valid() == 0) {
         bits_show(cel_rect);
     }
 }
@@ -244,7 +244,7 @@ void Paint::kernel_draw_picture(int picture, int animation, bool blackout, bool 
     Ports& ports = graphics_->ports();
     Port* old_port = ports.set_port(ports.pic_window());
     if (ports.is_front_window(ports.pic_window())) {
-        graphics_->screen().pic_not_valid = 1;
+        graphics_->screen().set_pic_not_valid(1);
         draw_picture(picture, mirrored, add_to, ega_palette);
         graphics_->transitions().setup(animation, blackout);
     } else {
@@ -359,13 +359,13 @@ Reg Paint::kernel_display(const std::string& text, std::span<Reg> args) {
         fill_rect(rect, mask_visual, static_cast<std::uint8_t>(color_back), 0, 0);
     }
     text16.box(text, false, rect, alignment, -1);
-    if (graphics_->screen().pic_not_valid == 0 && redraw) {
+    if (graphics_->screen().pic_not_valid() == 0 && redraw) {
         bits_show(rect);
     }
     Port* current = ports.port();
     const std::int16_t top = current->cur_top;
     const std::int16_t left = current->cur_left;
-    static_cast<Port&>(*current) = old_port;
+    *current = old_port;
     current->cur_top = top;
     current->cur_left = left;
     return result;

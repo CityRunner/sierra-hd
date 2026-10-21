@@ -79,7 +79,10 @@ public:
 
     [[nodiscard]] std::int16_t kernel_pic_not_valid(std::int16_t new_value);
 
-    int pic_not_valid = 0; // 0, 1 or 2
+    // 0, 1 or 2: whether the picture shown is out of date.
+    [[nodiscard]] int pic_not_valid() const { return pic_not_valid_; }
+
+    void set_pic_not_valid(int value) { pic_not_valid_ = value; }
 
 private:
     [[nodiscard]] static std::size_t index(int x, int y) {
@@ -89,6 +92,7 @@ private:
     std::vector<std::uint8_t> visual_;
     std::vector<std::uint8_t> priority_;
     std::vector<std::uint8_t> control_;
+    int pic_not_valid_ = 0;
 };
 
 } // namespace sci::vm

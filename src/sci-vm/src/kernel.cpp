@@ -947,6 +947,7 @@ void Kernel::init(bool cant_be_here) {
     }
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): ScummVM's parseKernelSignature, kept as one.
 Signature Kernel::parse_signature(const char* written) {
     if (written == nullptr) {
         return std::nullopt;
@@ -1051,6 +1052,7 @@ std::uint16_t Kernel::find_reg_type(const SegManager& segments, Reg reg) {
     }
     switch (segment->type()) {
     case SegmentType::Script: {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast): the type is the switch case.
         const auto* script = static_cast<const Script*>(segment);
         if (reg.offset <= script->size() && script->offset_is_object(reg.offset)) {
             result |= script->object_at(reg.offset) != nullptr ? sig_type_object : sig_type_reference;
@@ -1093,12 +1095,11 @@ bool Kernel::signature_match(const SegManager& segments, const std::vector<std::
         if ((type & sig_is_invalid) != 0 && (current & sig_is_invalid) == 0) {
             return false;
         }
-        if (((type & ~sig_is_invalid) & current) == 0) {
-            // An unknown type (a stale pointer) passes where invalid
-            // pointers are allowed.
-            if (!((type & ~sig_is_invalid) == sig_type_error && (current & sig_is_invalid) != 0)) {
-                return false;
-            }
+        // An unknown type (a stale pointer) passes where invalid pointers
+        // are allowed.
+        if (((type & ~sig_is_invalid) & current) == 0 &&
+            ((type & ~sig_is_invalid) != sig_type_error || (current & sig_is_invalid) == 0)) {
+            return false;
         }
         if ((current & sig_more_may_follow) == 0) {
             ++position;

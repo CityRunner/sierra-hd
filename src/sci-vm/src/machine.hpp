@@ -55,10 +55,10 @@ inline constexpr int gc_interval = 0x8000;
 
 enum class ExecType : std::uint8_t { Call = 0, Kernel = 1, VarSelector = 2 };
 
-inline constexpr std::uint8_t var_global = 0;
-inline constexpr std::uint8_t var_local = 1;
-inline constexpr std::uint8_t var_temp = 2;
-inline constexpr std::uint8_t var_param = 3;
+inline constexpr int var_global = 0;
+inline constexpr int var_local = 1;
+inline constexpr int var_temp = 2;
+inline constexpr int var_param = 3;
 
 // The global variables with a fixed meaning (engines/sci/engine/vm.h).
 inline constexpr std::uint16_t global_ego = 0;
@@ -231,7 +231,7 @@ private:
     Reg pop();
     Reg arithmetic_workaround(Reg left, Reg right, const char* operation);
     void run_gc();
-    [[nodiscard]] std::uint32_t find_offset(std::int16_t relative, std::uint32_t pc_offset) const;
+    [[nodiscard]] static std::uint32_t find_offset(std::int16_t relative, std::uint32_t pc_offset);
 
     Resources resources_;
     Faults faults_;

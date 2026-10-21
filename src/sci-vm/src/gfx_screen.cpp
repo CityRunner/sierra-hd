@@ -141,7 +141,7 @@ void Screen::draw_line(GPoint start, GPoint end, std::uint8_t color, std::uint8_
 
 std::size_t Screen::bits_data_size(const Rect& rect, std::uint8_t mask) {
     std::size_t bytes = rect_bytes + 1;
-    const auto pixels = static_cast<std::size_t>(rect.width() * rect.height());
+    const auto pixels = static_cast<std::size_t>(rect.width()) * static_cast<std::size_t>(rect.height());
     if ((mask & mask_visual) != 0) {
         bytes += pixels * 2; // The visual and the display map.
     }
@@ -216,9 +216,9 @@ void Screen::bits_restore(std::span<const std::uint8_t> memory) {
 }
 
 std::int16_t Screen::kernel_pic_not_valid(std::int16_t new_value) {
-    const auto old = static_cast<std::int16_t>(pic_not_valid);
+    const auto old = static_cast<std::int16_t>(pic_not_valid_);
     if (new_value != -1) {
-        pic_not_valid = new_value;
+        pic_not_valid_ = new_value;
     }
     return old;
 }

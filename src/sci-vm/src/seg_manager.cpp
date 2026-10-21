@@ -46,7 +46,7 @@ char get_char(const SegmentRef& ref, std::size_t offset) {
     const Reg value = ref.regs[offset / 2];
     // Segment 0xFFFF: uninitialised temporaries, harmless past the first
     // two characters.
-    if (value.segment != 0 && !(value.segment == 0xFFFF && offset > 1)) {
+    if (value.segment != 0 && (value.segment != 0xFFFF || offset <= 1)) {
         warn("Attempt to read character from non-raw data");
     }
     const bool odd = (offset & 1U) != 0;
@@ -148,12 +148,13 @@ Script* SegManager::allocate_script(int number, SegmentId& segment) {
     return result;
 }
 
+// NOLINTNEXTLINE(misc-no-recursion): a script frees its locals segment too, as in ScummVM.
 void SegManager::deallocate(SegmentId id) {
     if (id < 1 || id >= heap_.size() || !heap_[id]) {
         faults_->raise(std::format("Attempt to deallocate an invalid or freed segment {:x}", id));
         return;
     }
-    if (auto* script = dynamic_cast<Script*>(heap_[id].get())) {
+    if (const auto* script = dynamic_cast<const Script*>(heap_[id].get())) {
         script_segments_.erase(script->number());
         const SegmentId locals = script->locals_segment();
         // A reloaded script keeps its segment but gets a new locals segment,
@@ -221,6 +222,7 @@ Object* SegManager::object(Reg pos) const {
         return nullptr;
     }
     if (found->type() == SegmentType::Clones) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast): the type is checked above.
         auto* clones = static_cast<CloneTable*>(found);
         if (clones->is_valid_entry(pos.offset)) {
             return &clones->at(pos.offset);
@@ -229,6 +231,7 @@ Object* SegManager::object(Reg pos) const {
         return nullptr;
     }
     if (found->type() == SegmentType::Script) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast): the type is checked above.
         auto* owner = static_cast<Script*>(found);
         if (pos.offset <= owner->size() && owner->offset_is_object(pos.offset)) {
             return owner->object_at(pos.offset);
@@ -258,7 +261,7 @@ SegmentId SegManager::script_segment(int number) const {
 }
 
 SegmentId SegManager::script_segment(int number, ScriptLoad load) {
-    if ((static_cast<int>(load) & static_cast<int>(ScriptLoad::Load)) != 0) {
+    if ((static_cast<unsigned>(load) & static_cast<unsigned>(ScriptLoad::Load)) != 0) {
         instantiate_script(number);
     }
     const SegmentId id = script_segment(number);
@@ -290,11 +293,12 @@ T* SegManager::table(SegmentId& id) {
     return static_cast<T*>(heap_[id].get());
 }
 
-void SegManager::free_hunk_entry(Reg address) {
+void SegManager::free_hunk_entry(Reg address) const {
     if (address.is_null()) {
         warn("Attempt to free a Hunk from a null address");
         return;
     }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast): segment() checks the type.
     auto* hunks = static_cast<HunkTable*>(segment(address.segment, SegmentType::Hunk));
     if (hunks == nullptr) {
         warn(std::format("Attempt to free Hunk from address {}: Invalid segment type", pointer_text(address)));
@@ -314,6 +318,7 @@ Reg SegManager::allocate_hunk_entry(std::string_view type, std::size_t size) {
 }
 
 Hunk* SegManager::hunk(Reg address) const {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast): segment() checks the type.
     auto* hunks = static_cast<HunkTable*>(segment(address.segment, SegmentType::Hunk));
     if (hunks == nullptr || !hunks->is_valid_entry(address.offset)) {
         return nullptr;
@@ -354,6 +359,7 @@ Reg SegManager::new_node(Reg value, Reg key) {
 }
 
 List* SegManager::lookup_list(Reg address) const {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast): segment() checks the type.
     auto* lists = static_cast<ListTable*>(segment(address.segment, SegmentType::Lists));
     if (lists == nullptr || !lists->is_valid_entry(address.offset)) {
         faults_->raise(std::format("Attempt to use non-list {} as list", pointer_text(address)));
@@ -366,6 +372,7 @@ Node* SegManager::lookup_node(Reg address, bool stop_on_discarded) const {
     if (address.is_null()) {
         return nullptr;
     }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast): segment() checks the type.
     auto* nodes = static_cast<NodeTable*>(segment(address.segment, SegmentType::Nodes));
     if (nodes == nullptr) {
         faults_->raise(std::format("Attempt to use non-node {} as list node", pointer_text(address)));
@@ -445,7 +452,7 @@ std::span<Reg> SegManager::deref_regs(Reg pointer, int entries) const {
     return ref.regs;
 }
 
-void SegManager::strncpy(Reg dest, std::string_view source, std::size_t n) {
+void SegManager::strncpy(Reg dest, std::string_view source, std::size_t n) const {
     const SegmentRef dest_ref = dereference(dest);
     if (!dest_ref.valid()) {
         warn(std::format("Attempt to strncpy to invalid pointer {}", pointer_text(dest)));
@@ -464,12 +471,13 @@ void SegManager::strncpy(Reg dest, std::string_view source, std::size_t n) {
             break;
         }
     }
-    if (static_cast<std::size_t>(dest_ref.max_size) > n) {
+    const auto max_size = static_cast<std::size_t>(dest_ref.max_size);
+    if (max_size > n) {
         set_char(dest_ref, n, 0);
     }
 }
 
-void SegManager::strncpy(Reg dest, Reg source, std::size_t n) {
+void SegManager::strncpy(Reg dest, Reg source, std::size_t n) const {
     if (source.is_null()) {
         if (n > 0) {
             strcpy(dest, std::string_view{});
@@ -494,6 +502,7 @@ void SegManager::strncpy(Reg dest, Reg source, std::size_t n) {
         const auto end = std::ranges::find(raw, std::uint8_t{0});
         strncpy(
             dest,
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): the bytes as characters.
             std::string_view(reinterpret_cast<const char*>(raw.data()), static_cast<std::size_t>(end - raw.begin())),
             n);
         return;
@@ -511,13 +520,14 @@ void SegManager::strncpy(Reg dest, Reg source, std::size_t n) {
     }
 }
 
-void SegManager::memcpy(Reg dest, std::span<const std::uint8_t> source) {
+void SegManager::memcpy(Reg dest, std::span<const std::uint8_t> source) const {
     const SegmentRef dest_ref = dereference(dest);
     if (!dest_ref.valid()) {
         warn(std::format("Attempt to memcpy to invalid pointer {}", pointer_text(dest)));
         return;
     }
-    if (static_cast<int>(source.size()) > dest_ref.max_size) {
+    const auto count = static_cast<int>(source.size());
+    if (count > dest_ref.max_size) {
         warn(std::format("Trying to dereference pointer {} beyond end of segment", pointer_text(dest)));
         return;
     }
@@ -530,7 +540,7 @@ void SegManager::memcpy(Reg dest, std::span<const std::uint8_t> source) {
     }
 }
 
-void SegManager::memcpy(Reg dest, Reg source, std::size_t n) {
+void SegManager::memcpy(Reg dest, Reg source, std::size_t n) const {
     const SegmentRef dest_ref = dereference(dest);
     const SegmentRef source_ref = dereference(source);
     if (!dest_ref.valid() || !source_ref.valid()) {
@@ -538,7 +548,8 @@ void SegManager::memcpy(Reg dest, Reg source, std::size_t n) {
                          pointer_text(source)));
         return;
     }
-    if (static_cast<int>(n) > dest_ref.max_size || static_cast<int>(n) > source_ref.max_size) {
+    const auto count = static_cast<int>(n);
+    if (count > dest_ref.max_size || count > source_ref.max_size) {
         warn("Trying to dereference pointer beyond end of segment");
         return;
     }
@@ -553,13 +564,14 @@ void SegManager::memcpy(Reg dest, Reg source, std::size_t n) {
     }
 }
 
-void SegManager::memcpy(std::span<std::uint8_t> dest, Reg source) {
+void SegManager::memcpy(std::span<std::uint8_t> dest, Reg source) const {
     const SegmentRef source_ref = dereference(source);
     if (!source_ref.valid()) {
         warn(std::format("Attempt to memcpy from invalid pointer {}", pointer_text(source)));
         return;
     }
-    if (static_cast<int>(dest.size()) > source_ref.max_size) {
+    const auto count = static_cast<int>(dest.size());
+    if (count > source_ref.max_size) {
         warn(std::format("Trying to dereference pointer {} beyond end of segment", pointer_text(source)));
         return;
     }
@@ -604,7 +616,8 @@ std::string SegManager::get_string(Reg pointer) const {
         result.assign(raw.begin(), end);
         return result;
     }
-    for (std::size_t i = 0; i < static_cast<std::size_t>(ref.max_size); ++i) {
+    const auto max_size = static_cast<std::size_t>(ref.max_size);
+    for (std::size_t i = 0; i < max_size; ++i) {
         const char c = get_char(ref, i);
         if (c == 0) {
             break;
@@ -624,7 +637,8 @@ void SegManager::create_class_table() {
     classes_.resize(total);
     for (std::size_t i = 0; i < total; ++i) {
         classes_[i].reg = null_reg;
-        classes_[i].script = (*vocab)[(i * 4) + 2] | ((*vocab)[(i * 4) + 3] << 8U);
+        classes_[i].script = static_cast<int>(static_cast<unsigned>((*vocab)[(i * 4) + 2]) |
+                                              (static_cast<unsigned>((*vocab)[(i * 4) + 3]) << 8U));
     }
 }
 
@@ -638,7 +652,7 @@ Reg SegManager::class_address(int class_number, ScriptLoad load, SegmentId calle
                                    class_number, classes_.size()));
         return null_reg;
     }
-    Class& klass = classes_[static_cast<std::size_t>(class_number)];
+    const Class& klass = classes_[static_cast<std::size_t>(class_number)];
     if (klass.reg.segment == 0) {
         (void)script_segment(klass.script, load);
         // The class table may have been resized while loading.
@@ -683,6 +697,7 @@ SegmentId SegManager::instantiate_script(int number) {
     return id;
 }
 
+// NOLINTNEXTLINE(misc-no-recursion): unloading a script unloads its superclasses' scripts, as in ScummVM.
 void SegManager::uninstantiate_script(int number) {
     const SegmentId id = script_segment(number);
     Script* loaded = script_if_loaded(id);
@@ -705,6 +720,7 @@ void SegManager::uninstantiate_script(int number) {
     }
 }
 
+// NOLINTNEXTLINE(misc-no-recursion): see uninstantiate_script.
 void SegManager::uninstantiate_script_sci0(int number) {
     const SegmentId id = script_segment(number);
     Script* owner = script(id);
