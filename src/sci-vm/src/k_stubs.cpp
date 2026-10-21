@@ -60,16 +60,8 @@ Reg k_menu_select(Machine& machine, std::span<Reg> /*args*/) {
     return not_implemented(machine, "k_menu_select");
 }
 
-Reg k_parse(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_parse");
-}
-
 Reg k_restore_game(Machine& machine, std::span<Reg> /*args*/) {
     return not_implemented(machine, "k_restore_game");
-}
-
-Reg k_said(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_said");
 }
 
 Reg k_save_game(Machine& machine, std::span<Reg> /*args*/) {
