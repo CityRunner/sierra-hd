@@ -90,6 +90,39 @@ Above the faces, in drawing order:
 - **Blocks**: a textured pattern is drawn as the 1x pixels it owns at the
   end, scaled N x N.
 
+### Stroke integrity (milestone 3b, spec section 6.10)
+
+After the layers are built, the visual plane's line strokes pass through
+`apply_stroke_integrity` (`sci-vector/src/stroke_integrity.cpp`). Its
+evidence is what path 1 shows: the 1x owner of every pixel (what the player
+saw) and the pixels every line drew. The priority plane is not changed. In
+order:
+
+1. **Spurs**: stroke points past the line's own end pixels (a fitted edge
+   that ran out to a junction on a contour and back) are removed.
+2. **Ends on a contour**: where a line's end pixel is seen and touches
+   another line that passes there and is seen, and no end of that line is
+   next to it, the end is moved to the contour's centreline and cut along
+   the contour's near edge (`Cut`: a half-plane removed from the stroke).
+   The contour must be within 2 pixels across and the end may move at most
+   3 pixels along the line. An end beside the contour, pointing along or
+   away from it, gets a short connector to the contour's nearest point
+   instead, cut the same way. Ends that drew over the contour, or whose
+   pixel lies on the contour's stroke, are kept as the player saw them.
+3. **Joints**: two seen line ends on touching pixels meet: the earlier line
+   gets a connector to the later line's end (connectors are kept apart
+   from the line's own strokes). An end next to the other line's end gets a
+   connector to its nearest point, cut at its near edge.
+4. **Runs not seen**: along the pixels a line drew where the player saw
+   another object, half a pixel each side of their centres is removed from
+   the line's strokes. A boundary drawn twice therefore shows once, in the
+   colour seen at 1x.
+
+Every change is recorded with its evidence (`SceneStats::integrity_changes`)
+and listed by `tools/hd-report`. The CMake option
+`SCI_WITHOUT_STROKE_INTEGRITY` (development only) builds scenes without
+the pass, to measure the baseline.
+
 ## 6. Curves
 
 Chains of short lines that imitate curves are fitted
@@ -171,6 +204,32 @@ pair classes (pairs compared by the colour they blend to) with path 1's
 pair map outside the edge band: the agreement must be at least 99% and no
 group of four or more differing pixels may remain (a swap). Every pixel a
 visible line owns at 1x must be touched by its stroke.
+
+### The A1 checks
+
+`check_integrity` (`sci/render/integrity.hpp`) samples the visual scene at
+8 x 8 points per original pixel, recording the layer that shows at each,
+and compares with path 1:
+
+- **Overshoot**: at a line end on a contour (as in step 2 above), samples
+  of the line inside the contour's stroke or beyond its line, from 2
+  samples on.
+- **Depth**: a layer showing outside its own 1x pixels and the edge band
+  where the 1x priority is nearer than its own.
+- **Doubled boundary**: two lines that drew two or more pixels in common;
+  on those pixels HD may not show one line where the player saw the other
+  (a quarter of a pixel or more).
+- **Fragment**: every 4-connected group of samples showing a line contains
+  a sample in a pixel the line owns at 1x.
+- **Break**: the samples over one 8-connected group of a line's owned
+  pixels are connected, and at every joint (a seen end pixel touching
+  another line's seen pixel) the line reaches the other line's stroke
+  shape.
+
+Residual cases carry a size and, for overshoots and joints, a class used by
+the milestone 3b report: the end pixel lies past the contour at 1x, the
+line meets the contour at under 30 degrees, or the end meets another line
+it touches.
 
 ## 9. Determinism
 

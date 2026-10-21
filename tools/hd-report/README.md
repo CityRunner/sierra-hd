@@ -16,11 +16,18 @@ lists:
   per picture, and every hint used or left out, with what it changed or
   why it was left out (spec section 6.7).
 
+- the A1 checks of milestone 3b (`sci::render::check_integrity`, spec
+  section 6.10 in `docs/SPEC_ADDENDA.md`): per picture, overshoots, depth
+  violations, doubled boundaries, fragments and breaks, and what the stroke
+  integrity pass changed; every remaining case with its class and size;
+  the pass's changes counted by evidence. `--changes <file>` writes every
+  change with its evidence (about 24 MB for the whole game).
+
 It exits with 1 if any picture fails the acceptance check.
 
     docker/run.sh cmake --build build/release --target sci-hd-report
     SIERRA_HD_MOUNTS=/path/to/game:/game docker/run.sh \
-        build/release/tools/hd-report/sci-hd-report /game build/hd-report.md [--scale 10] [--images reports/images/hd] [--hints hints]
+        build/release/tools/hd-report/sci-hd-report /game build/hd-report.md [--scale 10] [--images reports/images/hd] [--hints hints] [--changes build/changes.txt]
 
 The report holds numbers only. `--images` writes, per picture, the original
 and the HD frame side by side at scale 3; they are derived from the game

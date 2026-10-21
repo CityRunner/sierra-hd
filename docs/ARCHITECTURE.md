@@ -2,8 +2,8 @@
 
 How the program is organised, how data flows through it, and the trade-offs
 behind it. Updated at every milestone (spec section 5.1). State: milestone
-3a, hints and the room viewer of release v0.1 (released after milestone 3b,
-addendum A1).
+3b, drawing order, occlusion and stroke integrity (addendum A1); release
+v0.1 follows its gate.
 
 ## Modules
 
@@ -15,11 +15,11 @@ purpose and invariants:
 | sci-core | Error type, assertions, bounds-checked reading, floating-point profile, logging, exact rationals and rounding, SHA-256, MD5 (release detection only), a strict JSON reader, the executor interface | none |
 | sci-resource | RESOURCE.MAP, volumes, patch files, LZW and Huffman decompression (done, milestone 1) | sci-core |
 | sci-pic | PIC parsing and the exact 1x rasteriser (path 1) (done, milestone 2) | sci-core, sci-resource |
-| sci-vector | Vector analysis of PIC (path 2): planar graph, gap closing, faces, fallbacks, curve fitting (done, milestone 3), hints (done, milestone 3a) | sci-core, sci-pic |
+| sci-vector | Vector analysis of PIC (path 2): planar graph, gap closing, faces, fallbacks, curve fitting (done, milestone 3), hints (done, milestone 3a), stroke integrity (milestone 3b) | sci-core, sci-pic |
 | sci-view | View, loop and cel decoding (done, milestone 2) | sci-core, sci-resource |
 | sci-text | Fonts (done, milestone 2), messages, vocabulary, Said | sci-core, sci-resource |
 | sci-audio | Sound playback, silent driver, AdLib, MT-32, mixer | sci-core, sci-resource |
-| sci-render | HD rasteriser (done, milestone 3), original mode, acceptance check; compositor later | sci-core, sci-pic, sci-vector, sci-view |
+| sci-render | HD rasteriser (done, milestone 3), original mode, acceptance check, A1 checks (milestone 3b); compositor later | sci-core, sci-pic, sci-vector, sci-view |
 | sci-vm | Bytecode interpreter, objects, kernel, animation | sci-core, sci-resource, sci-text |
 | sci-platform (in `src/app/platform`) | The parts of app without a window, shared with the tools: thread executor, game-folder reading, release identification, configuration file, hint loading (done, milestone 3a) | sci-core, sci-resource, sci-vector |
 | app (`sierra-hd`) | Window, input, presentation (the room viewer at release v0.1), saves, cache | all libraries |
@@ -155,11 +155,15 @@ libFuzzer targets (`fuzz-pic`, `fuzz-view-font`).
    that path 1's pixels close, colours every face from the path-1 map
    (falling back to 1x blocks where the pixels disagree), fits curves to
    chains of short lines and to the chains the hint files name, and lists
-   strokes, brushes and textured blocks as layers in drawing order;
+   strokes, brushes and textured blocks as layers in drawing order; in
+   the visual plane, the stroke integrity pass then clips line ends at the
+   contours they end on, closes joints and removes lines along the pixels
+   where the player saw something else (spec section 6.10);
 3. `sci::render::render_hd` samples the scene on a 16 x 16 grid per pixel,
    rows in parallel through the executor; `render_priority` gives the HD
    priority map; `render_original` the original mode;
-4. `check_acceptance` compares the scene, reduced to 1x, with path 1.
+4. `check_acceptance` compares the scene, reduced to 1x, with path 1, and
+   `check_integrity` runs the A1 checks (tools only).
 
 A scene is plain data (`sci/vector/scene.hpp`): faces with values, scan
 edges with the face after them, and layers. sci-render needs nothing else,
@@ -230,6 +234,12 @@ when off, so they stay in release builds.
   spans and adds uniform sample rows in one step; `reference_value`
   evaluates single points the simple way, and a differential test keeps
   the two equal (spec section 5.1).
+- **Stroke integrity as a pass over the built strokes.** The pass edits
+  strokes (end points, cuts, connectors, removed runs) after the scene is
+  built, so faces, fitting and acceptance stay as they were and every
+  change is recorded with its evidence. The cost: it works with 1 pixel
+  wide round strokes and cannot change how such strokes meet the 1x pixel
+  pattern, so some A1 cases remain (`reports/milestone-3b.md`).
 - **A parsed command stream instead of drawing while decoding.** ScummVM
   draws as it decodes. Parsing first costs one allocation per picture, and
   in return the parser and the rasteriser are tested separately and path 2
