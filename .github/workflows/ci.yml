@@ -1,41 +1,157 @@
-# Continuous integration (spec sections 3.2, 5.1, 5.2 and 11).
+# Continuous integration under the CI cost policy (docs/ASSUMPTIONS.md,
+# "CI cost policy"; spec sections 3.2, 5.1, 5.2 and 11).
 #
-# Every push runs the Linux jobs (x86-64 and ARM64): build and tests in
-# release, ASan+UBSan and TSan, the style checks and the fuzzers. Windows
-# minutes cost more in a private repository, so the Windows jobs run at the
-# milestone gates only: on pull requests to main and when started by hand.
-# macOS is optional (customer decision, docs/ASSUMPTIONS.md, "CI"): it runs
-# only when a manual run selects it.
+# CI confirms what already passed locally; it does not discover. Tiers:
+# - push to a work branch: nothing;
+# - draft pull request (work in progress): Linux x86-64 only, one job after
+#   the other, stopping at the first failure: style and static analysis,
+#   then build and all tests under ASan+UBSan, then the threaded tests
+#   under TSan;
+# - pull request ready for review (the milestone gate): the full matrix the
+#   spec requires, all at once so every failure shows: Linux x86-64 and
+#   ARM64 (release, ASan+UBSan, TSan, with the golden hashes of synthetic
+#   scenes on both), the fuzzers, Windows x64 (release, ASan) and ARM64
+#   (release), macOS ARM64 (release, ASan+UBSan, TSan);
+# - manual runs (workflow_dispatch): one fast Linux job, or a single
+#   platform between gates for a fix only that platform reproduces.
+# A push that changes only docs/, reports/ or Markdown files runs nothing;
+# one that changes only hints/ runs only the hint-file check.
 
 name: CI
 
 on:
-  push:
-    branches: ["**"]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore: ["docs/**", "reports/**", "**/*.md"]
   workflow_dispatch:
     inputs:
-      platforms:
-        description: Platforms to run ("default" is Linux and Windows; macOS runs only when selected)
+      scope:
+        description: What to run (gates run on pull requests marked ready for review)
         type: choice
-        options: [default, linux, windows, macos]
-        default: default
+        options: [quick, linux-arm64, windows, macos]
+        default: quick
 
 permissions:
   contents: read
 
-# A newer run of the same kind replaces an older one; push, pull request and
-# manual runs do not cancel each other.
+# "shell: bash" runs steps with -eo pipefail. GitHub's default for Linux
+# steps (bash -e) does not set pipefail, so "command | tee build.log" took
+# tee's status and hid every failure of the command (milestone 0 to 4b).
+defaults:
+  run:
+    shell: bash
+
+# Draft runs of a pull request replace each other as a whole. Gate runs
+# each get their own group here; their jobs carry job-level groups below,
+# so a newer commit cancels a job only when it starts that job again (a
+# push that changes only documents cancels nothing).
 concurrency:
-  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}-${{ (github.event.pull_request.draft && 'wip') || github.run_id }}
   cancel-in-progress: true
 
+env:
+  # Linux jobs cache compiler output in .ccache (docker/run.sh).
+  SIERRA_HD_CCACHE: "1"
+
 jobs:
+  # What this run has to do: the tier, and whether anything but documents
+  # or hint files changed since the commit before.
+  plan:
+    name: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      lint: ${{ steps.plan.outputs.lint }}
+      hints: ${{ steps.plan.outputs.hints }}
+      wip: ${{ steps.plan.outputs.wip }}
+      quick: ${{ steps.plan.outputs.quick }}
+      linux: ${{ steps.plan.outputs.linux }}
+      linux-archs: ${{ steps.plan.outputs.linux-archs }}
+      windows: ${{ steps.plan.outputs.windows }}
+      macos: ${{ steps.plan.outputs.macos }}
+    steps:
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.pull_request.head.sha }}
+          SCOPE: ${{ inputs.scope }}
+        run: |
+          set -euo pipefail
+          out() { echo "$1=$2" >> "$GITHUB_OUTPUT"; echo "$1=$2"; }
+          code=true
+          hints=false
+          if [[ "$EVENT" == pull_request && "$ACTION" == synchronize && -n "$BEFORE" ]]; then
+            # The files of this push. The comparison fails after a force
+            # push (the old head is gone) and stops at 300 files: then
+            # everything runs.
+            if files="$(gh api "repos/$GITHUB_REPOSITORY/compare/$BEFORE...$AFTER" --jq '.files[].filename')" \
+                && [[ "$(wc -l <<< "$files")" -lt 300 ]]; then
+              code=false
+              while IFS= read -r file; do
+                case "$file" in
+                  "") ;;
+                  docs/* | reports/* | *.md) ;;
+                  hints/*) hints=true ;;
+                  *) code=true ;;
+                esac
+              done <<< "$files"
+            fi
+          fi
+          wip=false; quick=false; linux=false; arm=false; windows=false; macos=false; lint=false
+          if [[ "$EVENT" == pull_request ]]; then
+            if [[ "$code" == true ]]; then
+              lint=true
+              if [[ "$DRAFT" == true ]]; then
+                wip=true
+              else
+                linux=true; arm=true; windows=true; macos=true
+              fi
+            fi
+          else
+            case "$SCOPE" in
+              quick) quick=true; lint=true ;;
+              linux-arm64) arm=true ;;
+              windows) windows=true ;;
+              macos) macos=true ;;
+            esac
+          fi
+          out lint "$lint"
+          out hints "$([[ "$hints" == true && "$lint" == false ]] && echo true || echo false)"
+          out wip "$wip"
+          out quick "$quick"
+          out linux "$linux"
+          # The architectures of the Linux matrix, as JSON.
+          if [[ "$linux" == true ]]; then out linux-archs '["x64","arm64"]'
+          elif [[ "$arm" == true ]]; then out linux-archs '["arm64"]'
+          else out linux-archs '[]'; fi
+          out windows "$windows"
+          out macos "$macos"
+
+  hints:
+    name: hint files
+    needs: plan
+    if: needs.plan.outputs.hints == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Hint files
+        run: python3 scripts/check-hints.py
+
   lint:
     name: style and static analysis
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON('["default", "linux"]'), inputs.platforms)
+    needs: plan
+    if: needs.plan.outputs.lint == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    concurrency:
+      group: ci-${{ github.event.pull_request.number || github.ref }}-lint
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/toolchain-image
@@ -52,21 +168,97 @@ jobs:
         with:
           log: build.log
 
+  # Work in progress (draft pull request): Linux x86-64, one job after the
+  # other, so a failure stops the run.
+  wip-asan:
+    name: linux-x64 asan
+    needs: [plan, lint]
+    if: needs.plan.outputs.wip == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/toolchain-image
+      - uses: ./.github/actions/ccache
+        with:
+          key: linux-x64-asan
+      - name: Build and test (ASan and UBSan)
+        run: docker/run.sh cmake --workflow --preset asan 2>&1 | tee build.log
+      - if: failure()
+        uses: ./.github/actions/report-failure
+        with:
+          log: build.log
+
+  wip-tsan:
+    name: linux-x64 tsan (threaded tests)
+    needs: [plan, wip-asan]
+    if: needs.plan.outputs.wip == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/toolchain-image
+      - uses: ./.github/actions/ccache
+        with:
+          key: linux-x64-tsan
+      - name: Reduce ASLR entropy for TSan
+        # TSan's shadow memory layout does not fit the default mmap
+        # randomisation of the runner kernels.
+        run: sudo sysctl vm.mmap_rnd_bits=28
+      - name: Build and run the threaded tests (TSan)
+        run: >
+          docker/run.sh bash -c "cmake --preset tsan && cmake --build --preset tsan --target sci-thread-tests
+          && ctest --preset tsan -L threads" 2>&1 | tee build.log
+      - if: failure()
+        uses: ./.github/actions/report-failure
+        with:
+          log: build.log
+
+  # A manual remote check of a work branch: one fast job after the lint.
+  quick:
+    name: linux-x64 release
+    needs: [plan, lint]
+    if: needs.plan.outputs.quick == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/toolchain-image
+      - uses: ./.github/actions/ccache
+        with:
+          key: linux-x64-release
+      - name: Build and test
+        run: docker/run.sh cmake --workflow --preset release 2>&1 | tee build.log
+      - if: failure()
+        uses: ./.github/actions/report-failure
+        with:
+          log: build.log
+
+  # The milestone gate (pull request ready for review): the full matrix, all
+  # at once. Each preset runs every test, among them the golden hashes of
+  # synthetic scenes, so x86-64 and ARM64 are compared against the same
+  # constants.
   linux:
     name: linux-${{ matrix.arch }} ${{ matrix.preset }}
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON('["default", "linux"]'), inputs.platforms)
+    needs: plan
+    if: needs.plan.outputs.linux-archs != '[]'
     runs-on: ${{ matrix.arch == 'x64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+    timeout-minutes: ${{ matrix.preset == 'asan' && 20 || 15 }}
+    concurrency:
+      group: ci-${{ github.event.pull_request.number || github.ref }}-linux-${{ matrix.arch }}-${{ matrix.preset }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
-        arch: [x64, arm64]
+        arch: ${{ fromJSON(needs.plan.outputs.linux-archs) }}
         preset: [release, asan, tsan]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/toolchain-image
+      - uses: ./.github/actions/ccache
+        with:
+          key: linux-${{ matrix.arch }}-${{ matrix.preset }}
       - name: Reduce ASLR entropy for TSan
-        # TSan's shadow memory layout does not fit the default mmap
-        # randomisation of the runner kernels.
         if: matrix.preset == 'tsan'
         run: sudo sysctl vm.mmap_rnd_bits=28
       - name: Build and test
@@ -78,64 +270,70 @@ jobs:
 
   fuzz:
     name: linux-x64 fuzz
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON('["default", "linux"]'), inputs.platforms)
+    needs: plan
+    if: needs.plan.outputs.linux == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    concurrency:
+      group: ci-${{ github.event.pull_request.number || github.ref }}-fuzz
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/toolchain-image
-      - name: Build and run the fuzzers
-        run: docker/run.sh bash -c "cmake --preset fuzz && cmake --build --preset fuzz && scripts/run-fuzzers.sh build/fuzz 60" 2>&1 | tee build.log
+      - uses: ./.github/actions/ccache
+        with:
+          key: linux-x64-fuzz
+      # The corpus grown by earlier runs: the newest one is restored, and
+      # this run's is saved under its own key.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/fuzz-corpus
+          key: fuzz-corpus-${{ github.run_id }}
+          restore-keys: fuzz-corpus-
+      - name: Build and run the fuzzers (60 s per target)
+        run: >
+          docker/run.sh bash -c "cmake --preset fuzz && cmake --build --preset fuzz
+          && SCI_FUZZ_CORPUS=build/fuzz-corpus scripts/run-fuzzers.sh build/fuzz 60" 2>&1 | tee build.log
       - if: failure()
         uses: ./.github/actions/report-failure
         with:
           log: build.log
-
-  macos:
-    name: macos-arm64 ${{ matrix.preset }}
-    if: github.event_name == 'workflow_dispatch' && inputs.platforms == 'macos'
-    runs-on: macos-15
-    strategy:
-      fail-fast: false
-      matrix:
-        preset: [release, asan, tsan]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/native-toolchain
-        with:
-          llvm-archive: LLVM-23.1.4-macOS-ARM64.tar.xz
-          llvm-sha256: 5d3179db39adeca5b17a34d82708fe976bc60e055b05fe557878fb3fb64d39ef
-          ninja-version: v1.13.2
-          ninja-archive: ninja-mac.zip
-          ninja-sha256: c99048673aa765960a99cf10c6ddb9f1fad506099ff0a0e137ad8960a88f321b
-      - name: Build and test
-        shell: bash
-        run: cmake --workflow --preset ${{ matrix.preset }} 2>&1 | tee build.log
       - if: failure()
-        uses: ./.github/actions/report-failure
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          log: build.log
+          name: fuzz-artifacts
+          path: build/fuzz-artifacts
+          retention-days: 7
+          if-no-files-found: ignore
 
   windows:
-    name: windows-${{ matrix.arch }} ${{ matrix.preset }}
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["default", "windows"]'), inputs.platforms))
+    name: windows-${{ matrix.arch }}
+    needs: plan
+    if: needs.plan.outputs.windows == 'true'
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout }}
+    concurrency:
+      group: ci-${{ github.event.pull_request.number || github.ref }}-windows-${{ matrix.arch }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { arch: x64, runner: windows-2025, preset: windows-release, msvc: x64,
+          # Release and ASan in one job: one toolchain setup and one rounded
+          # minute instead of two.
+          - { arch: x64, runner: windows-2025, presets: "windows-release windows-asan", msvc: x64, timeout: 30,
               llvm: clang+llvm-23.1.4-x86_64-pc-windows-msvc.tar.xz,
               llvm-sha256: 854bffcfc84528e0ee92490ff5c178920abd358a79c3e98f053e41e3e8e4c6d2,
-              ninja: ninja-win.zip, ninja-sha256: 07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65 }
-          - { arch: x64, runner: windows-2025, preset: windows-asan, msvc: x64,
-              llvm: clang+llvm-23.1.4-x86_64-pc-windows-msvc.tar.xz,
-              llvm-sha256: 854bffcfc84528e0ee92490ff5c178920abd358a79c3e98f053e41e3e8e4c6d2,
-              ninja: ninja-win.zip, ninja-sha256: 07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65 }
+              ninja: ninja-win.zip, ninja-sha256: 07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65,
+              ccache: ccache-4.14.2-windows-x86_64.zip,
+              ccache-sha256: 6993ce645e53192cec592ee23186200b574ac4c59097ecde8d9cfd681b47ae84 }
           # The LLVM release has no ASan runtime for Windows on ARM64.
-          - { arch: arm64, runner: windows-11-arm, preset: windows-release, msvc: arm64,
+          - { arch: arm64, runner: windows-11-arm, presets: "windows-release", msvc: arm64, timeout: 20,
               llvm: clang+llvm-23.1.4-aarch64-pc-windows-msvc.tar.xz,
               llvm-sha256: f0d2e32424850ffb9b6aef190587a8298353d858a8a7260f490c173fe98d6811,
-              ninja: ninja-winarm64.zip, ninja-sha256: e52f0bdef9dfb1003229dbd6508a508c4073fd017247002adc66e5e806cb0391 }
+              ninja: ninja-winarm64.zip, ninja-sha256: e52f0bdef9dfb1003229dbd6508a508c4073fd017247002adc66e5e806cb0391,
+              ccache: ccache-4.14.2-windows-aarch64.zip,
+              ccache-sha256: 47ea5a0ed661bea53962d8fb8ee9a1769092d979a6f7c73d3081499b3305b2ab }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/native-toolchain
@@ -145,10 +343,61 @@ jobs:
           ninja-version: v1.13.2
           ninja-archive: ${{ matrix.ninja }}
           ninja-sha256: ${{ matrix.ninja-sha256 }}
+          ccache-archive: ${{ matrix.ccache }}
+          ccache-sha256: ${{ matrix.ccache-sha256 }}
+          ccache-key: windows-${{ matrix.arch }}
           msvc-arch: ${{ matrix.msvc }}
       - name: Build and test
         shell: bash
-        run: cmake --workflow --preset ${{ matrix.preset }} 2>&1 | tee build.log
+        env:
+          PRESETS: ${{ matrix.presets }}
+        run: |
+          # Every preset runs, so all failures show; the step fails if any did.
+          status=0
+          for preset in $PRESETS; do
+            echo "::group::$preset"
+            cmake --workflow --preset "$preset" 2>&1 | tee -a build.log || status=1
+            echo "::endgroup::"
+          done
+          exit "$status"
+      - if: failure()
+        uses: ./.github/actions/report-failure
+        with:
+          log: build.log
+
+  macos:
+    name: macos-arm64
+    needs: plan
+    if: needs.plan.outputs.macos == 'true'
+    runs-on: macos-15
+    timeout-minutes: 45
+    concurrency:
+      group: ci-${{ github.event.pull_request.number || github.ref }}-macos
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/native-toolchain
+        with:
+          llvm-archive: LLVM-23.1.4-macOS-ARM64.tar.xz
+          llvm-sha256: 5d3179db39adeca5b17a34d82708fe976bc60e055b05fe557878fb3fb64d39ef
+          ninja-version: v1.13.2
+          ninja-archive: ninja-mac.zip
+          ninja-sha256: c99048673aa765960a99cf10c6ddb9f1fad506099ff0a0e137ad8960a88f321b
+          ccache-archive: ccache-4.14.2-darwin.tar.gz
+          ccache-sha256: cf240009630b605b775c7c5c7b7105a3b196c79f31af322c1557969aa28003fc
+          ccache-key: macos-arm64
+      # The three presets in one job: macOS minutes cost ten times Linux's,
+      # and one job pays the toolchain setup and the rounding once.
+      - name: Build and test
+        shell: bash
+        run: |
+          status=0
+          for preset in release asan tsan; do
+            echo "::group::$preset"
+            cmake --workflow --preset "$preset" 2>&1 | tee -a build.log || status=1
+            echo "::endgroup::"
+          done
+          exit "$status"
       - if: failure()
         uses: ./.github/actions/report-failure
         with:
