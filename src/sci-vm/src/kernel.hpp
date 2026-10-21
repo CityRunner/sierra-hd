@@ -44,22 +44,19 @@ class SegManager;
 using KernelFunctionPointer = Reg (*)(Machine& machine, std::span<Reg> args);
 
 // Signature bits (engines/sci/engine/kernel.h).
-enum SignatureBits : std::uint16_t {
-    sig_type_null = 0x01,
-    sig_type_integer = 0x02,
-    sig_type_uninitialized = 0x04,
-    sig_type_object = 0x08,
-    sig_type_reference = 0x10,
-    sig_type_list = 0x20,
-    sig_type_node = 0x40,
-    sig_type_error = 0x80,
-    sig_is_invalid = 0x100,
-    sig_is_optional = 0x200,
-    sig_needs_more = 0x400,
-    sig_more_may_follow = 0x800,
-};
-
-inline constexpr std::uint16_t sig_maybe_any =
+inline constexpr unsigned sig_type_null = 0x01U;
+inline constexpr unsigned sig_type_integer = 0x02U;
+inline constexpr unsigned sig_type_uninitialized = 0x04U;
+inline constexpr unsigned sig_type_object = 0x08U;
+inline constexpr unsigned sig_type_reference = 0x10U;
+inline constexpr unsigned sig_type_list = 0x20U;
+inline constexpr unsigned sig_type_node = 0x40U;
+inline constexpr unsigned sig_type_error = 0x80U;
+inline constexpr unsigned sig_is_invalid = 0x100U;
+inline constexpr unsigned sig_is_optional = 0x200U;
+inline constexpr unsigned sig_needs_more = 0x400U;
+inline constexpr unsigned sig_more_may_follow = 0x800U;
+inline constexpr unsigned sig_maybe_any =
     sig_type_null | sig_type_integer | sig_type_object | sig_type_reference | sig_type_list | sig_type_node;
 
 // A parsed signature; none means no check.

@@ -44,7 +44,7 @@ Graphics& gfx(Machine& machine) {
 
 // EGA games may pass colours above 15: only the low nibble counted.
 int adjust_graph_color(int color) {
-    return color & 0x0F;
+    return static_cast<int>(static_cast<unsigned>(color) & 0x0FU);
 }
 
 Rect graph_rect(std::span<Reg> args) {
@@ -178,7 +178,7 @@ Reg k_graph_adjust_priority(Machine& machine, std::span<Reg> args) {
 }
 
 Reg k_text_size(Machine& machine, std::span<Reg> args) {
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     const std::span<Reg> dest = segments.deref_regs(args[0], 4);
     const std::string text = segments.get_string(args[1]);
     const int font = args[2].to_uint16();
@@ -216,7 +216,7 @@ Reg k_wait(Machine& machine, std::span<Reg> args) {
 
 Reg k_coord_pri(Machine& machine, std::span<Reg> args) {
     const int y = args[0].to_sint16();
-    Ports& ports = gfx(machine).ports();
+    const Ports& ports = gfx(machine).ports();
     if (args.size() < 2 || y != 1) {
         return number(ports.kernel_coordinate_to_priority(y));
     }
@@ -293,7 +293,7 @@ Reg k_draw_pic(Machine& machine, std::span<Reg> args) {
     if (args.size() >= 2) {
         const std::uint16_t flags = args[1].to_uint16();
         blackout = (flags & (1U << 15U)) != 0;
-        animation = flags & 0xFF;
+        animation = static_cast<int>(flags & 0xFFU);
         mirrored = (flags & (1U << 14U)) != 0;
     }
     if (args.size() >= 3) {
@@ -350,10 +350,12 @@ Reg k_set_port(Machine& machine, std::span<Reg> args) {
         break;
     case 6:
     case 7: {
-        const Rect rect{.top = args[0].to_sint16(),
-                        .left = args[1].to_sint16(),
-                        .bottom = args[2].to_sint16(),
-                        .right = args[3].to_sint16()};
+        const Rect rect{
+            .top = args[0].to_sint16(),
+            .left = args[1].to_sint16(),
+            .bottom = args[2].to_sint16(),
+            .right = args[3].to_sint16(),
+        };
         ports.kernel_set_pic_window(rect, args[4].to_sint16(), args[5].to_sint16(), args.size() == 7);
         break;
     }
@@ -431,6 +433,7 @@ Reg k_display(Machine& machine, std::span<Reg> args) {
     return gfx(machine).paint().kernel_display(split, rest);
 }
 
+// NOLINTNEXTLINE(misc-const-correctness): the kernel function signature.
 Reg k_show(Machine& machine, std::span<Reg> args) {
     const int map = args[0].to_uint16();
     if (map < 1 || map > 4) {
@@ -440,7 +443,7 @@ Reg k_show(Machine& machine, std::span<Reg> args) {
 }
 
 Reg k_add_menu(Machine& machine, std::span<Reg> args) {
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     gfx(machine).menu().kernel_add_entry(segments.get_string(args[0]), segments.get_string(args[1]), args[1]);
     return machine.acc();
 }

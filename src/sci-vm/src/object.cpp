@@ -30,6 +30,7 @@
 #include "seg_manager.hpp"
 
 #include <format>
+#include <utility>
 
 namespace sci::vm {
 
@@ -109,7 +110,7 @@ int Object::locate_var_selector(const SegManager& segments, Selector selector) c
     }
     const std::size_t count = std::min(klass->var_count(), klass->base_vars_.size());
     for (std::size_t i = 0; i < count; ++i) {
-        if (klass->base_vars_[i] == selector) {
+        if (std::cmp_equal(klass->base_vars_[i], selector)) {
             return static_cast<int>(i);
         }
     }
@@ -121,11 +122,11 @@ bool Object::relocate(SegmentId segment, int location, int heap_offset) {
     if (relative < 0) {
         return false;
     }
-    const auto index = static_cast<std::size_t>(relative >> 1);
+    const auto index = static_cast<std::size_t>(relative / 2);
     if (index >= variables_.size()) {
         return false;
     }
-    if ((relative & 1) != 0) {
+    if (relative % 2 != 0) {
         return false;
     }
     variables_[index].segment = segment;

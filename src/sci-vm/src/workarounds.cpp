@@ -39,57 +39,67 @@ constexpr WorkaroundSolution fake(std::uint16_t value) {
 
 // The original restore dialog (all SCI16 games).
 constexpr std::array uninitialized_read_for_param = {
-    WorkaroundEntry{.room = -1,
-                    .script = 990,
-                    .inheritance_level = -1,
-                    .object = "Restore",
-                    .method = "doit",
-                    .from_index = 1,
-                    .to_index = 1,
-                    .solution = fake(0)},
+    WorkaroundEntry{
+        .room = -1,
+        .script = 990,
+        .inheritance_level = -1,
+        .object = "Restore",
+        .method = "doit",
+        .from_index = 1,
+        .to_index = 1,
+        .solution = fake(0),
+    },
 };
 
 constexpr std::array uninitialized_read = {
     // Pressing Restore in the original restore dialog with an empty list.
-    WorkaroundEntry{.room = -1,
-                    .script = 990,
-                    .inheritance_level = 0,
-                    .object = "Restore",
-                    .method = "doit",
-                    .from_index = 364,
-                    .to_index = 364,
-                    .solution = fake(0)},
+    WorkaroundEntry{
+        .room = -1,
+        .script = 990,
+        .inheritance_level = 0,
+        .object = "Restore",
+        .method = "doit",
+        .from_index = 364,
+        .to_index = 364,
+        .solution = fake(0),
+    },
     // Going up the stairs (ScummVM bug #5084).
-    WorkaroundEntry{.room = 37,
-                    .script = 0,
-                    .inheritance_level = 0,
-                    .object = "CB1",
-                    .method = "doit",
-                    .from_index = 1,
-                    .to_index = 1,
-                    .solution = fake(0)},
+    WorkaroundEntry{
+        .room = 37,
+        .script = 0,
+        .inheritance_level = 0,
+        .object = "CB1",
+        .method = "doit",
+        .from_index = 1,
+        .to_index = 1,
+        .solution = fake(0),
+    },
     // Any portrait conversation coming up (ScummVM bug #4971).
-    WorkaroundEntry{.room = -1,
-                    .script = 967,
-                    .inheritance_level = 0,
-                    .object = "myIcon",
-                    .method = "cycle",
-                    .from_index = 1,
-                    .to_index = 1,
-                    .solution = fake(0)},
+    WorkaroundEntry{
+        .room = -1,
+        .script = 967,
+        .inheritance_level = 0,
+        .object = "myIcon",
+        .method = "cycle",
+        .from_index = 1,
+        .to_index = 1,
+        .solution = fake(0),
+    },
 };
 
 // The demo, after the will is signed: parameter 0 is an object (ScummVM
 // bug #4967).
 constexpr std::array kdisposescript = {
-    WorkaroundEntry{.room = 777,
-                    .script = 777,
-                    .inheritance_level = 0,
-                    .object = "myStab",
-                    .method = "changeState",
-                    .from_index = 0,
-                    .to_index = 0,
-                    .solution = {.type = WorkaroundType::Ignore, .value = 0}},
+    WorkaroundEntry{
+        .room = 777,
+        .script = 777,
+        .inheritance_level = 0,
+        .object = "myStab",
+        .method = "changeState",
+        .from_index = 0,
+        .to_index = 0,
+        .solution = {.type = WorkaroundType::Ignore, .value = 0},
+    },
 };
 
 } // namespace

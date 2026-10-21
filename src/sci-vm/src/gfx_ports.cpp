@@ -32,6 +32,7 @@
 
 #include <algorithm>
 #include <format>
+#include <utility>
 
 namespace sci::vm {
 
@@ -149,7 +150,7 @@ void Ports::kernel_dispose_window(std::uint16_t window_id, bool reanimate) {
 
 void Ports::begin_update(Window* window) {
     Port* old_port = set_port(wmgr_port_.get());
-    const auto end = std::find(windows_.begin(), windows_.end(), window);
+    const auto end = std::ranges::find(windows_, window);
     for (auto it = windows_.end(); it != end;) {
         --it;
         if (it == end) {
@@ -162,7 +163,7 @@ void Ports::begin_update(Window* window) {
 
 void Ports::end_update(Window* window) {
     Port* old_port = set_port(wmgr_port_.get());
-    auto it = std::find(windows_.begin(), windows_.end(), window);
+    auto it = std::ranges::find(windows_, window);
     if (it != windows_.end()) {
         for (++it; it != windows_.end(); ++it) {
             update_window(static_cast<Window*>(*it));
@@ -201,7 +202,7 @@ Window* Ports::add_window(const Rect& dims, const Rect* restore_rect, const std:
 
     Rect r = dims;
     // Sierra cleared the last bit of the left edge.
-    r.left = static_cast<std::int16_t>(r.left & 0xFFFE);
+    r.left = static_cast<std::int16_t>(static_cast<unsigned>(r.left) & 0xFFFEU);
     const std::uint16_t style_user_value = style_user | style_transparent;
     if (r.width() > Screen::width) {
         warn(std::format("Fixing too large window, left: {}, right: {}", dims.left, dims.right));
@@ -394,7 +395,7 @@ Port* Ports::set_port(Port* port) {
 }
 
 void Ports::set_origin(int left, int top) {
-    current_->left = static_cast<std::int16_t>(left & 0xFFFE); // SSCI clears the last bit.
+    current_->left = static_cast<std::int16_t>(static_cast<unsigned>(left) & 0xFFFEU); // SSCI clears the last bit.
     current_->top = static_cast<std::int16_t>(top);
 }
 
@@ -462,7 +463,7 @@ void Ports::priority_bands_init(int band_count, int top, int bottom) {
     if (priority_band_count_ == 15) {
         // Band 15 becomes band 14, as in Sierra's interpreter.
         int y = priority_bottom_;
-        while (priority_bands_[static_cast<std::size_t>(--y)] == priority_band_count_) {
+        while (std::cmp_equal(priority_bands_[static_cast<std::size_t>(--y)], priority_band_count_)) {
             --priority_bands_[static_cast<std::size_t>(y)];
         }
     }
@@ -501,7 +502,7 @@ std::uint8_t Ports::kernel_coordinate_to_priority(int y) const {
 int Ports::kernel_priority_to_coordinate(int priority) const {
     if (priority <= priority_band_count_) {
         for (int y = 0; y <= priority_bottom_; ++y) {
-            if (priority_bands_[static_cast<std::size_t>(y)] == priority) {
+            if (std::cmp_equal(priority_bands_[static_cast<std::size_t>(y)], priority)) {
                 return y;
             }
         }

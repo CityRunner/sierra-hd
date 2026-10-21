@@ -43,14 +43,11 @@ class Graphics;
 
 inline constexpr std::uint16_t first_window_id = 2;
 inline constexpr std::uint16_t first_script_window_id = 3;
-
-enum WindowStyle : std::uint16_t {
-    style_transparent = 1U << 0U,
-    style_no_frame = 1U << 1U,
-    style_title = 1U << 2U,
-    style_topmost = 1U << 3U,
-    style_user = 1U << 7U,
-};
+inline constexpr unsigned style_transparent = 1U << 0U;
+inline constexpr unsigned style_no_frame = 1U << 1U;
+inline constexpr unsigned style_title = 1U << 2U;
+inline constexpr unsigned style_topmost = 1U << 3U;
+inline constexpr unsigned style_user = 1U << 7U;
 
 struct Port {
     explicit Port(std::uint16_t port_id) : id(port_id) {}

@@ -36,6 +36,7 @@
 
 #include <array>
 #include <format>
+#include <utility>
 
 namespace sci::vm {
 
@@ -44,29 +45,31 @@ namespace {
 constexpr std::uint32_t speed_throttle_delay = 30; // kSpeedThrottleDefaultDelay, in ms.
 
 // 1990-01-01 12:00:00, the date and time of the deterministic mode.
-constexpr int fixed_hour = 12;
-constexpr int fixed_minute = 0;
-constexpr int fixed_second = 0;
-constexpr int fixed_day = 1;
-constexpr int fixed_month = 0; // January, as tm_mon.
-constexpr int fixed_year = 90; // Since 1900, as tm_year.
+constexpr unsigned fixed_hour = 12;
+constexpr unsigned fixed_minute = 0;
+constexpr unsigned fixed_second = 0;
+constexpr unsigned fixed_day = 1;
+constexpr unsigned fixed_month = 0; // January, as tm_mon.
+constexpr unsigned fixed_year = 90; // Since 1900, as tm_year.
 
 struct KeyDirection {
     std::uint16_t key;
     std::uint16_t direction;
 };
 
-constexpr std::array<KeyDirection, 9> key_directions{{
-    {71 << 8, 8},
-    {72 << 8, 1},
-    {73 << 8, 2},
-    {75 << 8, 7},
-    {76 << 8, 0},
-    {77 << 8, 3},
-    {79 << 8, 6},
-    {80 << 8, 5},
-    {81 << 8, 4},
-}};
+constexpr std::array<KeyDirection, 9> key_directions{
+    {
+        {.key = 71U << 8U, .direction = 8},
+        {.key = 72U << 8U, .direction = 1},
+        {.key = 73U << 8U, .direction = 2},
+        {.key = 75U << 8U, .direction = 7},
+        {.key = 76U << 8U, .direction = 0},
+        {.key = 77U << 8U, .direction = 3},
+        {.key = 79U << 8U, .direction = 6},
+        {.key = 80U << 8U, .direction = 5},
+        {.key = 81U << 8U, .direction = 4},
+    },
+};
 
 } // namespace
 
@@ -114,6 +117,7 @@ Reg k_flush_resources(Machine& machine, std::span<Reg> /*args*/) {
     return machine.acc();
 }
 
+// NOLINTNEXTLINE(misc-const-correctness): the kernel function signature.
 Reg k_set_debug(Machine& machine, std::span<Reg> /*args*/) {
     warn("Debug mode activated");
     return machine.acc();
@@ -127,20 +131,20 @@ Reg k_get_time(Machine& machine, std::span<Reg> args) {
         value = machine.subsystems().clock().ticks();
         break;
     case 1: {
-        int hour = fixed_hour % 12;
+        unsigned hour = fixed_hour % 12;
         if (hour == 0) {
             hour = 12;
         }
-        value = (static_cast<unsigned>(hour) << 12U) | (fixed_minute << 6U) | fixed_second;
+        value = (hour << 12U) | (fixed_minute << 6U) | fixed_second;
         break;
     }
     case 2:
-        value = (static_cast<unsigned>(fixed_hour) << 11U) | (fixed_minute << 5U) | (fixed_second >> 1U);
+        value = (fixed_hour << 11U) | (fixed_minute << 5U) | (fixed_second >> 1U);
         break;
     case 3: {
         // SCI0 late on DOS: years since 1920.
-        constexpr int base_year = 20;
-        value = static_cast<unsigned>(fixed_day | ((fixed_month + 1) << 5) | (((fixed_year - base_year) & 0x7F) << 9));
+        constexpr unsigned base_year = 20;
+        value = fixed_day | ((fixed_month + 1U) << 5U) | (((fixed_year - base_year) & 0x7FU) << 9U);
         break;
     }
     default:
@@ -150,6 +154,7 @@ Reg k_get_time(Machine& machine, std::span<Reg> args) {
     return number(static_cast<std::uint16_t>(value));
 }
 
+// NOLINTNEXTLINE(misc-const-correctness): the kernel function signature.
 Reg k_empty(Machine& machine, std::span<Reg> /*args*/) {
     return machine.acc();
 }
@@ -263,7 +268,7 @@ Reg k_get_event(Machine& machine, std::span<Reg> args) {
 Reg k_map_key_to_dir(Machine& machine, std::span<Reg> args) {
     const Reg object = args[0];
     const SelectorCache& s = machine.selector();
-    if (machine.read_selector_value(object, s.type) != event_key_down) {
+    if (std::cmp_not_equal(machine.read_selector_value(object, s.type), event_key_down)) {
         return machine.acc();
     }
     const auto message = static_cast<std::uint16_t>(machine.read_selector_value(object, s.message));
@@ -306,7 +311,7 @@ Reg k_joystick(Machine& /*machine*/, std::span<Reg> /*args*/) {
 // The parser's synonyms.
 
 Reg k_set_synonyms(Machine& machine, std::span<Reg> args) {
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     const SelectorCache& s = machine.selector();
     Parser& parser = machine.subsystems().parser();
     parser.clear_synonyms();
@@ -331,9 +336,10 @@ Reg k_set_synonyms(Machine& machine, std::span<Reg> args) {
                 machine.faults().raise(std::format("Segtable corruption: script.{:03} has {} synonyms", script, count));
                 return machine.acc();
             } else {
-                for (std::size_t i = 0; i < static_cast<std::size_t>(count); ++i) {
+                for (std::size_t i = 0; std::cmp_less(i, count); ++i) {
                     const auto read16 = [&](std::size_t at) {
-                        return static_cast<std::uint16_t>(synonyms[at] | (synonyms[at + 1] << 8U));
+                        return static_cast<std::uint16_t>(static_cast<unsigned>(synonyms[at]) |
+                                                          (static_cast<unsigned>(synonyms[at + 1]) << 8U));
                     };
                     parser.add_synonym(read16(i * 4), read16((i * 4) + 2));
                 }

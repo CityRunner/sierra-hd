@@ -43,7 +43,7 @@ void write16(std::span<std::uint8_t> memory, std::size_t at, std::int16_t value)
 }
 
 std::int16_t read16(std::span<const std::uint8_t> memory, std::size_t at) {
-    return static_cast<std::int16_t>(memory[at] | (memory[at + 1] << 8U));
+    return static_cast<std::int16_t>(static_cast<unsigned>(memory[at]) | (static_cast<unsigned>(memory[at + 1]) << 8U));
 }
 
 } // namespace
@@ -182,7 +182,11 @@ void Screen::bits_save(const Rect& rect, std::uint8_t mask, std::span<std::uint8
 
 Rect Screen::bits_rect(std::span<const std::uint8_t> memory) {
     return Rect{
-        .top = read16(memory, 0), .left = read16(memory, 2), .bottom = read16(memory, 4), .right = read16(memory, 6)};
+        .top = read16(memory, 0),
+        .left = read16(memory, 2),
+        .bottom = read16(memory, 4),
+        .right = read16(memory, 6),
+    };
 }
 
 void Screen::bits_restore(std::span<const std::uint8_t> memory) {

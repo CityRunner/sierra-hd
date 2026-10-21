@@ -32,12 +32,13 @@
 #include "timing.hpp"
 
 #include <algorithm>
+#include <ranges>
 
 namespace sci::vm {
 
 bool Animate::invoke(Reg list) {
     Machine& machine = graphics_->machine();
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     const SelectorCache& s = machine.selector();
     Reg address = segments.lookup_list(list)->first;
     const Node* node = segments.lookup_node(address);
@@ -62,7 +63,7 @@ bool Animate::invoke(Reg list) {
 
 void Animate::make_sorted_list(Reg list) {
     Machine& machine = graphics_->machine();
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     const SelectorCache& s = machine.selector();
     list_.clear();
     last_cast_.clear();
@@ -160,25 +161,25 @@ void Animate::update() {
     };
 
     // Remove the no-update cels.
-    for (auto it = list_.rbegin(); it != list_.rend(); ++it) {
-        if ((it->signal & signal_no_update) != 0) {
-            if ((it->signal & signal_remove_view) == 0) {
-                const Reg bits = machine.read_selector(it->object, s.under_bits);
+    for (auto& it : std::views::reverse(list_)) {
+        if ((it.signal & signal_no_update) != 0) {
+            if ((it.signal & signal_remove_view) == 0) {
+                const Reg bits = machine.read_selector(it.object, s.under_bits);
                 if (graphics_->screen().pic_not_valid != 1) {
                     paint.bits_restore(bits);
-                    it->show_bits = true;
+                    it.show_bits = true;
                 } else {
                     paint.bits_free(bits);
                 }
-                machine.write_selector_value(it->object, s.under_bits, 0);
+                machine.write_selector_value(it.object, s.under_bits, 0);
             }
-            it->signal &= static_cast<std::uint16_t>(~signal_force_update);
-            if ((it->signal & signal_view_updated) != 0) {
-                it->signal &= static_cast<std::uint16_t>(~(signal_view_updated | signal_no_update));
+            it.signal &= static_cast<std::uint16_t>(~signal_force_update);
+            if ((it.signal & signal_view_updated) != 0) {
+                it.signal &= static_cast<std::uint16_t>(~(signal_view_updated | signal_no_update));
             }
-        } else if ((it->signal & signal_stop_update) != 0) {
-            it->signal &= static_cast<std::uint16_t>(~signal_stop_update);
-            it->signal |= signal_no_update;
+        } else if ((it.signal & signal_stop_update) != 0) {
+            it.signal &= static_cast<std::uint16_t>(~signal_stop_update);
+            it.signal |= signal_no_update;
         }
     }
     // Draw the always-update cels.
@@ -244,10 +245,12 @@ void Animate::update_screen(int old_pic_not_valid) {
         if (it.show_bits || !((it.signal & (signal_remove_view | signal_no_update)) != 0 ||
                               ((it.signal & signal_remove_view) == 0 && (it.signal & signal_no_update) != 0 &&
                                old_pic_not_valid != 0))) {
-            const Rect ls_rect{.top = machine.read_selector_value(it.object, s.ls_top),
-                               .left = machine.read_selector_value(it.object, s.ls_left),
-                               .bottom = machine.read_selector_value(it.object, s.ls_bottom),
-                               .right = machine.read_selector_value(it.object, s.ls_right)};
+            const Rect ls_rect{
+                .top = machine.read_selector_value(it.object, s.ls_top),
+                .left = machine.read_selector_value(it.object, s.ls_left),
+                .bottom = machine.read_selector_value(it.object, s.ls_bottom),
+                .right = machine.read_selector_value(it.object, s.ls_right),
+            };
             Rect worker = ls_rect;
             worker.clip(it.cel_rect);
             if (!worker.is_empty()) {
@@ -276,14 +279,14 @@ void Animate::restore_and_delete() {
     for (const AnimateEntry& it : list_) {
         machine.write_selector_value(it.object, s.signal, it.signal);
     }
-    for (auto it = list_.rbegin(); it != list_.rend(); ++it) {
-        it->signal = static_cast<std::uint16_t>(machine.read_selector_value(it->object, s.signal));
-        if ((it->signal & (signal_no_update | signal_remove_view)) == 0) {
-            graphics_->paint().bits_restore(machine.read_selector(it->object, s.under_bits));
-            machine.write_selector_value(it->object, s.under_bits, 0);
+    for (auto& it : std::views::reverse(list_)) {
+        it.signal = static_cast<std::uint16_t>(machine.read_selector_value(it.object, s.signal));
+        if ((it.signal & (signal_no_update | signal_remove_view)) == 0) {
+            graphics_->paint().bits_restore(machine.read_selector(it.object, s.under_bits));
+            machine.write_selector_value(it.object, s.under_bits, 0);
         }
-        if ((it->signal & signal_dispose_me) != 0) {
-            machine.invoke_selector(it->object, s.delete_, {});
+        if ((it.signal & signal_dispose_me) != 0) {
+            machine.invoke_selector(it.object, s.delete_, {});
         }
     }
 }
@@ -299,14 +302,14 @@ void Animate::re_animate(const Rect& rect) {
         paint.draw_cel(graphics_->cache().view(it.view), it.loop, it.cel, it.cel_rect, it.priority);
     }
     paint.bits_show(rect);
-    for (auto it = last_cast_.rbegin(); it != last_cast_.rend(); ++it) {
-        paint.bits_restore(it->cast_handle);
+    for (auto& it : std::views::reverse(last_cast_)) {
+        paint.bits_restore(it.cast_handle);
     }
 }
 
 void Animate::add_to_pic_draw_cels() {
     Paint& paint = graphics_->paint();
-    Ports& ports = graphics_->ports();
+    const Ports& ports = graphics_->ports();
     for (AnimateEntry& it : list_) {
         const GfxView& view = graphics_->cache().view(it.view);
         // kAddToPic does not fix loop and cel numbers.
@@ -325,7 +328,7 @@ void Animate::add_to_pic_draw_cels() {
 }
 
 void Animate::show_pic() {
-    Ports& ports = graphics_->ports();
+    const Ports& ports = graphics_->ports();
     Cursor& cursor = graphics_->cursor();
     const bool cursor_was_visible = cursor.visible();
     Rect pic_rect = ports.pic_window()->rect;
@@ -341,7 +344,7 @@ void Animate::show_pic() {
 
 void Animate::kernel_animate(Reg list, bool cycle, std::span<Reg> /*args*/) {
     Machine& machine = graphics_->machine();
-    Screen& screen = graphics_->screen();
+    const Screen& screen = graphics_->screen();
     Ports& ports = graphics_->ports();
     int old_pic_not_valid = screen.pic_not_valid;
     if (list.is_null()) {
@@ -373,7 +376,7 @@ void Animate::kernel_animate(Reg list, bool cycle, std::span<Reg> /*args*/) {
     make_sorted_list(list);
     fill(old_pic_not_valid);
     // old_pic_not_valid is a byte in ScummVM.
-    old_pic_not_valid &= 0xFF;
+    old_pic_not_valid %= 256;
     if (old_pic_not_valid != 0) {
         update();
     }

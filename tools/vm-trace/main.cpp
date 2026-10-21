@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
         }
         const std::string_view value = args[i + 1];
         if (flag == "--replay") {
-            std::ifstream file{std::filesystem::path(value)};
+            const std::ifstream file{std::filesystem::path(value)};
             std::stringstream text;
             text << file.rdbuf();
             if (!file) {

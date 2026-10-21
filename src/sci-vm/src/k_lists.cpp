@@ -34,7 +34,7 @@ namespace sci::vm {
 namespace {
 
 void add_to_front(Machine& machine, Reg list_ref, Reg node_ref) {
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     List* list = segments.lookup_list(list_ref);
     Node* node = segments.lookup_node(node_ref);
     if (list == nullptr || node == nullptr) {
@@ -53,7 +53,7 @@ void add_to_front(Machine& machine, Reg list_ref, Reg node_ref) {
 }
 
 void add_to_end(Machine& machine, Reg list_ref, Reg node_ref) {
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     List* list = segments.lookup_list(list_ref);
     Node* node = segments.lookup_node(node_ref);
     if (list == nullptr || node == nullptr) {
@@ -72,7 +72,7 @@ void add_to_end(Machine& machine, Reg list_ref, Reg node_ref) {
 }
 
 Reg find_key(Machine& machine, Reg list_ref, Reg key) {
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     const List* list = segments.lookup_list(list_ref);
     if (list == nullptr) {
         return null_reg;
@@ -101,6 +101,7 @@ Reg k_new_list(Machine& machine, std::span<Reg> /*args*/) {
     return list_ref;
 }
 
+// NOLINTNEXTLINE(misc-const-correctness): the kernel function signature.
 Reg k_dispose_list(Machine& machine, std::span<Reg> /*args*/) {
     // The garbage collector frees lists.
     return machine.acc();
@@ -172,7 +173,7 @@ Reg k_add_to_end(Machine& machine, std::span<Reg> args) {
 }
 
 Reg k_add_after(Machine& machine, std::span<Reg> args) {
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     List* list = segments.lookup_list(args[0]);
     Node* first = segments.lookup_node(args[1]);
     Node* node = segments.lookup_node(args[2]);
@@ -208,7 +209,7 @@ Reg k_find_key(Machine& machine, std::span<Reg> args) {
 }
 
 Reg k_delete_key(Machine& machine, std::span<Reg> args) {
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     const Reg position = find_key(machine, args[0], args[1]);
     List* list = segments.lookup_list(args[0]);
     if (position.is_null() || list == nullptr) {

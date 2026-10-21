@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <format>
+#include <utility>
 
 namespace sci::vm {
 
@@ -59,7 +60,7 @@ const view::Cel& GfxView::cel(int loop, int cel) const {
 
 Rect GfxView::cel_rect(int loop, int cel, int x, int y, int z) const {
     const view::Cel& info = this->cel(loop, cel);
-    const int left = x + info.displace_x - (info.width >> 1);
+    const int left = x + info.displace_x - (info.width / 2);
     const int bottom = y + info.displace_y - z + 1;
     return Rect::from(left, bottom - info.height, left + info.width, bottom);
 }
@@ -97,15 +98,15 @@ void GfxFont::draw(Screen& screen, std::uint16_t chr, int top, int left, std::ui
     }
     const text::Glyph& glyph = font_.glyphs[chr];
     int greyed_top = top;
-    for (int y = 0; y < glyph.height; ++y) {
+    for (int y = 0; std::cmp_less(y, glyph.height); ++y) {
         // Greyed text masks each row with 0x55 or 0xAA: odd or even columns.
         int keep_parity = -1;
         if (greyed) {
             keep_parity = (greyed_top++ % 2) != 0 ? 0 : 1;
         }
-        for (int x = 0; x < glyph.width; ++x) {
+        for (int x = 0; std::cmp_less(x, glyph.width); ++x) {
             if (glyph.pixels[static_cast<std::size_t>((y * glyph.width) + x)] == 0 ||
-                (keep_parity >= 0 && (x & 1) != keep_parity)) {
+                (keep_parity >= 0 && (x % 2) != keep_parity)) {
                 continue;
             }
             const int screen_x = left + x;
@@ -142,7 +143,7 @@ const GfxFont& GfxCache::font(int id) {
     int number = id;
     if (!machine_->resources().contains(
             ResourceId{.type = ResourceType::Font, .number = static_cast<std::uint16_t>(id)})) {
-        number = id & 0x7FF;
+        number = static_cast<int>(static_cast<unsigned>(id) & 0x7FFU);
     }
     text::Font decoded;
     const auto* data = machine_->resources().find(ResourceType::Font, number);

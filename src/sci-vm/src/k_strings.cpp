@@ -31,6 +31,7 @@
 #include <algorithm>
 #include <cstring>
 #include <format>
+#include <utility>
 
 namespace sci::vm {
 
@@ -68,7 +69,10 @@ std::pair<long, std::size_t> parse_long(std::string_view text, std::size_t posit
     return {negative ? -value : value, i - position};
 }
 
-enum Align : std::int8_t { align_left = -1, align_none = 0, align_right = 1, align_center = 2 };
+constexpr std::int8_t align_left = -1;
+constexpr std::int8_t align_none = 0;
+constexpr std::int8_t align_right = 1;
+constexpr std::int8_t align_center = 2;
 
 } // namespace
 
@@ -86,7 +90,7 @@ Reg k_str_cat(Machine& machine, std::span<Reg> args) {
 }
 
 Reg k_str_cmp(Machine& machine, std::span<Reg> args) {
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     const std::string first = segments.get_string(args[0]);
     const std::string second = segments.get_string(args[1]);
     int result = 0;
@@ -132,7 +136,7 @@ Reg k_str_at(Machine& machine, std::span<Reg> args) {
     if (args.size() > 2) {
         new_value = static_cast<std::uint8_t>(args[2].to_sint16());
     }
-    if (static_cast<int>(offset) >= ref.max_size) {
+    if (std::cmp_greater_equal(offset, ref.max_size)) {
         warn(std::format("kStrAt offset {:X} exceeds maxSize", offset));
         return machine.acc();
     }
@@ -291,12 +295,12 @@ Reg k_format(Machine& machine, std::span<Reg> args) {
             if (align == align_none || align == align_right) {
                 target.append(static_cast<std::size_t>(extra), ' ');
             } else if (align == align_center) {
-                target.append(static_cast<std::size_t>(extra >> 1), ' ');
+                target.append(static_cast<std::size_t>(extra / 2), ' ');
             }
             target += text;
             if (align == align_center) {
                 align = align_none;
-                target.append(static_cast<std::size_t>(extra - (extra >> 1)), ' ');
+                target.append(static_cast<std::size_t>(extra - (extra / 2)), ' ');
             }
             break;
         }

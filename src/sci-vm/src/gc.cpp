@@ -95,7 +95,7 @@ void Machine::run_gc() {
             work.push(frame.objp);
             work.push(frame.sendp);
             if (frame.type == ExecType::VarSelector) {
-                if (Object* obj = segments_.object(frame.var_object)) {
+                if (const Object* obj = segments_.object(frame.var_object)) {
                     work.push(obj->variable(static_cast<std::size_t>(frame.var_index)));
                 }
             }
@@ -114,7 +114,7 @@ void Machine::run_gc() {
     while (!work.empty()) {
         const Reg reg = work.pop();
         if (reg.segment != stack_segment) {
-            if (Segment* segment = segments_.segment(reg.segment)) {
+            if (const Segment* segment = segments_.segment(reg.segment)) {
                 work.push_all(segment->list_all_outgoing_references(reg));
             }
         }
@@ -125,7 +125,7 @@ void Machine::run_gc() {
     }
     AddressSet active;
     for (const Reg reg : work.seen()) {
-        if (Segment* segment = segments_.segment(reg.segment)) {
+        if (const Segment* segment = segments_.segment(reg.segment)) {
             active.insert(segment->find_canonic_address(segments_, reg));
         }
     }

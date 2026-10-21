@@ -36,7 +36,7 @@ namespace {
 // ResourceManager::convertResType for SCI0: the type number in the low 7
 // bits, in the order of our ResourceType.
 int convert_resource_type(std::uint16_t type) {
-    const int number = type & 0x7F;
+    const int number = static_cast<int>(type & 0x7FU);
     return number <= static_cast<int>(ResourceType::Rave) ? number : static_cast<int>(ResourceType::Invalid);
 }
 
@@ -52,7 +52,7 @@ Reg k_load(Machine& machine, std::span<Reg> args) {
         return machine.segments().allocate_hunk_entry("kLoad()", static_cast<std::size_t>(number));
     }
     // The resource identifier as handle.
-    return vm::number((type << 11) | number);
+    return vm::number(static_cast<int>((static_cast<unsigned>(type) << 11U) | static_cast<unsigned>(number)));
 }
 
 Reg k_unload(Machine& machine, std::span<Reg> args) {

@@ -32,7 +32,8 @@ namespace sci::vm {
 
 namespace {
 
-enum Language : int { language_none = 0, language_english = 1 };
+constexpr int language_none = 0;
+constexpr int language_english = 1;
 
 int language_of(char c) {
     switch (c) {

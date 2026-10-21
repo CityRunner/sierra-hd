@@ -36,7 +36,9 @@ namespace sci::vm {
 class Graphics;
 class GfxFont;
 
-enum TextAlignment : int { text_align_right = -1, text_align_left = 0, text_align_center = 1 };
+inline constexpr int text_align_right = -1;
+inline constexpr int text_align_left = 0;
+inline constexpr int text_align_center = 1;
 
 class Text {
 public:

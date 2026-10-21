@@ -40,8 +40,8 @@ namespace {
 constexpr char replace_on_control = 0x03;
 constexpr char replace_on_alt = 0x02;
 constexpr char replace_on_function = 'F';
-constexpr std::uint16_t key_f1 = 59 << 8;
-constexpr std::uint16_t key_f10 = 68 << 8;
+constexpr std::uint16_t key_f1 = 59U << 8U;
+constexpr std::uint16_t key_f10 = 68U << 8U;
 
 std::uint16_t lower(char c) {
     return static_cast<std::uint16_t>(std::tolower(static_cast<unsigned char>(c)));
@@ -68,7 +68,11 @@ void Menu::kernel_add_entry(const std::string& title, std::string content, Reg c
         return position < content_size ? content[static_cast<std::size_t>(position)] : '\0';
     };
     list_.push_back(MenuEntry{
-        .id = static_cast<std::uint16_t>(list_.size() + 1), .text = title, .text_split = {}, .text_width = 0});
+        .id = static_cast<std::uint16_t>(list_.size() + 1),
+        .text = title,
+        .text_split = {},
+        .text_width = 0,
+    });
     const auto menu_id = static_cast<std::uint16_t>(list_.size());
     std::uint16_t item_count = 0;
     int position = 0;
@@ -160,7 +164,7 @@ void Menu::kernel_add_entry(const std::string& title, std::string content, Reg c
             }
             const char key = at(function_position + 1);
             if (key >= '1' && key <= '9') {
-                item.key_press = static_cast<std::uint16_t>(key_f1 + ((key - '1') << 8));
+                item.key_press = static_cast<std::uint16_t>(key_f1 + (static_cast<unsigned>(key - '1') << 8U));
             } else if (key == '0') {
                 item.key_press = key_f10;
             } else {
@@ -277,7 +281,7 @@ void Menu::kernel_set_attribute(std::uint16_t menu_id, std::uint16_t item_id, st
 }
 
 Reg Menu::kernel_get_attribute(std::uint16_t menu_id, std::uint16_t item_id, std::uint16_t attribute) {
-    MenuItemEntry* item = find_item(menu_id, item_id);
+    const MenuItemEntry* item = find_item(menu_id, item_id);
     if (item == nullptr) {
         graphics_->faults().raise(
             std::format("Tried to getAttribute() on non-existent menu-item {}:{}", menu_id, item_id));

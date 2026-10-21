@@ -45,10 +45,12 @@ struct Rect {
     std::int16_t right = 0;
 
     [[nodiscard]] static constexpr Rect from(int left, int top, int right, int bottom) noexcept {
-        return Rect{.top = static_cast<std::int16_t>(top),
-                    .left = static_cast<std::int16_t>(left),
-                    .bottom = static_cast<std::int16_t>(bottom),
-                    .right = static_cast<std::int16_t>(right)};
+        return Rect{
+            .top = static_cast<std::int16_t>(top),
+            .left = static_cast<std::int16_t>(left),
+            .bottom = static_cast<std::int16_t>(bottom),
+            .right = static_cast<std::int16_t>(right),
+        };
     }
 
     [[nodiscard]] constexpr int width() const noexcept { return right - left; }

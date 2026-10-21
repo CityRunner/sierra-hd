@@ -221,7 +221,7 @@ void Text::draw(std::string_view text, std::size_t from, int length) {
 }
 
 void Text::show(std::string_view text, std::size_t from, int length) {
-    Ports& ports = graphics_->ports();
+    const Ports& ports = graphics_->ports();
     Rect rect;
     rect.top = ports.port()->cur_top;
     rect.bottom = static_cast<std::int16_t>(rect.top + ports.point_size());

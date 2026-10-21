@@ -66,7 +66,7 @@ Reg Compare::can_be_here_check_rect_list(Reg check_object, const Rect& check_rec
                                          std::uint16_t signal_flags) {
     Machine& machine = graphics_->machine();
     const SelectorCache& s = machine.selector();
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     const List* found = segments.lookup_list(list);
     Reg address = found->first;
     const Node* node = segments.lookup_node(address);
@@ -75,10 +75,12 @@ Reg Compare::can_be_here_check_rect_list(Reg check_object, const Rect& check_rec
         if (object != check_object) {
             const auto signal = static_cast<std::uint16_t>(machine.read_selector_value(object, s.signal));
             if ((signal & signal_flags) == 0) {
-                const Rect rect{.top = machine.read_selector_value(object, s.br_top),
-                                .left = machine.read_selector_value(object, s.br_left),
-                                .bottom = machine.read_selector_value(object, s.br_bottom),
-                                .right = machine.read_selector_value(object, s.br_right)};
+                const Rect rect{
+                    .top = machine.read_selector_value(object, s.br_top),
+                    .left = machine.read_selector_value(object, s.br_left),
+                    .bottom = machine.read_selector_value(object, s.br_bottom),
+                    .right = machine.read_selector_value(object, s.br_right),
+                };
                 // Not contains(): a rect is not within itself (KQ4 early).
                 if (rect.right > check_rect.left && rect.left < check_rect.right && rect.bottom > check_rect.top &&
                     rect.top < check_rect.bottom) {
@@ -110,10 +112,12 @@ void Compare::kernel_set_now_seen(Reg object) {
 Reg Compare::kernel_can_be_here(Reg object, Reg list) {
     Machine& machine = graphics_->machine();
     const SelectorCache& s = machine.selector();
-    const Rect check_rect{.top = machine.read_selector_value(object, s.br_top),
-                          .left = machine.read_selector_value(object, s.br_left),
-                          .bottom = machine.read_selector_value(object, s.br_bottom),
-                          .right = machine.read_selector_value(object, s.br_right)};
+    const Rect check_rect{
+        .top = machine.read_selector_value(object, s.br_top),
+        .left = machine.read_selector_value(object, s.br_left),
+        .bottom = machine.read_selector_value(object, s.br_bottom),
+        .right = machine.read_selector_value(object, s.br_right),
+    };
     const auto signal = static_cast<std::uint16_t>(machine.read_selector_value(object, s.signal));
     if (!check_rect.is_valid()) {
         warn(std::format("kCan(t)BeHere - invalid rect {}, {} -> {}, {}", check_rect.left, check_rect.top,
@@ -159,10 +163,12 @@ void Compare::kernel_base_setter(Reg object) {
 Rect Compare::ns_rect(Reg object) {
     Machine& machine = graphics_->machine();
     const SelectorCache& s = machine.selector();
-    return Rect{.top = machine.read_selector_value(object, s.ns_top),
-                .left = machine.read_selector_value(object, s.ns_left),
-                .bottom = machine.read_selector_value(object, s.ns_bottom),
-                .right = machine.read_selector_value(object, s.ns_right)};
+    return Rect{
+        .top = machine.read_selector_value(object, s.ns_top),
+        .left = machine.read_selector_value(object, s.ns_left),
+        .bottom = machine.read_selector_value(object, s.ns_bottom),
+        .right = machine.read_selector_value(object, s.ns_right),
+    };
 }
 
 void Compare::set_ns_rect(Reg object, const Rect& rect) {

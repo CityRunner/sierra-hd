@@ -55,23 +55,24 @@ inline constexpr int gc_interval = 0x8000;
 
 enum class ExecType : std::uint8_t { Call = 0, Kernel = 1, VarSelector = 2 };
 
-enum VarType : std::uint8_t { var_global = 0, var_local = 1, var_temp = 2, var_param = 3 };
+inline constexpr std::uint8_t var_global = 0;
+inline constexpr std::uint8_t var_local = 1;
+inline constexpr std::uint8_t var_temp = 2;
+inline constexpr std::uint8_t var_param = 3;
 
 // The global variables with a fixed meaning (engines/sci/engine/vm.h).
-enum GlobalVar : std::uint16_t {
-    global_ego = 0,
-    global_game = 1,
-    global_current_room = 2,
-    global_speed = 3,
-    global_quit = 4,
-    global_cast = 5,
-    global_sounds = 8,
-    global_current_room_no = 11,
-    global_previous_room_no = 12,
-    global_new_room_no = 13,
-    global_score = 15,
-    global_fast_cast = 84,
-};
+inline constexpr std::uint16_t global_ego = 0;
+inline constexpr std::uint16_t global_game = 1;
+inline constexpr std::uint16_t global_current_room = 2;
+inline constexpr std::uint16_t global_speed = 3;
+inline constexpr std::uint16_t global_quit = 4;
+inline constexpr std::uint16_t global_cast = 5;
+inline constexpr std::uint16_t global_sounds = 8;
+inline constexpr std::uint16_t global_current_room_no = 11;
+inline constexpr std::uint16_t global_previous_room_no = 12;
+inline constexpr std::uint16_t global_new_room_no = 13;
+inline constexpr std::uint16_t global_score = 15;
+inline constexpr std::uint16_t global_fast_cast = 84;
 
 // A position on the VM stack, as an index; `carry` marks the stack pointer
 // that a send carries over to the method it calls (CALL_SP_CARRY).

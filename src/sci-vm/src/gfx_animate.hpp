@@ -37,21 +37,19 @@ namespace sci::vm {
 
 class Graphics;
 
-enum ViewSignal : std::uint16_t {
-    signal_stop_update = 0x0001,
-    signal_view_updated = 0x0002,
-    signal_no_update = 0x0004,
-    signal_hidden = 0x0008,
-    signal_fixed_priority = 0x0010,
-    signal_always_update = 0x0020,
-    signal_force_update = 0x0040,
-    signal_remove_view = 0x0080,
-    signal_frozen = 0x0100,
-    signal_hit_obstacle = 0x0400,
-    signal_doesnt_turn = 0x0800,
-    signal_ignore_actor = 0x4000,
-    signal_dispose_me = 0x8000,
-};
+inline constexpr unsigned signal_stop_update = 0x0001U;
+inline constexpr unsigned signal_view_updated = 0x0002U;
+inline constexpr unsigned signal_no_update = 0x0004U;
+inline constexpr unsigned signal_hidden = 0x0008U;
+inline constexpr unsigned signal_fixed_priority = 0x0010U;
+inline constexpr unsigned signal_always_update = 0x0020U;
+inline constexpr unsigned signal_force_update = 0x0040U;
+inline constexpr unsigned signal_remove_view = 0x0080U;
+inline constexpr unsigned signal_frozen = 0x0100U;
+inline constexpr unsigned signal_hit_obstacle = 0x0400U;
+inline constexpr unsigned signal_doesnt_turn = 0x0800U;
+inline constexpr unsigned signal_ignore_actor = 0x4000U;
+inline constexpr unsigned signal_dispose_me = 0x8000U;
 
 struct AnimateEntry {
     int given_order = 0;

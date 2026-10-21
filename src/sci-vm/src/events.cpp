@@ -132,7 +132,7 @@ core::Result<std::vector<InputEvent>> parse_replay(std::string_view text) {
             return bad();
         }
         const std::string_view kind = next_word(line);
-        InputEvent input{.tick = static_cast<std::uint32_t>(*tick), .event = {}, .move_only = false};
+        InputEvent input{.tick = static_cast<std::uint32_t>(*tick), .event = SciEvent{}, .move_only = false};
         if (kind == "text") {
             if (!line.empty() && line.front() == ' ') {
                 line.remove_prefix(1);

@@ -38,18 +38,16 @@ namespace sci::vm {
 
 namespace {
 
-enum DisplayCode : std::uint16_t {
-    display_move_pen = 100,
-    display_set_alignment = 101,
-    display_set_pen_color = 102,
-    display_set_background_color = 103,
-    display_set_greyed_output = 104,
-    display_set_font = 105,
-    display_width = 106,
-    display_save_under = 107,
-    display_restore_under = 108,
-    display_dont_show_bits = 121,
-};
+constexpr std::uint16_t display_move_pen = 100;
+constexpr std::uint16_t display_set_alignment = 101;
+constexpr std::uint16_t display_set_pen_color = 102;
+constexpr std::uint16_t display_set_background_color = 103;
+constexpr std::uint16_t display_set_greyed_output = 104;
+constexpr std::uint16_t display_set_font = 105;
+constexpr std::uint16_t display_width = 106;
+constexpr std::uint16_t display_save_under = 107;
+constexpr std::uint16_t display_restore_under = 108;
+constexpr std::uint16_t display_dont_show_bits = 121;
 
 } // namespace
 
@@ -77,9 +75,11 @@ void Paint::draw_picture(int picture, bool mirrored, bool add_to, int ega_palett
     // sci-pic clears the picture port first when not adding, as
     // GfxPaint16::clearScreen does.
     const auto drawn = pic::draw_picture(*commands, maps_,
-                                         pic::DrawOptions{.mirrored = mirrored,
-                                                          .add_to = add_to,
-                                                          .ega_palette = static_cast<std::uint8_t>(ega_palette)});
+                                         pic::DrawOptions{
+                                             .mirrored = mirrored,
+                                             .add_to = add_to,
+                                             .ega_palette = static_cast<std::uint8_t>(ega_palette),
+                                         });
     if (!drawn) {
         graphics_->faults().raise(std::format("pic.{:03}: {}", picture, drawn.error().message));
         return;
@@ -102,7 +102,7 @@ void Paint::draw_cel_and_show(int view, int loop, int cel, int left, int top, in
 }
 
 void Paint::draw_cel(const GfxView& view, int loop, int cel, const Rect& cel_rect, int priority) {
-    Ports& ports = graphics_->ports();
+    const Ports& ports = graphics_->ports();
     Rect clip = cel_rect;
     clip.clip(ports.port()->rect);
     if (clip.is_empty()) {
@@ -137,7 +137,7 @@ void Paint::paint_rect(const Rect& rect) {
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): kept close to GfxPaint16::fillRect.
 void Paint::fill_rect(const Rect& rect, int draw_flags, std::uint8_t color, std::uint8_t priority,
                       std::uint8_t control) {
-    Ports& ports = graphics_->ports();
+    const Ports& ports = graphics_->ports();
     Screen& screen = graphics_->screen();
     Rect r = rect;
     r.clip(ports.port()->rect);
@@ -146,7 +146,7 @@ void Paint::fill_rect(const Rect& rect, int draw_flags, std::uint8_t color, std:
     }
     const std::int16_t old_pen_mode = ports.port()->pen_mode;
     ports.offset_rect(r);
-    if ((draw_flags & mask_visual) != 0) {
+    if ((static_cast<unsigned>(draw_flags) & mask_visual) != 0) {
         for (int y = r.top; y < r.bottom; ++y) {
             for (int x = r.left; x < r.right; ++x) {
                 if (old_pen_mode == 2) { // Invert.
@@ -165,7 +165,7 @@ void Paint::fill_rect(const Rect& rect, int draw_flags, std::uint8_t color, std:
     if (draw_flags < 2) {
         return;
     }
-    const auto flags = static_cast<std::uint8_t>(draw_flags & (mask_priority | mask_control));
+    const auto flags = static_cast<std::uint8_t>(static_cast<unsigned>(draw_flags) & (mask_priority | mask_control));
     // Sierra kept priority and control in one byte.
     priority &= 0x0FU;
     control &= 0x0FU;
@@ -199,7 +199,7 @@ void Paint::bits_show(const Rect& /*rect*/) {
 }
 
 Reg Paint::bits_save(const Rect& rect, std::uint8_t mask) {
-    Ports& ports = graphics_->ports();
+    const Ports& ports = graphics_->ports();
     Rect r = rect;
     r.clip(ports.port()->rect);
     if (r.is_empty()) {
@@ -256,7 +256,7 @@ void Paint::kernel_draw_picture(int picture, int animation, bool blackout, bool 
 }
 
 void Paint::kernel_graph_draw_line(GPoint start, GPoint end, int color, int priority, int control) {
-    Ports& ports = graphics_->ports();
+    const Ports& ports = graphics_->ports();
     ports.clip_line(start, end);
     ports.offset_line(start, end);
     graphics_->screen().draw_line(start, end, static_cast<std::uint8_t>(color), static_cast<std::uint8_t>(priority),

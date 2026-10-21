@@ -37,13 +37,11 @@ namespace sci::vm {
 
 class Graphics;
 
-enum MenuAttribute : std::uint16_t {
-    menu_said = 0x6d,
-    menu_text = 0x6e,
-    menu_keypress = 0x6f,
-    menu_enabled = 0x70,
-    menu_tag = 0x71,
-};
+inline constexpr std::uint16_t menu_said = 0x6d;
+inline constexpr std::uint16_t menu_text = 0x6e;
+inline constexpr std::uint16_t menu_keypress = 0x6f;
+inline constexpr std::uint16_t menu_enabled = 0x70;
+inline constexpr std::uint16_t menu_tag = 0x71;
 
 struct MenuEntry {
     std::uint16_t id = 0;

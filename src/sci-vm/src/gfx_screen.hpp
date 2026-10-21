@@ -35,12 +35,10 @@
 
 namespace sci::vm {
 
-enum ScreenMask : std::uint8_t {
-    mask_visual = 1,
-    mask_priority = 2,
-    mask_control = 4,
-    mask_all = mask_visual | mask_priority | mask_control,
-};
+inline constexpr unsigned mask_visual = 1U;
+inline constexpr unsigned mask_priority = 2U;
+inline constexpr unsigned mask_control = 4U;
+inline constexpr unsigned mask_all = mask_visual | mask_priority | mask_control;
 
 // The visual, priority and control maps of the 320x200 screen. The display
 // map ScummVM keeps beside the visual map holds the same colours here
