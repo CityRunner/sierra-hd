@@ -88,7 +88,8 @@ std::optional<ParseRule> insert_rule(const ParseRule& turkey, const ParseRule& s
     while (first < turkey.data.size() && (turkey.data[first] & token_non_nt) != 0) {
         ++first;
     }
-    if (first == turkey.data.size() || turkey.data[first] != static_cast<std::uint32_t>(stuffing.id)) {
+    const auto stuffing_id = static_cast<std::uint32_t>(stuffing.id); // As ScummVM's int compare.
+    if (first == turkey.data.size() || turkey.data[first] != stuffing_id) {
         return std::nullopt;
     }
     ParseRule rule = turkey;
@@ -208,37 +209,35 @@ RuleList split_rule_list(RuleList& list) {
     return tail;
 }
 
-// The tree writers (_vbpt_*): `pos` is the last node used.
+// The tree writers (_vbpt_*), writing after node `pos`.
 class TreeWriter {
 public:
-    explicit TreeWriter(std::vector<ParseNode>& nodes) : nodes_(&nodes) {}
+    TreeWriter(std::vector<ParseNode>& nodes, int pos) : nodes_(&nodes), pos_(pos) {}
 
     // False once a write went past the node table (ScummVM's buffer overrun).
     [[nodiscard]] bool ok() const { return ok_; }
 
-    int pos = 0;
-
     int pareno(int base) {
-        node(base).left = pos + 1;
-        node(++pos) = ParseNode{.type = NodeType::Branch, .value = node(pos).value, .left = -1, .right = -1};
-        return pos;
+        node(base).left = pos_ + 1;
+        node(++pos_) = ParseNode{.type = NodeType::Branch, .value = node(pos_).value, .left = -1, .right = -1};
+        return pos_;
     }
 
     int parenc(int paren) {
-        node(paren).right = ++pos;
-        node(pos) = ParseNode{.type = NodeType::Branch, .value = node(pos).value, .left = -1, .right = -1};
-        return pos;
+        node(paren).right = ++pos_;
+        node(pos_) = ParseNode{.type = NodeType::Branch, .value = node(pos_).value, .left = -1, .right = -1};
+        return pos_;
     }
 
     int append(int base, int value) {
-        node(base).left = ++pos;
-        ParseNode& leaf = node(pos);
+        node(base).left = ++pos_;
+        ParseNode& leaf = node(pos_);
         leaf.type = NodeType::Leaf;
         leaf.value = value;
         leaf.right = -1;
-        node(base).right = ++pos;
-        node(pos) = ParseNode{.type = NodeType::Branch, .value = node(pos).value, .left = -1, .right = -1};
-        return pos;
+        node(base).right = ++pos_;
+        node(pos_) = ParseNode{.type = NodeType::Branch, .value = node(pos_).value, .left = -1, .right = -1};
+        return pos_;
     }
 
     int terminate(int base, int value) {
@@ -246,16 +245,16 @@ public:
         leaf.type = NodeType::Leaf;
         leaf.value = value;
         leaf.right = -1;
-        return pos;
+        return pos_;
     }
 
     int append_word(int base, int value) {
         ParseNode& word = node(base);
         word.type = NodeType::Word;
         word.value = value;
-        word.right = ++pos;
-        node(pos) = ParseNode{.type = NodeType::Branch, .value = node(pos).value, .left = -1, .right = -1};
-        return pos;
+        word.right = ++pos_;
+        node(pos_) = ParseNode{.type = NodeType::Branch, .value = node(pos_).value, .left = -1, .right = -1};
+        return pos_;
     }
 
     int terminate_word(int base, int value) {
@@ -263,7 +262,7 @@ public:
         word.type = NodeType::Word;
         word.value = value;
         word.right = -1;
-        return pos;
+        return pos_;
     }
 
     // _vbpt_write_subexpression.
@@ -305,6 +304,7 @@ private:
     }
 
     std::vector<ParseNode>* nodes_;
+    int pos_; // The last node used.
     bool ok_ = true;
 };
 
@@ -376,7 +376,8 @@ bool Vocabulary::parse(const Sentence& sentence) {
                 }
                 const std::uint32_t id = rule.data[rule.first_special];
                 for (const ParseRule& candidate : rules_) {
-                    if (static_cast<std::uint32_t>(candidate.id) == id) {
+                    const auto candidate_id = static_cast<std::uint32_t>(candidate.id);
+                    if (candidate_id == id) {
                         add_rule(next, insert_rule(rule, candidate));
                     }
                 }
@@ -395,8 +396,7 @@ bool Vocabulary::parse(const Sentence& sentence) {
     nodes_[0] = ParseNode{.type = NodeType::Branch, .value = nodes_[0].value, .left = 1, .right = 2};
     nodes_[1] = ParseNode{.type = NodeType::Leaf, .value = 0x141, .left = nodes_[1].left, .right = -1};
     nodes_[2] = ParseNode{.type = NodeType::Branch, .value = nodes_[2].value, .left = -1, .right = -1};
-    TreeWriter writer(nodes_);
-    writer.pos = 2;
+    TreeWriter writer(nodes_, 2);
     const int top = writer.append(2, branches_[0].id);
     writer.write_subexpression(work.front(), 0, top);
     return writer.ok();

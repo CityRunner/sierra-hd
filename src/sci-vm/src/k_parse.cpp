@@ -115,7 +115,7 @@ Reg k_said(Machine& machine, std::span<Reg> args) {
         warn(std::format("Said on non-string, pointer {:04x}:{:04x}", spec_pointer.segment, spec_pointer.offset));
         return null_reg;
     }
-    Parser& parser = machine.subsystems().parser();
+    const Parser& parser = machine.subsystems().parser();
     const Reg event = parser.parser_event();
     if (event.is_null() || machine.read_selector_value(event, machine.selector().claimed) != 0) {
         return null_reg;
@@ -132,7 +132,7 @@ Reg k_said(Machine& machine, std::span<Reg> args) {
 }
 
 Reg k_parse(Machine& machine, std::span<Reg> args) {
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     const SelectorCache& s = machine.selector();
     const Reg string_pointer = args[0];
     const Reg event = args[1];

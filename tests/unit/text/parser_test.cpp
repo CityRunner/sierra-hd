@@ -25,9 +25,15 @@ constexpr int group_door = 0x20;
 constexpr int group_key = 0x21;
 constexpr int group_it = 0x30;
 
-constexpr int verb = sci::text::class_imperative_verb << 4;
-constexpr int noun = sci::text::class_noun << 4;
-constexpr int pronoun = sci::text::class_pronoun << 4;
+// The classes as stored in ResultWord, shifted left by 4.
+constexpr int verb = sci::text::class_imperative_verb * 16;
+constexpr int noun = sci::text::class_noun * 16;
+constexpr int pronoun = sci::text::class_pronoun * 16;
+
+// Bits [shift, shift + 8) of a non-negative value.
+std::uint8_t byte_of(int value, unsigned shift) {
+    return static_cast<std::uint8_t>((static_cast<unsigned>(value) >> shift) & 0xFFU);
+}
 
 // One vocab.000 entry: the characters kept from the previous word, the
 // rest of the word (the last character has bit 7 set), then the class and
@@ -38,13 +44,14 @@ void add_word(std::vector<std::uint8_t>& vocab, std::uint8_t kept, std::string_v
         const auto c = static_cast<std::uint8_t>(rest[i]);
         vocab.push_back(i + 1 == rest.size() ? static_cast<std::uint8_t>(c | 0x80U) : c);
     }
-    vocab.push_back(static_cast<std::uint8_t>(word_class >> 4));
-    vocab.push_back(static_cast<std::uint8_t>(((word_class & 0xF) << 4) | (group >> 8)));
-    vocab.push_back(static_cast<std::uint8_t>(group & 0xFF));
+    vocab.push_back(byte_of(word_class, 4));
+    vocab.push_back(static_cast<std::uint8_t>((static_cast<unsigned>(byte_of(word_class, 0)) << 4U) |
+                                              (static_cast<unsigned>(byte_of(group, 8)) & 0x0FU)));
+    vocab.push_back(byte_of(group, 0));
 }
 
 std::vector<std::uint8_t> sample_words() {
-    std::vector<std::uint8_t> vocab(26 * 2, 0);
+    std::vector<std::uint8_t> vocab(std::size_t{26} * 2, 0);
     vocab[0] = 1; // Any non-zero letter pointer: not the SCI01 format.
     add_word(vocab, 0, "door", noun, group_door);
     add_word(vocab, 0, "it", pronoun, group_it);
@@ -60,13 +67,13 @@ void add_suffix(std::vector<std::uint8_t>& suffixes, std::string_view alt, int r
                 int mask) {
     suffixes.insert(suffixes.end(), alt.begin(), alt.end());
     suffixes.push_back(0);
-    suffixes.push_back(static_cast<std::uint8_t>(result_class >> 8));
-    suffixes.push_back(static_cast<std::uint8_t>(result_class & 0xFF));
+    suffixes.push_back(byte_of(result_class, 8));
+    suffixes.push_back(byte_of(result_class, 0));
     suffixes.push_back('*');
     suffixes.insert(suffixes.end(), word.begin(), word.end());
     suffixes.push_back(0);
-    suffixes.push_back(static_cast<std::uint8_t>(mask >> 8));
-    suffixes.push_back(static_cast<std::uint8_t>(mask & 0xFF));
+    suffixes.push_back(byte_of(mask, 8));
+    suffixes.push_back(byte_of(mask, 0));
     suffixes.push_back('*');
 }
 
@@ -82,8 +89,8 @@ std::vector<std::uint8_t> sample_suffixes() {
 // (pairs of type and value).
 void add_branch(std::vector<std::uint8_t>& branches, int id, std::initializer_list<int> data) {
     const auto put = [&](int value) {
-        branches.push_back(static_cast<std::uint8_t>(value & 0xFF));
-        branches.push_back(static_cast<std::uint8_t>(value >> 8));
+        branches.push_back(byte_of(value, 0));
+        branches.push_back(byte_of(value, 8));
     };
     put(id);
     std::size_t count = 0;
@@ -119,7 +126,7 @@ Vocabulary sample_vocabulary(sci::text::ParserOptions options = {}) {
     const std::vector<std::uint8_t> words = sample_words();
     const std::vector<std::uint8_t> suffixes = sample_suffixes();
     const std::vector<std::uint8_t> branches = sample_branches();
-    return Vocabulary(words, suffixes, branches, options);
+    return {words, suffixes, branches, options};
 }
 
 std::optional<Sentence> tokenize(const Vocabulary& vocabulary, std::string_view text) {
@@ -139,7 +146,7 @@ std::optional<std::vector<ParseNode>> parse(Vocabulary& vocabulary, std::string_
     }
     vocabulary.store_pronoun_reference();
     const auto nodes = vocabulary.nodes();
-    return std::vector<ParseNode>(nodes.begin(), nodes.end());
+    return std::vector<ParseNode>{nodes.begin(), nodes.end()};
 }
 
 int said(std::initializer_list<std::uint8_t> spec, std::span<const ParseNode> tree) {
@@ -312,7 +319,7 @@ SCI_TEST(parser_broken_vocabularies_disable_the_parser) {
     const Vocabulary endless(sample_words(), std::nullopt, recursive);
     SCI_CHECK(!endless.has_rules() && endless.warnings().size() == 1);
 
-    const std::vector<std::uint8_t> zeros(26 * 2, 0);
+    const std::vector<std::uint8_t> zeros(std::size_t{26} * 2, 0);
     const Vocabulary disguised(zeros, std::nullopt, std::nullopt);
     SCI_CHECK(!disguised.warnings().empty());
 }

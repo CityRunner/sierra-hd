@@ -480,14 +480,15 @@ int said(std::span<const std::uint8_t> spec, std::span<const ParseNode> parse_tr
     // end read as the terminator.
     std::vector<int> tokens;
     std::size_t at = 0;
-    const auto next_byte = [&]() -> int { return at < spec.size() ? spec[at++] : said_term; };
+    const auto next_byte = [&] -> int { return at < spec.size() ? spec[at++] : said_term; };
     int item = 0;
     do {
         item = next_byte();
         if (item < said_first) {
-            tokens.push_back((item << 8) | next_byte());
+            tokens.push_back(
+                static_cast<int>((static_cast<unsigned>(item) << 8U) | static_cast<unsigned>(next_byte())));
         } else {
-            tokens.push_back(item << 8);
+            tokens.push_back(static_cast<int>(static_cast<unsigned>(item) << 8U));
         }
     } while (item != said_term && tokens.size() < max_said_tokens);
     if (item != said_term) {

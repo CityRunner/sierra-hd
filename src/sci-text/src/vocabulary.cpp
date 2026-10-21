@@ -37,6 +37,8 @@ namespace sci::text {
 
 namespace {
 
+constexpr int noun_class = class_noun * 16; // Shifted left by 4.
+
 constexpr std::size_t max_word_length = 256; // VOCAB_MAX_WORDLENGTH
 
 std::uint8_t byte_at(std::span<const std::uint8_t> data, std::size_t at) {
@@ -119,7 +121,7 @@ Vocabulary& Vocabulary::operator=(Vocabulary&&) noexcept = default;
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): kept close to Vocabulary::loadParserWords.
 bool Vocabulary::load_words(std::span<const std::uint8_t> data) {
-    if (data.size() < 26 * 2) {
+    if (data.size() < std::size_t{26} * 2) {
         warnings_.emplace_back("Invalid main vocabulary encountered: Much too small");
         return false;
     }
@@ -169,8 +171,7 @@ bool Vocabulary::load_words(std::span<const std::uint8_t> data) {
             return false;
         }
         buffer[position] = 0;
-        const auto end = std::ranges::find(buffer, '\0');
-        const std::string word(buffer.begin(), end);
+        const std::string word(buffer.data()); // Up to the NUL just written.
         const std::uint8_t c = byte_at(data, seeker + 1);
         const ResultWord meaning{
             .word_class = static_cast<int>((static_cast<unsigned>(byte_at(data, seeker)) << 4U) | ((c & 0xF0U) >> 4U)),
@@ -281,7 +282,7 @@ WordMeanings Vocabulary::lookup_word(std::string_view word) const {
     // a value of 0 or more.
     if (!options_.sci0_early && !without_dashes.empty() &&
         std::ranges::all_of(without_dashes, [](char c) { return c >= '0' && c <= '9'; })) {
-        result.push_back(ResultWord{.word_class = class_noun << 4, .group = magic_number_group});
+        result.push_back(ResultWord{.word_class = noun_class, .group = magic_number_group});
     }
     return result;
 }
@@ -315,7 +316,7 @@ void Vocabulary::synonymize(Sentence& sentence, std::span<const Synonym> synonym
     for (WordMeanings& meanings : sentence) {
         for (ResultWord& meaning : meanings) {
             for (const Synonym& synonym : synonyms) {
-                if (meaning.group == synonym.replaceant) {
+                if (std::cmp_equal(meaning.group, synonym.replaceant)) {
                     meaning.group = synonym.replacement;
                 }
             }
@@ -329,8 +330,8 @@ void Vocabulary::replace_pronouns(Sentence& sentence) const {
     }
     for (WordMeanings& meanings : sentence) {
         for (ResultWord& meaning : meanings) {
-            if ((static_cast<unsigned>(meaning.word_class) & (class_pronoun << 4U)) != 0) {
-                meaning.word_class = class_noun << 4;
+            if ((static_cast<unsigned>(meaning.word_class) & (static_cast<unsigned>(class_pronoun) << 4U)) != 0) {
+                meaning.word_class = noun_class;
                 meaning.group = pronoun_reference_;
             }
         }
