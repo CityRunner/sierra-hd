@@ -6,7 +6,16 @@ trace, in the format of the reference ScummVM's trace patch
 
     sci-vm-trace <game folder> <trace file> [--replay <file>] [--seed <n>]
                  [--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]
+                 [--screens <folder>] [--screen-every <ticks>]
+    sci-vm-trace --scan-kernel <game folder> <output file>
 
+Always give a stop tick: a run without one goes on for as long as the game
+does.
+
+- `--screens` writes the screen the player sees as `<tick>.ppm` once the
+  tick reaches each multiple of `--screen-every` (default 60).
+- `--scan-kernel` lists the kernel functions the scripts reference: number,
+  name, the calls found and the scripts that make them.
 - `--callers` appends ` @<script>:<offset>` (the instruction after the
   call) to each line, to find where a difference comes from; the reference
   does not write it, so strip it before comparing.
@@ -27,4 +36,9 @@ Then:
 
 prints the first differing call with the calls before it, or
 `traces match: <n> calls`. `--prefix` accepts a trace of ours that stops
-early (for example at a kernel function not ported yet).
+early. `compare-screens.py <reference folder> <sci-vm folder>` compares the
+screens (the reference writes them with `SIERRA_HD_SCREENS=<folder>`).
+
+`run-scenario.sh <replay> <stop tick> <output folder> [seed]` runs a replay
+in both engines and compares traces and screens; `run-all-scenarios.sh`
+does so for every run listed in `tests/scenarios/scenarios.txt`.

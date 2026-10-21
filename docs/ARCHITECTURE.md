@@ -171,7 +171,7 @@ edges with the face after them, and layers. sci-render needs nothing else,
 so the scene can later be cached (spec section 10.2), and the hints only
 change how it is built.
 
-## The interpreter (milestone 4a)
+## The interpreter (milestones 4a and 4b)
 
 sci-vm is a port of ScummVM's SCI0 engine, kept close to ScummVM's
 structure so that each part can be checked against its source
@@ -184,28 +184,50 @@ structure so that each part can be checked against its source
   function.
 - `Subsystems` holds what ScummVM keeps in `SciEngine`: the virtual clock,
   the random source, the event queue, the graphics, the sound and the
-  parser state. Kernel functions reach them through the machine.
+  parser, the files the game opens (through a host `FileStore`) and the
+  saves. Kernel functions reach them through the machine.
 - `Graphics` ties together the ported GfxScreen, GfxPorts, GfxPaint16,
   GfxText16, GfxCompare, GfxAnimate, GfxCursor, GfxMenu and GfxTransitions.
   The screen is the 320 x 200 visual, priority and control maps that the
-  game logic reads; pictures are drawn by sci-pic. Showing the screen is
-  not part of the VM: the program will present these maps (path 1) or the
-  HD scene (path 2) from them.
+  game logic reads; pictures are drawn by sci-pic. Beside them the screen
+  keeps what the player sees (what bitsShow and the transitions copied)
+  and a cover map (where anything but the picture drew), which the program
+  presents.
+- The text parser (vocabulary, grammar, Said specs) lives in sci-text
+  (`sci/text/parser.hpp`), free of VM types; kParse and kSaid connect it
+  to the game's objects.
 - Script patches are applied when a script loads, as in ScummVM.
 - The music player runs on the virtual clock (its timer once per 4 ms of
   virtual time) and plays to a silent driver; only timing, signals and
   cues reach the scripts.
 
-`run_deterministic` (`include/sci/vm/interpreter.hpp`) runs the game the
-way the patched reference does and reports each kernel call; `tools/vm-trace`
-uses it. The program does not run the VM yet.
+Two entry points run the game:
+- `run_deterministic` (`include/sci/vm/interpreter.hpp`) runs it the way
+  the patched reference does and reports each kernel call and, on request,
+  the shown screen; `tools/vm-trace` uses it.
+- `Game` (`include/sci/vm/game.hpp`) runs it for the program, on the
+  calling (main) thread. Wherever virtual time would pass, sci-vm calls
+  `GameHost::wait`; the host presents `Game::screen()`, passes input on
+  with `Game::input` and returns when that much real time has passed. The
+  host also gives the local time. Replays can be scheduled into a run.
 
-## The program (release v0.1)
+## The program
 
 `src/app/src/main.cpp` does the following:
 1. reads `sierra-hd.ini`;
 2. identifies the game folder (`sci-platform`);
-3. opens an SDL3 window and drives `Viewer`.
+3. opens an SDL3 window and prepares the analysis cache;
+4. runs the game (`sci::vm::Game`, milestone 4b), or with `--viewer` drives
+   the room viewer of release v0.1.
+
+In the game, `GameScreen` composes the 320N x 200N frame from the shown
+screen: in HD mode, pixels the cover map leaves to the picture come from
+the HD background (`HdPictures`, rendered from the cached scene at N);
+every other pixel is an N x N block of its EGA colour (sprites, text,
+windows; the HD sprites come in milestone 5). In original mode every
+pixel is an EGA block. The game's cursor becomes the window's cursor, and
+keys are translated as ScummVM translates them. The game's own files are
+kept in `files/` next to the configuration (`DirectoryFileStore`).
 
 `Viewer` composes the 320N x 200N frame on the CPU: the status line, the
 background (cached per picture, mode, map and N) and a view cel or a font
@@ -223,8 +245,8 @@ The vector scenes are kept in files (spec section 10.2;
   entries in `cache/` next to `sierra-hd.ini`.
 - On launch, `main.cpp` has the cache analyse the missing entries on the
   executor, behind a progress bar.
-- `Viewer`, and later the game mode, asks `AnalysisCache::scene` for a
-  scene. The scene comes from memory or from its file, or it is analysed
+- `Viewer` and the game mode's `HdPictures` ask `AnalysisCache::scene`
+  for a scene. The scene comes from memory or from its file, or it is analysed
   then and there.
 
 The key covers the game data, the analyser version, the hint file and the
