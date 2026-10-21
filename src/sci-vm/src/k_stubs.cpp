@@ -88,58 +88,6 @@ Reg k_do_bresen(Machine& machine, std::span<Reg> /*args*/) {
     return not_implemented(machine, "k_do_bresen");
 }
 
-Reg k_do_sound(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_do_sound");
-}
-
-Reg k_do_sound_dispose(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_do_sound_dispose");
-}
-
-Reg k_do_sound_fade(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_do_sound_fade");
-}
-
-Reg k_do_sound_get_polyphony(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_do_sound_get_polyphony");
-}
-
-Reg k_do_sound_init(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_do_sound_init");
-}
-
-Reg k_do_sound_master_volume(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_do_sound_master_volume");
-}
-
-Reg k_do_sound_mute(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_do_sound_mute");
-}
-
-Reg k_do_sound_pause(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_do_sound_pause");
-}
-
-Reg k_do_sound_play(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_do_sound_play");
-}
-
-Reg k_do_sound_resume_after_restore(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_do_sound_resume_after_restore");
-}
-
-Reg k_do_sound_stop(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_do_sound_stop");
-}
-
-Reg k_do_sound_stop_all(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_do_sound_stop_all");
-}
-
-Reg k_do_sound_update(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_do_sound_update");
-}
-
 Reg k_draw_cel(Machine& machine, std::span<Reg> /*args*/) {
     return not_implemented(machine, "k_draw_cel");
 }

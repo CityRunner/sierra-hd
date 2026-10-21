@@ -54,3 +54,9 @@ sci_add_unit_test(NAME sci-render-tests
 sci_add_unit_test(NAME sci-platform-tests
     SOURCES platform/platform_test.cpp
     DEPENDS sci-platform)
+
+sci_add_unit_test(NAME sci-vm-tests
+    SOURCES vm/music_test.cpp
+    DEPENDS sci-vm)
+# The music tests reach into sci-vm's internals.
+target_include_directories(sci-vm-tests PRIVATE ${PROJECT_SOURCE_DIR}/src/sci-vm/src)

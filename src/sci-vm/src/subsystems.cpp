@@ -34,6 +34,8 @@ void Subsystems::on_init_game(Machine& /*machine*/) {
 }
 
 void Subsystems::on_stop_game(Machine& /*machine*/) {
+    // SciEngine::runGame stops the sounds unless a game is being restored.
+    sound_->clear_play_list();
 }
 
 void Subsystems::on_restart_game(Machine& /*machine*/) {
