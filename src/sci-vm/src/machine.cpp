@@ -180,6 +180,9 @@ Machine::Machine(const resource::ResourceManager& resources, Subsystems& subsyst
         faults_.raise("Kernel: Could not retrieve selector names");
     }
     kernel_.init(selectors_.cache().cant_be_here != no_selector);
+    // The patcher finds the selectors its patches name by the game's names.
+    patcher_.attach([this](std::string_view name) { return selectors_.find(name); },
+                    [this](std::string message) { faults_.raise(std::move(message)); });
     // The game object: export 0 of script 0 (ResourceManager::findGameObject).
     if (const auto* script0 = resources_.find(ResourceType::Script, 0)) {
         Script probe;

@@ -32,6 +32,7 @@ sci_add_library(NAME sci-vm
         src/resources.cpp
         src/script.cpp
         src/script_patcher.cpp
+        src/script_patches.cpp
         src/seg_manager.cpp
         src/segments.cpp
         src/selectors.cpp
