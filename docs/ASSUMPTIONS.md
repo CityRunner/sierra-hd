@@ -968,6 +968,25 @@ Scope:
   of virtual time, and the scenario gate compares both (the boot scenario:
   61 screens identical). **Decided.**
 
+- **The text parser is in sci-text** (`sci/text/parser.hpp`): the
+  vocabulary (vocab.000, 901, 900), tokenizing, synonyms, the grammar and
+  the Said specs, without VM types; sci-vm's kParse and kSaid connect it
+  to the game's objects, as ScummVM's Vocabulary and kparse.cpp do.
+  **Decided.**
+- **A grammar that keeps growing stops the parser.** ScummVM expands the
+  grammar rules until memory runs out when a vocab.900 is recursive in a
+  certain way; the port stops at 4000 rules or 1000 passes, warns, and
+  turns the parser off for the game. The tested release stays far below
+  the limit (no warning; the traces match); only damaged or fuzzed data
+  reaches it. **Decided.**
+- **An empty sentence parses as a success**, as in ScummVM; kParse never
+  passes one, since it handles empty input first. **Decided.**
+- **Mouse clicks only choose names on the copy-protection screen through
+  the keyboard path.** In both engines a click on a name is taken as a
+  wrong answer; the scenarios pass the screen with the arrow keys and
+  Enter, the answer for seed 0 being found once. This is the game's
+  behaviour, not a port difference. **Decided.**
+
 ## Milestone 4b: the analysis cache (2026-10-21)
 
 - **Where the cache lives.**
