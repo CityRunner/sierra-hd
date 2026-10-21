@@ -8,12 +8,17 @@
 - `golden/`: golden hashes. `synthetic_test.cpp` renders synthetic pictures
   and runs in CI on every platform; `pictures.txt` holds the hashes of every
   picture of the tested release, checked locally.
+- `threads/`: the code that runs on worker threads (the app's
+  `ThreadExecutor`, rendering and checks spread over it), compared with the
+  serial results. CTest label `threads`: draft pull requests run only these
+  under TSan (`ctest -L threads`).
 - `scenarios/`: scenario recordings, replays in the format of
   `docs/formats/replay-and-trace.md`, run against the game locally.
 
 Seed corpora are hand-made; `fuzz/make_seeds.py` regenerates the
 sci-resource ones. libFuzzer runs write new inputs to a scratch directory
-(`scripts/run-fuzzers.sh`), never into the corpora.
+(`scripts/run-fuzzers.sh`, or `SCI_FUZZ_CORPUS`, which CI caches), never
+into the corpora.
 
 Tests that need the game files run locally, never in CI:
 
