@@ -20,7 +20,6 @@
 // kind, is decided by looking at the picture (docs/hints.md).
 
 #include "game_folder.hpp"
-#include "hints.hpp"
 #include "picture.hpp"
 #include "png.hpp"
 #include "sci/render/original.hpp"

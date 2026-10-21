@@ -26,17 +26,17 @@
 // git-ignored).
 
 #include "game_folder.hpp"
-#include "hints.hpp"
 #include "picture.hpp"
 #include "png.hpp"
 #include "sci/pic/draw_pic.hpp"
 #include "sci/pic/parse_pic.hpp"
+#include "sci/platform/picture_hints.hpp"
+#include "sci/platform/thread_executor.hpp"
 #include "sci/render/original.hpp"
 #include "sci/render/rasterize.hpp"
 #include "sci/text/font.hpp"
 #include "sci/vector/build_scene.hpp"
 #include "sci/view/view.hpp"
-#include "thread_executor.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -118,8 +118,8 @@ std::optional<Image> render_hd_pictures(const ResourceManager& manager, const Op
     if (!drawn) {
         return std::nullopt;
     }
-    sci::tools::ThreadExecutor executor;
-    const sci::tools::PictureHintSet hints(options.hints, manager, options.pictures);
+    sci::platform::ThreadExecutor executor;
+    const sci::platform::PictureHintSet hints(options.hints, manager, options.pictures);
     if (options.map == MapChoice::Priority) {
         const auto scene =
             sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Priority, hints.pointers());

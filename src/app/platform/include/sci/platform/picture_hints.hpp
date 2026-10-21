@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Loading the hint files of pictures (spec section 6.7) for the tools.
+// Loading the hint files of pictures (spec section 6.7).
 #pragma once
 
 #include "sci/resource/resource_manager.hpp"
@@ -12,11 +12,11 @@
 #include <span>
 #include <vector>
 
-namespace sci::tools {
+namespace sci::platform {
 
 // The hints of each picture, in the order given; empty where a picture has
 // no hint file. Files that do not parse, or were made for other PIC data,
-// are skipped with a message on stderr. Without a directory there are no
+// are skipped and logged. Without a directory there are no
 // hints.
 class PictureHintSet {
 public:
@@ -38,4 +38,4 @@ private:
     std::vector<const vector::PictureHints*> pointers_;
 };
 
-} // namespace sci::tools
+} // namespace sci::platform

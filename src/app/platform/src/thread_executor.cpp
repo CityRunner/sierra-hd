@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "thread_executor.hpp"
+#include "sci/platform/thread_executor.hpp"
 
 #include "sci/core/assert.hpp"
 #include "sci/core/fp_profile.hpp"
@@ -10,7 +10,7 @@
 #include <thread>
 #include <vector>
 
-namespace sci::tools {
+namespace sci::platform {
 
 ThreadExecutor::ThreadExecutor(std::size_t threads)
     : threads_(threads != 0 ? threads : std::max<std::size_t>(1, std::thread::hardware_concurrency())) {
@@ -35,4 +35,4 @@ void ThreadExecutor::run(std::size_t count, const std::function<void(std::size_t
     work();
 }
 
-} // namespace sci::tools
+} // namespace sci::platform

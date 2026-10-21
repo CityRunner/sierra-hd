@@ -14,13 +14,13 @@
 // are added once the scripts tell which rooms draw them (milestone 4).
 
 #include "game_folder.hpp"
-#include "hints.hpp"
 #include "picture.hpp"
 #include "sci/core/sha256.hpp"
+#include "sci/platform/picture_hints.hpp"
+#include "sci/platform/thread_executor.hpp"
 #include "sci/render/original.hpp"
 #include "sci/render/rasterize.hpp"
 #include "sci/vector/build_scene.hpp"
-#include "thread_executor.hpp"
 
 #include <array>
 #include <cstdint>
@@ -50,7 +50,7 @@ std::string picture_hashes(const sci::resource::ResourceManager& manager, std::u
     if (!drawn) {
         return std::format("pic {} error\n", number);
     }
-    const sci::tools::PictureHintSet hints(hint_directory, manager, numbers);
+    const sci::platform::PictureHintSet hints(hint_directory, manager, numbers);
     const auto visual =
         sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual, hints.pointers());
     std::string lines;
@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
     if (!manager) {
         return 1;
     }
-    sci::tools::ThreadExecutor executor;
+    sci::platform::ThreadExecutor executor;
     std::string hashes;
     for (const std::uint16_t number : sci::tools::numbers_of(*manager, sci::resource::ResourceType::Pic)) {
         hashes += picture_hashes(*manager, number, hint_directory, executor);

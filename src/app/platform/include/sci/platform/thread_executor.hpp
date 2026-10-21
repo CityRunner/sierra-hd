@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The tools' implementation of the task-execution interface: tasks are
+// The task-execution interface of app (spec section 4.2): tasks are
 // spread over worker threads. Results do not depend on the number of
 // threads, as tasks write disjoint outputs (spec section 4.3).
 #pragma once
@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <functional>
 
-namespace sci::tools {
+namespace sci::platform {
 
 class ThreadExecutor final : public core::Executor {
 public:
@@ -23,4 +23,4 @@ private:
     std::size_t threads_;
 };
 
-} // namespace sci::tools
+} // namespace sci::platform

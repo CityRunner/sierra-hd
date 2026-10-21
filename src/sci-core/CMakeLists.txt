@@ -7,4 +7,5 @@ sci_add_library(NAME sci-core
         src/fp_profile.cpp
         src/json.cpp
         src/log.cpp
+        src/md5.cpp
         src/sha256.cpp)

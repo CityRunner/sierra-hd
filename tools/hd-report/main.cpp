@@ -16,14 +16,14 @@
 // derived from the game art and go to git-ignored places only.
 
 #include "game_folder.hpp"
-#include "hints.hpp"
 #include "picture.hpp"
 #include "png.hpp"
+#include "sci/platform/picture_hints.hpp"
+#include "sci/platform/thread_executor.hpp"
 #include "sci/render/acceptance.hpp"
 #include "sci/render/original.hpp"
 #include "sci/render/rasterize.hpp"
 #include "sci/vector/build_scene.hpp"
-#include "thread_executor.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -113,7 +113,7 @@ std::optional<Row> analyse(const sci::resource::ResourceManager& manager, std::u
     if (!drawn) {
         return std::nullopt;
     }
-    const sci::tools::PictureHintSet hints(options.hints, manager, numbers);
+    const sci::platform::PictureHintSet hints(options.hints, manager, numbers);
     const auto visual =
         sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual, hints.pointers());
     const auto priority =
@@ -235,7 +235,7 @@ int main(int argc, char** argv) {
         std::error_code error;
         fs::create_directories(*options->images, error);
     }
-    sci::tools::ThreadExecutor executor;
+    sci::platform::ThreadExecutor executor;
     std::vector<Row> rows;
     bool ok = true;
     for (const std::uint16_t number : sci::tools::numbers_of(*manager, sci::resource::ResourceType::Pic)) {

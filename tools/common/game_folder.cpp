@@ -4,6 +4,7 @@
 
 #include "sci/core/assert.hpp"
 #include "sci/core/log.hpp"
+#include "sci/platform/game_files.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -28,31 +29,13 @@ void print_assertion(std::string_view expression, const std::source_location& lo
 
 } // namespace
 
-std::vector<resource::GameFile> read_game_folder(const std::filesystem::path& folder) {
-    std::vector<resource::GameFile> files;
-    std::error_code error;
-    for (const auto& entry : std::filesystem::directory_iterator(folder, error)) {
-        if (!entry.is_regular_file()) {
-            continue;
-        }
-        std::ifstream stream(entry.path(), std::ios::binary);
-        files.push_back(resource::GameFile{
-            .name = entry.path().filename().string(),
-            .bytes =
-                std::vector<std::uint8_t>(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()),
-        });
-    }
-    if (error) {
-        std::println(stderr, "cannot read {}: {}", folder.string(), error.message());
-    }
-    // Directory order is unspecified; keep the input to the library stable.
-    std::ranges::stable_sort(files,
-                             [](const resource::GameFile& a, const resource::GameFile& b) { return a.name < b.name; });
-    return files;
-}
-
 std::optional<resource::ResourceManager> open_game(const std::filesystem::path& folder) {
-    auto manager = resource::ResourceManager::open(read_game_folder(folder));
+    auto files = platform::read_game_folder(folder);
+    if (!files) {
+        std::println(stderr, "cannot read {}: {}", folder.string(), files.error().message);
+        return std::nullopt;
+    }
+    auto manager = resource::ResourceManager::open(std::move(*files));
     if (!manager) {
         std::println(stderr, "cannot open the game in {}: {}", folder.string(), manager.error().message);
         return std::nullopt;
