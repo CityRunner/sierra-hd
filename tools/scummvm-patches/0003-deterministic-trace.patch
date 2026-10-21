@@ -363,7 +363,7 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +#include "common/str.h"
 +#include "common/system.h"
 +#include "common/textconsole.h"
-+#include "graphics/palette.h"
++#include "graphics/paletteman.h"
 +#include "graphics/surface.h"
 +#include "sci/event.h"
 +#include "sci/sci.h"
