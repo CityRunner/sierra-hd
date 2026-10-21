@@ -43,6 +43,8 @@ jobs:
         run: docker/run.sh scripts/check-format.sh
       - name: Repository policy
         run: docker/run.sh python3 scripts/check-repo-policy.py
+      - name: Hint files
+        run: docker/run.sh python3 scripts/check-hints.py
       - name: clang-tidy
         run: docker/run.sh bash -c "cmake --preset debug && scripts/run-clang-tidy.sh build/debug" 2>&1 | tee build.log
       - if: failure()

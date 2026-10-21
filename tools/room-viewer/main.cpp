@@ -14,6 +14,7 @@
 //       k, or with --map priority the HD priority map
 //       --highlight (with --hd, in builds with SCI_DEBUG_HIGHLIGHT): fitted
 //       strokes in light magenta, fallback blocks in yellow
+//       --hints <directory> (with --hd): apply the hint files there
 //   sci-room-viewer <game> view <n> [--scale <k>] <out.png>
 //       All loops (rows) and cels; transparent pixels show the background.
 //   sci-room-viewer <game> font <n> [--scale <k>] <out.png>
@@ -25,6 +26,7 @@
 // git-ignored).
 
 #include "game_folder.hpp"
+#include "hints.hpp"
 #include "picture.hpp"
 #include "png.hpp"
 #include "sci/pic/draw_pic.hpp"
@@ -67,8 +69,9 @@ struct Options {
     MapChoice map = MapChoice::Visual;
     sci::pic::DrawOptions draw;
     int scale = 1;
-    bool hd = false;        // Through the vector path instead of the 1x maps.
-    bool highlight = false; // With --hd: show replacements (SCI_DEBUG_HIGHLIGHT builds only).
+    bool hd = false;                            // Through the vector path instead of the 1x maps.
+    bool highlight = false;                     // With --hd: show replacements (SCI_DEBUG_HIGHLIGHT builds only).
+    std::optional<std::filesystem::path> hints; // With --hd: the hint directory.
 };
 
 std::optional<int> parse_int(std::string_view text) {
@@ -116,13 +119,16 @@ std::optional<Image> render_hd_pictures(const ResourceManager& manager, const Op
         return std::nullopt;
     }
     sci::tools::ThreadExecutor executor;
+    const sci::tools::PictureHintSet hints(options.hints, manager, options.pictures);
     if (options.map == MapChoice::Priority) {
-        const auto scene = sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Priority);
+        const auto scene =
+            sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Priority, hints.pointers());
         const auto map = sci::render::render_priority(scene.scene, options.scale, executor);
         return sci::tools::to_image(sci::render::indices_to_rgba(map, sci::vector::picture_width * options.scale,
                                                                  sci::vector::picture_height * options.scale));
     }
-    const auto scene = sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual);
+    const auto scene =
+        sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual, hints.pointers());
 #ifdef SCI_DEBUG_HIGHLIGHT
     if (options.highlight) {
         return sci::tools::to_image(
@@ -299,6 +305,23 @@ std::optional<MapChoice> parse_map(std::string_view text) {
     return std::nullopt;
 }
 
+// --palette <0-3> or --scale <0-16>.
+bool parse_number_option(std::string_view arg, std::string_view text, Options& options) {
+    const auto value = parse_int(text);
+    if (!value || *value < 0 || *value > 16) {
+        return false;
+    }
+    if (arg == "--palette") {
+        if (*value > 3) {
+            return false;
+        }
+        options.draw.ega_palette = static_cast<std::uint8_t>(*value);
+    } else {
+        options.scale = std::max(1, *value);
+    }
+    return true;
+}
+
 // Parses the options between the resource number and the output path.
 bool parse_options(std::span<char*> args, Options& options) {
     for (std::size_t i = 0; i < args.size(); ++i) {
@@ -312,6 +335,8 @@ bool parse_options(std::span<char*> args, Options& options) {
         } else if (arg == "--highlight") {
             options.highlight = true;
 #endif
+        } else if (arg == "--hints" && has_value) {
+            options.hints = std::filesystem::path(args[++i]);
         } else if (arg == "--map" && has_value) {
             const auto map = parse_map(args[++i]);
             if (!map) {
@@ -319,17 +344,8 @@ bool parse_options(std::span<char*> args, Options& options) {
             }
             options.map = *map;
         } else if ((arg == "--palette" || arg == "--scale") && has_value) {
-            const auto value = parse_int(args[++i]);
-            if (!value || *value < 0 || *value > 16) {
+            if (!parse_number_option(arg, args[++i], options)) {
                 return false;
-            }
-            if (arg == "--palette") {
-                if (*value > 3) {
-                    return false;
-                }
-                options.draw.ega_palette = static_cast<std::uint8_t>(*value);
-            } else {
-                options.scale = std::max(1, *value);
             }
         } else {
             return false;
@@ -340,7 +356,8 @@ bool parse_options(std::span<char*> args, Options& options) {
 
 void print_usage() {
     std::println(stderr, "usage: sci-room-viewer <game> pic <n>[+<n>...] [--map visual|priority|control|all]\n"
-                         "                       [--mirrored] [--palette <0-3>] [--scale <k>] [--hd] <out.png>\n"
+                         "                       [--mirrored] [--palette <0-3>] [--scale <k>] [--hd]\n"
+                         "                       [--hints <directory>] <out.png>\n"
                          "       sci-room-viewer <game> view|font <n> [--scale <k>] <out.png>\n"
                          "       sci-room-viewer <game> all <directory>");
 }
