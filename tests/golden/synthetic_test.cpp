@@ -84,14 +84,14 @@ SCI_TEST(synthetic_scenes_render_to_their_golden_hashes) {
         sci::core::SerialExecutor executor;
         const std::array<std::string_view, 4> expected =
             mirrored ? std::array<std::string_view, 4>{
-                           "7ca5b406687e53b52c4df2eb9380411628348bd952b0a154c6273a980776ff00",
-                           "043ebaf7e275bd177accd8ce40cdaa329d2624a2349d11c5b1fb67533d3f1415",
+                           "07e07566e9a9386282cf2f242276bbdaf2487c582b20822afa5c8f12a85795af",
+                           "3bbc4d4e2a37cb136851e01fb5528a69e9b36c1b0f6b3fa691c93e2ea1c7f9c8",
                            "cc0939f18bfe1678d42c7dd4024697972023f28cb8ef622aa51917b590564e6d",
                            "e7b95d6682afd2cd4bef3466431cb0a79d78f67cad4f756bc45ca4506bd6dabd",
                        }
                      : std::array<std::string_view, 4>{
-                           "e056bb53490257d147b426c3f0efb253b98598d6c1d22381ccf3a4e1a6b6fdb2",
-                           "513c6db9135ded1a2cc8b30938b721883581f1c93c4dd8dd28a850e7d052bb07",
+                           "0c44225f41b21890961fbe9be4e2d2376321fb769c2fb400149b943b9204db62",
+                           "f91187720f14521e2217fde6142e11252526628b4e8d4b2ed9ac7797dfbdc4c7",
                            "7adcaef57f3b356416dfdad419b9ca1a9dacbdb9af4d96a202f4b67d64750f06",
                            "8c7cf5b103b4f88d6719efab248f92a659ca7bb7b1eb391e0732ad62ece92c8d",
                        };

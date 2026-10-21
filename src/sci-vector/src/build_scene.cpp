@@ -4,6 +4,7 @@
 
 #include "curves.hpp"
 #include "sci/pic/geometry.hpp"
+#include "stroke_integrity.hpp"
 #include "topology.hpp"
 
 #include <algorithm>
@@ -1221,7 +1222,13 @@ std::vector<Layer> build_layers(const pic::DrawTrace& trace, const PlaneView& vi
                 ++stats.hidden_lines;
                 continue;
             }
-            Stroke stroke{.source = static_cast<std::int32_t>(i), .points = {centre(line.from)}, .value = value};
+            Stroke stroke{
+                .source = static_cast<std::int32_t>(i),
+                .points = {centre(line.from)},
+                .value = value,
+                .fitted = false,
+                .cuts = {},
+            };
             if (!curves[index].empty()) {
                 stroke.points = curves[index];
                 stroke.fitted = true;
@@ -1245,6 +1252,12 @@ std::vector<Layer> build_layers(const pic::DrawTrace& trace, const PlaneView& vi
 }
 
 } // namespace
+
+#ifdef SCI_WITHOUT_STROKE_INTEGRITY
+constexpr bool without_stroke_integrity = true;
+#else
+constexpr bool without_stroke_integrity = false;
+#endif
 
 BuiltScene build_scene(const pic::PictureMaps& maps, const pic::DrawTrace& trace, Plane plane,
                        std::span<const PictureHints* const> hints) {
@@ -1288,6 +1301,24 @@ BuiltScene build_scene(const pic::PictureMaps& maps, const pic::DrawTrace& trace
     const Curves curves = fit_with_hints(parts.arrangement, lines, segments, owned, view, plane_hints, built.stats);
     scene.edges = scan_edges(parts.arrangement, curves.fitted);
     scene.layers = build_layers(trace, view, plane, lines, owned, curves.strokes, built.stats);
+    // Stroke integrity and occlusion (spec section 6.10) change the HD
+    // picture only, so the visual plane.
+    // The baseline of milestone 3b's report is measured without the pass
+    // (development option SCI_WITHOUT_STROKE_INTEGRITY).
+    if (plane == Plane::Visual && !without_stroke_integrity) {
+        std::vector<detail::StrokeLine> stroke_lines;
+        stroke_lines.reserve(lines.size());
+        for (const DrawnLine& line : lines) {
+            detail::StrokeLine stroke_line{.primitive = static_cast<std::int32_t>(line.primitive), .path = {}};
+            pic::for_each_line_pixel(line.from, line.to, [&](int x, int y) {
+                if (y >= picture_top && y < picture_top + picture_height) {
+                    stroke_line.path.push_back(picture_index(x, y - picture_top));
+                }
+            });
+            stroke_lines.push_back(std::move(stroke_line));
+        }
+        detail::apply_stroke_integrity(scene.layers, stroke_lines, view.owners, built.stats);
+    }
     return built;
 }
 

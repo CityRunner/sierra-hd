@@ -98,6 +98,9 @@ double distance_to_segment(Vec2 p, Vec2 a, Vec2 b) {
 }
 
 bool within_stroke(Vec2 p, const vector::Stroke& stroke) {
+    if (!stroke.kept(p)) {
+        return false;
+    }
     if (stroke.points.size() == 1) {
         return distance_to_segment(p, stroke.points[0], stroke.points[0]) <= stroke.radius;
     }
@@ -126,23 +129,31 @@ bool touches(const vector::Stroke& stroke, int x, int y) {
     return false;
 }
 
-// For every primitive of the trace, the index of its stroke layer, or -1.
-std::vector<std::int32_t> stroke_layers(const vector::Scene& scene, std::size_t primitives) {
-    std::vector<std::int32_t> layers(primitives, -1);
+// For every primitive of the trace, the indices of its stroke layers (a
+// line may have several, spec section 6.10).
+std::vector<std::vector<std::int32_t>> stroke_layers(const vector::Scene& scene, std::size_t primitives) {
+    std::vector<std::vector<std::int32_t>> layers(primitives);
     for (std::size_t i = 0; i < scene.layers.size(); ++i) {
         if (const auto* stroke = std::get_if<vector::Stroke>(&scene.layers[i]);
             stroke != nullptr && stroke->source >= 0 && std::cmp_less(stroke->source, primitives)) {
-            layers[static_cast<std::size_t>(stroke->source)] = static_cast<std::int32_t>(i);
+            layers[static_cast<std::size_t>(stroke->source)].push_back(static_cast<std::int32_t>(i));
         }
     }
     return layers;
 }
 
 void check_lines(const vector::Scene& scene, const pic::DrawTrace& trace, Acceptance& result) {
-    const std::vector<std::int32_t> layer_of = stroke_layers(scene, trace.primitives.size());
-    const auto owner_layer = [&](int x, int y) {
+    const std::vector<std::vector<std::int32_t>> layers_of = stroke_layers(scene, trace.primitives.size());
+    // The primitive of every layer.
+    std::vector<std::int32_t> source_of(scene.layers.size(), -1);
+    for (std::size_t p = 0; p < layers_of.size(); ++p) {
+        for (const std::int32_t layer : layers_of[p]) {
+            source_of[static_cast<std::size_t>(layer)] = static_cast<std::int32_t>(p);
+        }
+    }
+    const auto owner_line = [&](int x, int y) -> std::int32_t {
         const std::int32_t owner = trace.visual_owner[pic::PictureMaps::index(x, y + pic::picture_top)];
-        return owner < 0 ? -1 : layer_of[static_cast<std::size_t>(owner)];
+        return owner >= 0 && !layers_of[static_cast<std::size_t>(owner)].empty() ? owner : -1;
     };
     // Whether any sample of each pixel shows its line's stroke.
     std::vector<bool> shown(picture_pixels, false);
@@ -153,20 +164,24 @@ void check_lines(const vector::Scene& scene, const pic::DrawTrace& trace, Accept
         sampler.sample_sources((row + 0.5) / samples_per_pixel, samples_per_pixel, sources);
         for (std::size_t i = 0; i < sources.size(); ++i) {
             const int x = static_cast<int>(i / samples_per_pixel);
-            const std::int32_t layer = owner_layer(x, y);
-            if (layer >= 0 && sources[i] == layer) {
+            const std::int32_t line = owner_line(x, y);
+            if (line >= 0 && sources[i] >= 0 && source_of[static_cast<std::size_t>(sources[i])] == line) {
                 shown[index(x, y)] = true;
             }
         }
     }
     for (int y = 0; y < picture_height; ++y) {
         for (int x = 0; x < picture_width; ++x) {
-            const std::int32_t layer = owner_layer(x, y);
-            if (layer < 0) {
+            const std::int32_t line = owner_line(x, y);
+            if (line < 0) {
                 continue;
             }
             ++result.line_pixels;
-            if (!touches(std::get<vector::Stroke>(scene.layers[static_cast<std::size_t>(layer)]), x, y)) {
+            const auto& layers = layers_of[static_cast<std::size_t>(line)];
+            const bool touched = std::ranges::any_of(layers, [&](std::int32_t layer) {
+                return touches(std::get<vector::Stroke>(scene.layers[static_cast<std::size_t>(layer)]), x, y);
+            });
+            if (!touched) {
                 ++result.untouched_line_pixels;
             } else if (!shown[index(x, y)]) {
                 ++result.overlapped_line_pixels;

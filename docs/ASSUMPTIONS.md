@@ -703,6 +703,81 @@ change spec section 2. Its effect on the plan:
 
 **Decided** (the customer's addendum).
 
+## Milestone 3b: drawing order, occlusion and stroke integrity (2026-10-21)
+
+- **The A1 checks** (`sci/render/integrity.hpp`) sample the visual scene
+  at 8 x 8 points per pixel and use the definitions agreed at the 3a gate:
+  - a contact needs a seen end pixel next to a seen pixel of a line that
+    passes there, no end of that line next to it, and an end that did not
+    draw over it;
+  - "connected" at joints is read geometrically: a sample of the line lies
+    in or next to the other line's stroke shape, cuts included;
+  - only lines that drew two or more pixels in common count as doubled;
+  - fragments are 4-connected groups of samples outside the line's owned
+    pixels.
+  **Decided** (3a approval).
+- **Residual cases carry a class and a size.** Overshoots whose end pixel
+  lies past the contour at 1x, or that meet the contour at under 30
+  degrees, and broken joints whose end meets another line it touches, are
+  counted apart, so the report can show where the 1x picture itself, not
+  the pass, decides the outcome. The checks are not relaxed by these
+  classes: every case still counts. **Decided** (3b approval).
+- **The stroke integrity pass** edits the visual plane's strokes after the
+  scene is built (`sci-vector/src/stroke_integrity.cpp`). The order is:
+  spurs, ends on contours, joints, runs not seen. Its limits:
+  - an end reaches its contour within 2 pixels across (1.5 at 1x plus the
+    fitting tolerance) and moves at most 3 pixels along the line;
+  - ends closer than 0.75 already join;
+  - hidden pixels 1.5 apart along the line form one run;
+  - stroke points more than 0.5 past a line's end pixel are a spur.
+  The priority plane is not changed: its strokes decide occlusion of
+  sprites, where the pass's reasons do not apply. **Decided** (3b
+  approval).
+- **Connectors belong to the earlier line** of a joint, and are kept apart
+  from the line's own strokes. A connector of the later line would be
+  drawn over lines in between and split them. **Decided** (3b approval).
+- **No depth relations were added.**
+  - The HD scene keeps path 1's drawing order. The depth check finds 15
+    pixels in the whole game, all at line ends, none from layer order.
+  - 1x visibility contradicts the priority map at 21 pixels in 5 pictures:
+    a later command wrote a nearer priority there without drawing the
+    visual. As A1 says for contradictions without a hint, the original
+    command order is kept; the report lists the pixels.
+  - A relation between regions or chains would not change these cases:
+    they are single pixels, not objects in the wrong order. So the AI step
+    was not rerun, and the hint files are unchanged since 3a.
+  - The vector path reads and validates relations but does not use them.
+  **Decided** (3b approval).
+- **The fallback of fitted chains to their segments** (A1, "where a fitted
+  primitive cannot satisfy these rules") is not implemented. Built with no
+  fitting at all, the scenes have about 3 to 5% fewer cases, so the
+  fallback could remove at most that share. It would also need the checks
+  inside scene building, about 0.5 s more per room. **Decided**
+  (3b approval: option 1, not implemented).
+- **The baseline** is measured with the development option
+  `SCI_WITHOUT_STROKE_INTEGRITY` (scenes without the pass). **Decided**
+  (development only, like `SCI_DEBUG_HIGHLIGHT`).
+- **The pass's changes are reported** by kind and evidence in the report.
+  `tools/hd-report --changes <file>` writes all of them (213,513,
+  24 MB), which is too large to commit. **Decided** (3b approval).
+
+## Milestone 3b approval (2026-10-21)
+
+Milestone 3b was approved and merged
+([CityRunner/sierra-hd#6](https://github.com/CityRunner/sierra-hd/pull/6)).
+The customer decided:
+
+- **Option 1 of the trade-off**: the remaining A1 cases are accepted as
+  listed in `reports/milestone-3b-pictures.md`, by class and size. The
+  checks stay as defined; the fitted-chain fallback and a local 1x
+  fallback are not implemented. **Decided.**
+- **The side-by-side review** is approved with the gate. **Decided.**
+- **The hints are frozen** as committed at 3a (no relations were added);
+  no further spot check was asked for. From now on a change to `hints/` is
+  a reviewed commit like any other. **Decided.**
+- **Release v0.1** is tagged after the merge, as a GitHub pre-release.
+  **Decided.**
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with

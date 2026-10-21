@@ -37,7 +37,7 @@ std::optional<std::uint8_t> layer_value(const vector::Layer& layer, Vec2 p) {
         for (std::size_t i = 0; i + 1 < points.size() && !covered; ++i) {
             covered = distance_to_segment(p, points[i], points[i + 1]) <= stroke->radius;
         }
-        return covered ? std::optional(stroke->value) : std::nullopt;
+        return covered && stroke->kept(p) ? std::optional(stroke->value) : std::nullopt;
     }
     if (const auto* ellipse = std::get_if<vector::Ellipse>(&layer)) {
         const double u = (p.x - ellipse->centre.x) / ellipse->radius_x;

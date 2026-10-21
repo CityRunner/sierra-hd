@@ -8,10 +8,9 @@ what kind it is.
 
 There is one file per picture, `pic.NNN.json`. The analysis is done
 offline, and the files are committed; the program never changes them. They
-are frozen at the milestone 3b gate (addendum A1 in
-`docs/SPEC_ADDENDA.md`): until then, milestone 3b may add or correct the
-depth and containment relations. After the freeze, a change is a reviewed
-commit like any other.
+were frozen at the milestone 3b gate (addendum A1 in
+`docs/SPEC_ADDENDA.md`; 2026-10-21). A change is now a reviewed commit like
+any other, and changes the golden hashes.
 
 ## Rules the program applies
 

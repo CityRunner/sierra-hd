@@ -35,6 +35,24 @@ struct HintOutcome {
     std::string detail;
 };
 
+// A change made for stroke integrity and occlusion (spec section 6.10),
+// with the evidence that justified it.
+enum class IntegrityChangeKind : std::int8_t {
+    ClosedJoint, // Two line ends moved to meet.
+    ClippedEnd,  // A line end extended or trimmed to a contour and cut along it.
+    MergedRun,   // A run of a line removed under the line the player saw there.
+    KeptContact, // A line end on a contour left as drawn: the evidence did not allow a cut.
+};
+
+struct IntegrityChange {
+    IntegrityChangeKind kind = IntegrityChangeKind::ClosedJoint;
+    std::int32_t primitive = -1; // The line changed (trace index).
+    std::int32_t other = -1;     // The line it meets, ends on or lies under.
+    int x = 0;                   // A picture pixel where it happened.
+    int y = 0;
+    const char* evidence = "";
+};
+
 // What the analysis did, for the replacement report.
 struct SceneStats {
     int lines = 0;           // PIC lines drawn into the plane.
@@ -63,6 +81,12 @@ struct SceneStats {
     int hint_gaps = 0;                       // Gap hints closed.
     std::vector<HintOutcome> applied_hints;  // Hints used, with what they changed.
     std::vector<HintOutcome> rejected_hints; // Hints left out; the automatic result stands there.
+    // Stroke integrity and occlusion (spec section 6.10), visual plane.
+    int closed_joints = 0;
+    int clipped_ends = 0;
+    int merged_runs = 0;
+    int kept_contacts = 0; // Contacts left to the command order: the evidence did not allow a cut.
+    std::vector<IntegrityChange> integrity_changes;
 };
 
 struct BuiltScene {
