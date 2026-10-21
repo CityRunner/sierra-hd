@@ -5,6 +5,12 @@ Every assumption and decision made while implementing the task spec
 change section 2 of the spec ("Fixed decisions") are only made with the
 customer's approval and say so.
 
+Changes the customer made to the spec itself are recorded in
+`docs/SPEC_ADDENDA.md`. **A1** (2026-10-21) adds milestone 3b and section
+6.10 (drawing order, occlusion and stroke integrity), amends sections 6.4,
+6.7 and 12, and moves release v0.1 to after milestone 3b; see "Addendum A1"
+below.
+
 Status markers: **decided** (final unless the customer objects),
 **assumed** (to be confirmed), **pending** (waiting for input).
 
@@ -609,8 +615,8 @@ The customer decided:
   - `make_hints.py` turned the decisions into the hint files.
   - 1709 chains (783 uncertain) and 508 region labels in 86 files.
     Pictures 55 and 992 have none.
-  - No model runs in the program or in CI. The hint files are the frozen
-    result.
+  - No model runs in the program or in CI. The hint files are frozen at
+    the milestone 3b gate, not at 3a (addendum A1).
 
   **Assumed until the customer's spot check.**
 - **Gap hints only at mixed faces.** The automatic gap closing already
@@ -651,7 +657,9 @@ The customer decided:
 
   Unknown keys give a warning; a different format stops. The program
   writes the file on exit. **Decided.**
-- **Release v0.1** (spec section 12).
+- **Release v0.1** (spec section 12; moved to after milestone 3b by
+  addendum A1). The program and its release workflow are built at 3a;
+  the `v0.1.0` tag that publishes them follows the 3b gate.
   - The program `sierra-hd` is the room viewer in an SDL3 window:
     - pictures in HD or original mode, with the visual or priority map;
     - views with their animation, and fonts;
@@ -674,6 +682,26 @@ The customer decided:
 - **`--version`** prints only the version. The milestone 0 component list
   is gone, since every library linked by the program now has content
   except sci-audio and sci-vm. **Decided.**
+
+## Addendum A1 (2026-10-21)
+
+The customer added milestone 3b (`docs/SPEC_ADDENDA.md`, A1). It does not
+change spec section 2. Its effect on the plan:
+
+- **Milestone 3a** stays as built, with two changes:
+  - the hint format gains `relations` ("in-front-of", "behind",
+    "contains" between regions and chains). They are read and validated
+    now, and used by the vector path from 3b;
+  - the hint files are not frozen at the 3a gate.
+- **Milestone 3b**, the next gate after 3a: section 6.10.
+  - Clipping at contours, depth order and shared boundaries.
+  - No stray fragments and no breaks.
+  - The A1 checks, and depth and containment relations added by a rerun
+    of the AI step.
+  - The hints are frozen and the golden hashes regenerated at its gate.
+- **Release v0.1** is tagged after the 3b gate.
+
+**Decided** (the customer's addendum).
 
 ## Spec items carried forward
 

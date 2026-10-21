@@ -1,16 +1,19 @@
-# Milestone 3a: scene-analysis hints and release v0.1
+# Milestone 3a: scene-analysis hints and the room viewer
 
 Status: **ready for review**. The hints are committed and wait for your
-spot check; after approval they are frozen.
+spot check.
 
-Exit criteria (spec section 12):
+Exit criteria (spec section 12, amended by addendum A1 in
+`docs/SPEC_ADDENDA.md`):
 
 - AI-assisted scene analysis (spec section 6.7) integrated;
-- hint files committed to `hints/` and frozen after approval;
+- hint files committed to `hints/`. Under A1 they are frozen at the
+  milestone 3b gate, not here, and the schema also covers the depth and
+  containment relations of section 6.10;
 - golden hashes regenerated;
-- release v0.1: a release build of the room viewer (rooms, sprites, fonts;
-  window, choice of N, original/HD switch), without the debug overlays,
-  with CI binaries.
+- the room viewer of release v0.1 (rooms, sprites, fonts; window, choice of
+  N, original/HD switch), without the debug overlays, with CI binaries.
+  Under A1 the release itself is tagged after milestone 3b.
 
 ## What was done
 
@@ -76,8 +79,8 @@ The decisions are in `docs/ASSUMPTIONS.md`, "Milestone 3a".
    - It builds, tests and packages Linux and Windows, both on x64 and
      ARM64; macOS only on a manual run.
    - Pull requests get the packages as artifacts.
-   - Pushing the tag `v0.1.0` after approval publishes them as a GitHub
-     pre-release with `SHA256SUMS`.
+   - Pushing the tag `v0.1.0` publishes them as a GitHub pre-release with
+     `SHA256SUMS`. Under A1 that happens after the 3b gate.
    - A package holds:
      - the program;
      - `hints/`;
@@ -160,6 +163,53 @@ New tests:
   and tests run in CI on this pull request. Please try the binaries from
   the pull request's artifacts.
 
+## Addendum A1 (milestone 3b)
+
+You added milestone 3b on 2026-10-21. It is recorded in
+`docs/SPEC_ADDENDA.md` and `docs/ASSUMPTIONS.md`. In this pull request:
+
+- the hint format has `relations` ("in-front-of", "behind", "contains"
+  between regions and chains), checked by the reader, the schema and CI.
+  The committed files have none yet: 3b adds them by rerunning the AI step
+  for that purpose only;
+- the hint files are not frozen at this gate;
+- `v0.1.0` is not tagged after this gate.
+
+**Points in A1 to settle before or early in 3b.** You asked me to raise
+trade-offs instead of improvising. I see three, all about how the checks
+are measured:
+
+1. **8-connected line pixels.** At 1x, separate lines often touch
+   diagonally along their whole length: hatching, wood grain and staircase
+   steps. The player sees them as separate lines. If "connected at 1x"
+   includes such contacts, the HD lines would have to be joined into
+   blobs. **Proposal**: count lines as connected where a line's end or
+   corner pixel touches another line's pixels (joints, corners, line ends,
+   curve transitions, as A1 lists). Side-by-side contact along the lines
+   would stay separate.
+2. **Doubled boundaries.** Two outlines drawn on the same pixels are a true
+   double, and 3b draws them once. Two outlines drawn on neighbouring
+   pixel rows were seen by the player as a 2-pixel border, and merging
+   them would change the 1x picture. **Proposal**: treat only coincident
+   or overlapping outlines as doubled.
+3. **"Covering" at stroke width.** Every 1-pixel stroke reaches half a
+   pixel into the face beside it, at any depth. **Proposal**: count as
+   covering only the HD samples outside the stroke's own 1x pixels and
+   their edge band (the band of section 6.4).
+
+Expected work in 3b:
+
+- clipping line ends at contours;
+- depth order from the priority map and the relations;
+- merged boundaries;
+- removing fragments and closing joints;
+- five new automated checks;
+- the report of every change and its evidence.
+
+I expect the main source of stray fragments to be the thin faces (slivers
+without a pixel centre of their own) that are drawn as 1x blocks. 3b will
+measure that first.
+
 ## Deviations from the spec
 
 - None from section 2.
@@ -194,6 +244,8 @@ New tests:
      the tool accepted there.
 2. **The analysis cache** (see Deviations): deferring it to milestone 4 is
    fine?
-3. **Release**: after approval I merge, tag `v0.1.0`, and the release
+3. **Release**: after the 3b gate I tag `v0.1.0`, and the release
    workflow publishes the pre-release. Is a pre-release on GitHub what you
    want?
+4. **A1 measurements** (see "Addendum A1"): do you agree with the three
+   proposals for connectivity, doubled boundaries and covering?

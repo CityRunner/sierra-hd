@@ -2,7 +2,8 @@
 
 How the program is organised, how data flows through it, and the trade-offs
 behind it. Updated at every milestone (spec section 5.1). State: milestone
-3a, hints and release v0.1 (the room viewer in a window).
+3a, hints and the room viewer of release v0.1 (released after milestone 3b,
+addendum A1).
 
 ## Modules
 

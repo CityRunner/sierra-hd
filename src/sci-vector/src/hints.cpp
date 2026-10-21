@@ -11,6 +11,7 @@
 #include <format>
 #include <initializer_list>
 #include <optional>
+#include <tuple>
 #include <utility>
 
 namespace sci::vector {
@@ -38,6 +39,12 @@ constexpr std::array primitive_names{
 constexpr std::array end_names{
     std::pair{std::string_view("start"), LineEnd::Start},
     std::pair{std::string_view("end"), LineEnd::End},
+};
+
+constexpr std::array relation_names{
+    std::pair{std::string_view("in-front-of"), RelationKind::InFrontOf},
+    std::pair{std::string_view("behind"), RelationKind::Behind},
+    std::pair{std::string_view("contains"), RelationKind::Contains},
 };
 
 constexpr std::array symmetry_names{
@@ -280,6 +287,36 @@ SymmetryHint read_symmetry(Reader& in, const JsonValue& value, const std::string
     return symmetry;
 }
 
+// Whether a region or chain of the file has this id.
+bool names_region_or_chain(const PictureHints& hints, const std::string& id) {
+    return std::ranges::any_of(hints.regions, [&](const RegionHint& r) { return r.id == id; }) ||
+           std::ranges::any_of(hints.chains, [&](const ChainHint& c) { return c.id == id; });
+}
+
+RelationHint read_relation(Reader& in, const JsonValue& value, const std::string& where, const PictureHints& hints) {
+    RelationHint relation;
+    if (!in.members(value, where, {"kind", "a", "b"}, {"note", "uncertain"})) {
+        return relation;
+    }
+    relation.kind = in.choice(*value.member("kind"), where + ".kind", relation_names);
+    relation.a = in.identifier(*value.member("a"), where + ".a");
+    relation.b = in.identifier(*value.member("b"), where + ".b");
+    if (in.ok()) {
+        for (const std::string* id : {&relation.a, &relation.b}) {
+            if (!names_region_or_chain(hints, *id)) {
+                in.fail(where, std::format("no region or chain \"{}\"", *id));
+                break;
+            }
+        }
+    }
+    if (in.ok() && relation.a == relation.b) {
+        in.fail(where, "a relation joins two different regions or chains");
+    }
+    relation.note = in.text(value.member("note"), where + ".note");
+    relation.uncertain = in.flag(value.member("uncertain"), where + ".uncertain");
+    return relation;
+}
+
 template <typename T, typename Read>
 std::vector<T> read_list(Reader& in, const JsonValue& file, std::string_view name, Read read) {
     std::vector<T> list;
@@ -315,6 +352,15 @@ void check_unique(Reader& in, const PictureHints& hints) {
     if (const auto repeated = std::ranges::adjacent_find(chained); repeated != chained.end()) {
         in.fail("chains", std::format("line {} is in two chains", *repeated));
     }
+    std::vector<std::tuple<RelationKind, std::string, std::string>> relations;
+    relations.reserve(hints.relations.size());
+    for (const auto& relation : hints.relations) {
+        relations.emplace_back(relation.kind, relation.a, relation.b);
+    }
+    std::ranges::stable_sort(relations);
+    if (std::ranges::adjacent_find(relations) != relations.end()) {
+        in.fail("relations", "a relation is listed twice");
+    }
 }
 
 } // namespace
@@ -328,7 +374,7 @@ core::Result<PictureHints> parse_hints(std::string_view text) {
     Reader in;
     PictureHints hints;
     if (in.members(file, "file", {"format", "version", "picture", "pic_sha256", "analyser"},
-                   {"regions", "chains", "gaps", "symmetry"})) {
+                   {"regions", "chains", "gaps", "symmetry", "relations"})) {
         if (in.text(file.member("format"), "format") != "sierra-hd-hints") {
             in.fail("format", "\"sierra-hd-hints\" expected");
         }
@@ -345,6 +391,10 @@ core::Result<PictureHints> parse_hints(std::string_view text) {
         hints.symmetry =
             read_list<SymmetryHint>(in, file, "symmetry", [&](const JsonValue& value, const std::string& where) {
                 return read_symmetry(in, value, where, hints.chains);
+            });
+        hints.relations =
+            read_list<RelationHint>(in, file, "relations", [&](const JsonValue& value, const std::string& where) {
+                return read_relation(in, value, where, hints);
             });
         check_unique(in, hints);
     }

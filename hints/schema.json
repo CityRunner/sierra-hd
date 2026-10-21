@@ -68,6 +68,23 @@
         }
       }
     },
+    "relations": {
+      "description": "Depth and containment between regions and chains (spec section 6.10, docs/SPEC_ADDENDA.md A1): a is in front of, behind, or contains b. Used by the vector path from milestone 3b.",
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "a", "b"],
+        "properties": {
+          "kind": {"enum": ["in-front-of", "behind", "contains"]},
+          "a": {"$ref": "#/$defs/id"},
+          "b": {"$ref": "#/$defs/id"},
+          "note": {"$ref": "#/$defs/text"},
+          "uncertain": {"type": "boolean"}
+        }
+      }
+    },
     "symmetry": {
       "type": "array",
       "maxItems": 4096,

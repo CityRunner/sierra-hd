@@ -69,6 +69,7 @@ The development room viewer writes the same images to PNG files
 ## Documentation
 
 - `docs/ARCHITECTURE.md`: modules, data flow, error handling, trade-offs
+- `docs/SPEC_ADDENDA.md`: the customer's additions to the task spec
 - `docs/ASSUMPTIONS.md`: every assumption and decision, including the pinned
   ScummVM revision
 - `docs/formats/`: the resource, picture, view and font formats

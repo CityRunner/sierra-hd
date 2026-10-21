@@ -13,8 +13,8 @@ interface.
   - reading the game folder and identifying the release by its hashes;
   - the configuration file `sierra-hd.ini`;
   - loading the hint files.
-- `src/`: the program `sierra-hd`. At release v0.1 (milestone 3a) it is the
-  room viewer in an SDL3 window:
+- `src/`: the program `sierra-hd`. At release v0.1 (built at milestone 3a,
+  released after 3b) it is the room viewer in an SDL3 window:
   - `viewer.cpp` composes the 320N x 200N frame (pictures in HD or original
     mode, views with their animation, fonts) and tracks the changed
     rectangles;

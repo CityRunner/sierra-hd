@@ -4,7 +4,7 @@
 Every hints/pic.NNN.json must satisfy hints/schema.json and the rules the
 schema cannot state: the file name matches the picture, ids are unique,
 no line is in two chains, a gap joins two different lines, and symmetry
-refers to chains of the file, each once. The program's reader
+refers to chains of the file, each once, and relations name regions or chains of the file. The program's reader
 (sci-vector, parse_hints) applies the same rules; whether the lines exist
 in the picture is checked with the game files by sci-hint-tool check.
 
@@ -118,6 +118,17 @@ def check_rules(hints, name, number):
         refs = symmetry["chains"]
         if len(refs) != len(set(refs)) or not set(refs) <= chains:
             errors.append(f"{name}: symmetry[{i}] must list chains of the file, each once")
+    targets = {item["id"] for key in ("regions", "chains") for item in hints.get(key, [])}
+    seen = set()
+    for i, relation in enumerate(hints.get("relations", [])):
+        key = (relation["kind"], relation["a"], relation["b"])
+        if relation["a"] not in targets or relation["b"] not in targets:
+            errors.append(f"{name}: relations[{i}] must name regions or chains of the file")
+        elif relation["a"] == relation["b"]:
+            errors.append(f"{name}: relations[{i}] relates an item to itself")
+        elif key in seen:
+            errors.append(f"{name}: relations[{i}] is listed twice")
+        seen.add(key)
     return errors
 
 

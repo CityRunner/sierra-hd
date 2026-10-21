@@ -6,10 +6,12 @@ that imitates a curve but is too coarse for the automatic fitting: an
 arch, a drape, a barrel. A hint says which lines form the curve, and of
 what kind it is.
 
-There is one file per picture, `pic.NNN.json`. The analysis is done once,
-offline, and the files are committed. After the customer approves them
-they are frozen: the program never changes them, and a change is a
-reviewed commit like any other.
+There is one file per picture, `pic.NNN.json`. The analysis is done
+offline, and the files are committed; the program never changes them. They
+are frozen at the milestone 3b gate (addendum A1 in
+`docs/SPEC_ADDENDA.md`): until then, milestone 3b may add or correct the
+depth and containment relations. After the freeze, a change is a reviewed
+commit like any other.
 
 ## Rules the program applies
 
@@ -31,6 +33,9 @@ the hint with the reason.
   mixed faces and of pixels drawn from 1x blocks does not grow.
 - **Regions and symmetry** are information for people and for later
   milestones; the vector path does not use them.
+- **Relations** (depth and containment) are read and validated from
+  milestone 3a. The vector path uses them from milestone 3b, as evidence
+  for drawing order and occlusion (spec section 6.10).
 - A file whose `pic_sha256` does not match the picture's data is skipped
   with a message. This happens with another release of the game.
 
@@ -55,7 +60,8 @@ sci-vector) applies the same rules and rejects unknown members.
   "regions": [{"id": "rug", "at": [120, 150], "label": "rug", "uncertain": true}],
   "chains": [{"id": "door-arch", "lines": [345, 346, 347], "primitive": "arc", "label": "door arch"}],
   "gaps": [{"id": "shelf", "from": 72, "end": "end", "to": 90}],
-  "symmetry": [{"kind": "mirror", "chains": ["arch-left", "arch-right"]}]
+  "symmetry": [{"kind": "mirror", "chains": ["arch-left", "arch-right"]}],
+  "relations": [{"kind": "in-front-of", "a": "door-arch", "b": "rug"}]
 }
 ```
 
@@ -70,6 +76,7 @@ sci-vector) applies the same rules and rejects unknown members.
 | `from`, `end`, `to` | A gap from the `start` or `end` point of line `from` to line `to`. |
 | `at` | A pixel of the region, in picture coordinates as stored (x 0-319, y 0-189). |
 | `label`, `note` | Printable ASCII, at most 200 characters. Labels describe what is drawn, in a few words. |
+| `kind`, `a`, `b` (relations) | Depth and containment between two regions or chains of the file: `a` is `in-front-of`, `behind`, or `contains` `b`. Each relation once; never an item with itself. |
 | `uncertain` | The analyser was not sure; the customer spot-checks these. Default false. |
 
 The files hold labels and line references only, never image data, so they

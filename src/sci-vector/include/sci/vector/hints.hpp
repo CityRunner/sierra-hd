@@ -2,8 +2,10 @@
 //
 // Scene-analysis hints (spec section 6.7): per picture, which chains of PIC
 // lines form one curve and of what kind, which gaps the artist meant to
-// close, and labels for regions. The analysis is done once, offline; its
-// results are committed as hints/pic.NNN.json and frozen after approval.
+// close, labels for regions, and what is in front of or contains what. The
+// analysis is done offline; its results are committed as
+// hints/pic.NNN.json and frozen at the milestone 3b gate
+// (docs/SPEC_ADDENDA.md, A1).
 // The format is described in hints/README.md and hints/schema.json.
 //
 // Hints are untrusted input and only advice: the vector analysis applies a
@@ -71,6 +73,19 @@ struct SymmetryHint {
     std::string note;
 };
 
+enum class RelationKind : std::int8_t { InFrontOf, Behind, Contains };
+
+// Depth or containment between two regions or chains, by id: `a` is in
+// front of, behind, or contains `b` (spec section 6.10, addendum A1). Used
+// by the vector path from milestone 3b.
+struct RelationHint {
+    RelationKind kind = RelationKind::InFrontOf;
+    std::string a;
+    std::string b;
+    std::string note;
+    bool uncertain = false;
+};
+
 struct PictureHints {
     int picture = 0;                 // PIC resource number.
     core::Sha256Digest pic_sha256{}; // Of the PIC resource data the hints were made for.
@@ -79,6 +94,7 @@ struct PictureHints {
     std::vector<ChainHint> chains;
     std::vector<GapHint> gaps;
     std::vector<SymmetryHint> symmetry;
+    std::vector<RelationHint> relations;
 };
 
 inline constexpr int hints_version = 1;

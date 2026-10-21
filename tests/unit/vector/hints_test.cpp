@@ -26,7 +26,11 @@ const std::string valid = R"({
     {"id": "arch-right", "lines": [40, 41], "primitive": "spline"}
   ],
   "gaps": [{"id": "door-gap", "from": 72, "end": "end", "to": 90}],
-  "symmetry": [{"kind": "mirror", "chains": ["arch-left", "arch-right"], "note": "both sides"}]
+  "symmetry": [{"kind": "mirror", "chains": ["arch-left", "arch-right"], "note": "both sides"}],
+  "relations": [
+    {"kind": "in-front-of", "a": "arch-left", "b": "sky"},
+    {"kind": "contains", "a": "sky", "b": "arch-right", "uncertain": true, "note": "seen through"}
+  ]
 })";
 
 std::string replaced(std::string text, const std::string& from, const std::string& to) {
@@ -56,6 +60,9 @@ SCI_TEST(hints_read_a_complete_file) {
     SCI_CHECK(hints->gaps.size() == 1 && hints->gaps[0].end == LineEnd::End);
     SCI_CHECK(hints->gaps[0].from == 72 && hints->gaps[0].to == 90);
     SCI_CHECK(hints->symmetry.size() == 1 && hints->symmetry[0].chains[1] == "arch-right");
+    SCI_CHECK(hints->relations.size() == 2);
+    SCI_CHECK(hints->relations[0].kind == sci::vector::RelationKind::InFrontOf && hints->relations[0].b == "sky");
+    SCI_CHECK(hints->relations[1].kind == sci::vector::RelationKind::Contains && hints->relations[1].uncertain);
 }
 
 SCI_TEST(hints_arrays_are_optional) {
@@ -65,7 +72,7 @@ SCI_TEST(hints_arrays_are_optional) {
 }
 
 SCI_TEST(hints_reject_invalid_files) {
-    const std::array<std::pair<const char*, const char*>, 18> breakages{
+    const std::array<std::pair<const char*, const char*>, 22> breakages{
         {
             {R"("version": 1)", R"("version": 2)"},
             {R"("sierra-hd-hints")", R"("other")"},
@@ -85,6 +92,13 @@ SCI_TEST(hints_reject_invalid_files) {
             {R"(["arch-left", "arch-right"])", R"(["arch-left", "nothing"])"},
             {R"("note": "both sides")", R"("notes": "both sides")"},
             {R"("uncertain": true)", R"("uncertain": 1)"},
+            {R"("kind": "in-front-of")", R"("kind": "above")"},
+            {R"("a": "arch-left", "b": "sky")", R"("a": "arch-left", "b": "moon")"},
+            {R"("a": "arch-left", "b": "sky")", R"("a": "sky", "b": "sky")"},
+            {
+                R"("kind": "contains", "a": "sky", "b": "arch-right")",
+                R"("kind": "in-front-of", "a": "arch-left", "b": "sky")",
+            },
         },
     };
     for (const auto& [from, to] : breakages) {
