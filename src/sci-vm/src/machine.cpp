@@ -42,6 +42,17 @@ namespace sci::vm {
 
 namespace {
 
+// The shifts of reg_t (vm_types.cpp) shift an int by the full 16-bit
+// count, undefined in C++ beyond 31. The reference, built for x86-64,
+// shifts by the count's low 5 bits, as the processor does; so do these.
+std::uint16_t shift_left(std::uint16_t value, std::uint16_t count) {
+    return static_cast<std::uint16_t>(static_cast<std::uint32_t>(value) << (count & 31U));
+}
+
+std::uint16_t shift_right(std::uint16_t value, std::uint16_t count) {
+    return static_cast<std::uint16_t>(static_cast<std::uint32_t>(value) >> (count & 31U));
+}
+
 std::string reg_text(Reg reg) {
     return std::format("{:04x}:{:04x}", reg.segment, reg.offset);
 }
@@ -878,13 +889,13 @@ void Machine::run_vm() {
         }
         case 0x06: { // shr
             const Reg left = pop();
-            acc_ = left.is_number() && acc_.is_number() ? number(left.to_uint16() >> acc_.to_uint16())
+            acc_ = left.is_number() && acc_.is_number() ? number(shift_right(left.to_uint16(), acc_.to_uint16()))
                                                         : arithmetic_workaround(left, acc_, "shift right");
             break;
         }
         case 0x07: { // shl
             const Reg left = pop();
-            acc_ = left.is_number() && acc_.is_number() ? number(left.to_uint16() << acc_.to_uint16())
+            acc_ = left.is_number() && acc_.is_number() ? number(shift_left(left.to_uint16(), acc_.to_uint16()))
                                                         : arithmetic_workaround(left, acc_, "shift left");
             break;
         }
