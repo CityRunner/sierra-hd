@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.28)
 
 project(sierra-hd
-    VERSION 0.0.0
+    VERSION 0.1.0
     DESCRIPTION "HD version of The Colonel's Bequest on a custom SCI0 interpreter"
     LANGUAGES CXX)
 
