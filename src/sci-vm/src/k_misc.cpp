@@ -212,6 +212,7 @@ Reg k_get_time(Machine& machine, std::span<Reg> args) {
     unsigned value = 0;
     switch (mode) {
     case 0:
+        machine.subsystems().clock().read_elapsed(machine.kernel_calls());
         value = machine.subsystems().clock().ticks();
         break;
     case 1: {

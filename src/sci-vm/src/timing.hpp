@@ -60,6 +60,11 @@ public:
     void advance(std::uint32_t milliseconds);
     // SciEngine::sleep: the event queue is polled once, then time passes.
     void sleep(std::uint32_t milliseconds);
+    // kGetTime reads the elapsed time in kernel call `call`. A script that
+    // waits by reading it over and over, with no other kernel call between
+    // the reads, would never see time pass on the virtual clock, so such a
+    // read lets 1 ms pass first (as the reference's deterministic mode does).
+    void read_elapsed(std::uint64_t call);
 
     // EngineState::wait: sleeps until `ticks` have passed since the last
     // wait; returns the ticks that passed.
@@ -84,6 +89,7 @@ private:
     std::function<void()> advance_hook_;
     std::function<void(std::uint32_t)> wait_hook_;
     std::uint32_t last_wait_ = 0;
+    std::uint64_t last_elapsed_read_ = 0;
     std::uint32_t throttle_last_ = 0;
     bool throttle_trigger_ = false;
 };

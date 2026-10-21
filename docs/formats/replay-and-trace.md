@@ -14,6 +14,9 @@ and compares the traces; the reference side is the patch
   - `kWait`, and the speed throttle of `kGameIsRestarting`, sleep until the
     requested time;
   - `kGetEvent` adds 10 ms when a script polls it in a tight loop;
+  - `kGetTime` (elapsed ticks) adds 1 ms before it reads the clock when the
+    kernel call just before it was also `kGetTime` (elapsed ticks): scripts
+    that wait by reading the time over and over see it pass;
   - every other kernel call takes no time.
   A game tick is 1/60 s of virtual time, as `kGetTime` counts it.
 - **Music timer.** The music player runs once per base tempo of the sound
@@ -32,6 +35,13 @@ and compares the traces; the reference side is the patch
   except for quitting. The mouse position is virtual: it starts at the
   centre of the screen (160, 100), follows replayed mouse events and is
   moved by `kSetCursor`.
+
+- **Screens.** With `SIERRA_HD_SCREENS=<folder>` (reference) or
+  `--screens <folder>` (sci-vm-trace), the screen the player sees is
+  written as `<tick>.ppm` (binary PPM, 320 x 200, EGA colours, without the
+  mouse cursor) whenever virtual time passes and the tick has reached the
+  next multiple of `SIERRA_HD_SCREEN_EVERY` / `--screen-every` (default 60).
+  `tools/vm-trace/compare-screens.py` compares the two folders.
 
 ## Replay files
 

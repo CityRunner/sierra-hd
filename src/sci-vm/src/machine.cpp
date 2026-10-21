@@ -525,6 +525,7 @@ ExecStack* Machine::execute_method(int script_number, int export_index, StackInd
 // Kernel calls --------------------------------------------------------------------
 
 void Machine::call_kernel(int kernel_number, int argc) {
+    ++kernel_calls_;
     if (!kernel_log_) {
         call_kernel_untraced(kernel_number, argc);
         return;
