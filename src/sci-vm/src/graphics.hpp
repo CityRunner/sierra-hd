@@ -43,6 +43,8 @@ public:
     // On a restart (SciEngine::runGame): the menus go.
     void on_restart_game() { menu().reset(); }
 
+    [[nodiscard]] bool attached() const { return machine_ != nullptr; }
+
     [[nodiscard]] Machine& machine() { return *machine_; }
 
     [[nodiscard]] Faults& faults();

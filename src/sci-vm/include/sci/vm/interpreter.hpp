@@ -14,6 +14,7 @@
 #include <functional>
 #include <limits>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -34,6 +35,9 @@ struct RunOptions {
     bool trace_callers = false;
     // The files the game may open; none can be opened without a store.
     FileStore* files = nullptr;
+    // Called whenever virtual time passes, with the game tick and the
+    // screen the player sees (320 x 200 EGA colours), once graphics are up.
+    std::function<void(std::uint32_t, std::span<const std::uint8_t>)> on_tick;
 };
 
 struct RunResult {

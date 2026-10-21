@@ -41,6 +41,16 @@ public:
     // Input due at a game tick, in order.
     void schedule(const InputEvent& event) { pending_.push_back(event); }
 
+    // Input from the host now; key events take the mouse position.
+    void push(SciEvent event) {
+        if (event.type == event_key_down || event.type == event_key_up) {
+            event.mouse = mouse_;
+        } else {
+            mouse_ = event.mouse;
+        }
+        queue_.push_back(event);
+    }
+
     [[nodiscard]] bool has_pending() const { return !pending_.empty(); }
 
     // EventManager::getSciEvent: moves the input due at `tick` into the

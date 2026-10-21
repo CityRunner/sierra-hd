@@ -79,6 +79,16 @@ public:
 
     [[nodiscard]] std::int16_t kernel_pic_not_valid(std::int16_t new_value);
 
+    // What the player sees: ScummVM copies the display map to the screen
+    // only in bitsShow and the transitions (copyRectToScreen). `rect` is in
+    // screen coordinates.
+    void show(const Rect& rect);
+
+    [[nodiscard]] const std::vector<std::uint8_t>& shown() const { return shown_; }
+
+    // Counts the changes of what is shown.
+    [[nodiscard]] std::uint64_t shown_serial() const { return shown_serial_; }
+
     // 0, 1 or 2: whether the picture shown is out of date.
     [[nodiscard]] int pic_not_valid() const { return pic_not_valid_; }
 
@@ -92,6 +102,8 @@ private:
     std::vector<std::uint8_t> visual_;
     std::vector<std::uint8_t> priority_;
     std::vector<std::uint8_t> control_;
+    std::vector<std::uint8_t> shown_;
+    std::uint64_t shown_serial_ = 0;
     int pic_not_valid_ = 0;
 };
 

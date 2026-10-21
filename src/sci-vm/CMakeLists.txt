@@ -5,6 +5,7 @@ sci_add_library(NAME sci-vm
         src/component.cpp
         src/events.cpp
         src/files.cpp
+        src/game.cpp
         src/gc.cpp
         src/gfx_animate.cpp
         src/gfx_cache.cpp

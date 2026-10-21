@@ -50,7 +50,7 @@ std::int16_t read16(std::span<const std::uint8_t> memory, std::size_t at) {
 
 Screen::Screen()
     : visual_(static_cast<std::size_t>(width) * height, 0), priority_(static_cast<std::size_t>(width) * height, 0),
-      control_(static_cast<std::size_t>(width) * height, 0) {
+      control_(static_cast<std::size_t>(width) * height, 0), shown_(static_cast<std::size_t>(width) * height, 0) {
 }
 
 void Screen::put_pixel(int x, int y, std::uint8_t draw_mask, std::uint8_t color, std::uint8_t priority,
@@ -212,6 +212,22 @@ void Screen::bits_restore(std::span<const std::uint8_t> memory) {
     }
     if ((mask & mask_control) != 0) {
         restore(&control_);
+    }
+}
+
+void Screen::show(const Rect& rect) {
+    Rect clipped = rect;
+    clipped.clip(Rect::from(0, 0, width, height));
+    bool changed = false;
+    for (int y = clipped.top; y < clipped.bottom; ++y) {
+        for (int x = clipped.left; x < clipped.right; ++x) {
+            const std::size_t i = index(x, y);
+            changed = changed || shown_[i] != visual_[i];
+            shown_[i] = visual_[i];
+        }
+    }
+    if (changed) {
+        ++shown_serial_;
     }
 }
 

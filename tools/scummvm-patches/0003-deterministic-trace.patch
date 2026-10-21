@@ -312,7 +312,7 @@ diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
 diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 --- a/engines/sci/sierra_hd_trace.cpp	1970-01-01 00:00:00.000000000 +0000
 +++ b/engines/sci/sierra_hd_trace.cpp	2026-10-21 13:36:13.540131806 +0000
-@@ -0,0 +1,251 @@
+@@ -0,0 +1,296 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -339,6 +339,9 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 + *   for pointers.
 + * - SIERRA_HD_STOP_TICK and SIERRA_HD_STOP_CALLS end the game when the tick
 + *   or the number of kernel calls reaches them.
++ * - With SIERRA_HD_SCREENS=<folder>, the screen the player sees is written
++ *   there as <tick>.ppm whenever the clock reaches the next multiple of
++ *   SIERRA_HD_SCREEN_EVERY ticks (default 60), once graphics are up.
 + */
 +
 +#define FORBIDDEN_SYMBOL_ALLOW_ALL
@@ -348,7 +351,10 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +#include "common/list.h"
 +#include "common/mutex.h"
 +#include "common/str.h"
++#include "common/system.h"
 +#include "common/textconsole.h"
++#include "graphics/palette.h"
++#include "graphics/surface.h"
 +#include "sci/event.h"
 +#include "sci/sci.h"
 +#include "sci/sound/music.h"
@@ -380,6 +386,9 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	uint32 stopCalls = 0xFFFFFFFF;
 +	Common::Point mouse;
 +	Common::List<ReplayEvent> replay;
++	const char *screens = nullptr;
++	uint32 screenEvery = 60;
++	uint32 nextScreen = 0;
 +};
 +
 +State &state();
@@ -466,6 +475,12 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +			const char *replay = getenv("SIERRA_HD_REPLAY");
 +			if (replay && *replay)
 +				readReplay(s, replay);
++			const char *screens = getenv("SIERRA_HD_SCREENS");
++			if (screens && *screens)
++				s.screens = screens;
++			s.screenEvery = numberFrom("SIERRA_HD_SCREEN_EVERY", 60);
++			if (s.screenEvery == 0)
++				s.screenEvery = 60;
 +		}
 +	}
 +	return s;
@@ -481,6 +496,35 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +			fflush(s.trace);
 +		g_sci->quitGame();
 +	}
++}
++
++// Writes the screen the player sees (the backend's game surface, without
++// the cursor) as a binary PPM once the tick reaches the next one due.
++void dumpScreen(State &s) {
++	const uint32 tick = currentTick(s);
++	if (!s.screens || tick < s.nextScreen || !g_sci || !g_sci->_gfxScreen)
++		return;
++	Graphics::Surface *surface = g_system->lockScreen();
++	if (!surface)
++		return;
++	if (surface->format.bytesPerPixel != 1)
++		error("sierra-hd: the screen is not 8 bits per pixel");
++	byte palette[256 * 3];
++	g_system->getPaletteManager()->grabPalette(palette, 0, 256);
++	char path[1024];
++	snprintf(path, sizeof(path), "%s/%06u.ppm", s.screens, tick);
++	FILE *file = fopen(path, "wb");
++	if (!file)
++		error("sierra-hd: cannot write %s", path);
++	fprintf(file, "P6\n%d %d\n255\n", surface->w, surface->h);
++	for (int y = 0; y < surface->h; ++y) {
++		const byte *row = (const byte *)surface->getBasePtr(0, y);
++		for (int x = 0; x < surface->w; ++x)
++			fwrite(palette + 3 * row[x], 1, 3, file);
++	}
++	fclose(file);
++	g_system->unlockScreen();
++	s.nextScreen = tick - tick % s.screenEvery + s.screenEvery;
 +}
 +
 +void writeValue(FILE *file, reg_t value) {
@@ -513,6 +557,7 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +		s.music->onTimer();
 +	}
 +	checkStop(s);
++	dumpScreen(s);
 +}
 +
 +void sierraHdSetMusic(SciMusic *music, uint32 tempoMicroseconds) {

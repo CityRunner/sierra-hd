@@ -48,6 +48,10 @@ public:
     // Called after time advances; may ask the interpreter to stop.
     void set_advance_hook(std::function<void()> hook) { advance_hook_ = std::move(hook); }
 
+    // Called before time advances, with the milliseconds: the program waits
+    // that long in real time there, presenting frames and reading input.
+    void set_wait_hook(std::function<void(std::uint32_t)> hook) { wait_hook_ = std::move(hook); }
+
     [[nodiscard]] std::uint32_t millis() const { return static_cast<std::uint32_t>(microseconds_ / 1000); }
 
     // Game ticks: 1/60 s.
@@ -78,6 +82,7 @@ private:
     std::function<void()> music_timer_;
     std::function<void()> sleep_poll_;
     std::function<void()> advance_hook_;
+    std::function<void(std::uint32_t)> wait_hook_;
     std::uint32_t last_wait_ = 0;
     std::uint32_t throttle_last_ = 0;
     bool throttle_trigger_ = false;
