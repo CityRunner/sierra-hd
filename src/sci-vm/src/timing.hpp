@@ -32,6 +32,8 @@
 
 #pragma once
 
+#include "sci/vm/local_time.hpp"
+
 #include <cstdint>
 #include <functional>
 
@@ -51,6 +53,14 @@ public:
     // Called before time advances, with the milliseconds: the program waits
     // that long in real time there, presenting frames and reading input.
     void set_wait_hook(std::function<void(std::uint32_t)> hook) { wait_hook_ = std::move(hook); }
+
+    // The host's local time; without it, the deterministic one.
+    void set_local_time(std::function<LocalTime()> source) { local_time_ = std::move(source); }
+
+    // The date and time of day for kGetTime. In the deterministic mode
+    // (docs/formats/replay-and-trace.md) the day starts at Monday
+    // 1990-01-01, 12:00:00 and runs with the virtual clock.
+    [[nodiscard]] LocalTime local_time() const;
 
     [[nodiscard]] std::uint32_t millis() const { return static_cast<std::uint32_t>(microseconds_ / 1000); }
 
@@ -88,6 +98,7 @@ private:
     std::function<void()> sleep_poll_;
     std::function<void()> advance_hook_;
     std::function<void(std::uint32_t)> wait_hook_;
+    std::function<LocalTime()> local_time_;
     std::uint32_t last_wait_ = 0;
     std::uint64_t last_elapsed_read_ = 0;
     std::uint32_t throttle_last_ = 0;

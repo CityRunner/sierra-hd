@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
@@ -537,6 +538,22 @@ public:
               return pictures.get(picture, mirrored, palette, scale);
           }),
           start_(SDL_GetTicks()) {}
+
+    [[nodiscard]] sci::vm::LocalTime local_time() override {
+        const auto now = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
+        const auto local = now.get_local_time();
+        const auto day = std::chrono::floor<std::chrono::days>(local);
+        const std::chrono::year_month_day date(day);
+        const std::chrono::hh_mm_ss time(std::chrono::floor<std::chrono::seconds>(local - day));
+        return sci::vm::LocalTime{
+            .year = static_cast<int>(date.year()) - 1900,
+            .month = static_cast<int>(static_cast<unsigned>(date.month())) - 1,
+            .day = static_cast<int>(static_cast<unsigned>(date.day())),
+            .hour = static_cast<int>(time.hours().count()),
+            .minute = static_cast<int>(time.minutes().count()),
+            .second = static_cast<int>(time.seconds().count()),
+        };
+    }
 
     void wait(sci::vm::Game& game, std::uint32_t milliseconds) override {
         virtual_ += milliseconds;

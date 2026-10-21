@@ -26,10 +26,16 @@ and compares the traces; the reference side is the patch
 - **Random numbers.** The random source of ScummVM (`Common::RandomSource`)
   is seeded with the seed of the run (default 0) when the game starts or
   restarts.
-- **Date and time.** `kGetTime` returns Monday 1990-01-01, 12:00:00.
+- **Date and time.** The day starts at Monday 1990-01-01, 12:00:00 and runs
+  with the virtual clock: `kGetTime` reports noon plus the virtual seconds
+  (the game times scenes by the time of day).
+- **Screen updates.** ScummVM's screen-update throttle (`updateScreen`, at
+  most every 1000/60 ms, in every event read and after every `kAnimate`)
+  and the text-edit cursor blink run on the virtual clock.
 - **Stopping.** At the stop tick or call count the reference calls
-  `quitGame()`, so the game gets a quit event at its next poll of the
-  event queue and stops at that kernel call. sci-vm does the same (and,
+  `quitGame()`: the game gets a quit event at its next poll of the event
+  queue, and the next screen update that is due (an event read or
+  `kAnimate`) aborts it after that kernel call. sci-vm does the same (and,
   should the game never poll, stops a minute of virtual time later).
 - **Input.** Only replayed events reach the game; host input is ignored
   except for quitting. The mouse position is virtual: it starts at the

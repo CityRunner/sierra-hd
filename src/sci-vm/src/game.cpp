@@ -29,6 +29,7 @@ Game::Game(const resource::ResourceManager& resources, GameHost& host, FileStore
     state_->subsystems.files().set_store(files);
     state_->subsystems.clock().set_wait_hook(
         [this, &host](std::uint32_t milliseconds) { host.wait(*this, milliseconds); });
+    state_->subsystems.clock().set_local_time([&host] { return host.local_time(); });
 }
 
 Game::~Game() = default;

@@ -57,6 +57,9 @@ void EventQueue::take_due(std::uint32_t tick) {
 }
 
 SciEvent EventQueue::get(std::uint16_t mask, std::uint32_t tick) {
+    if (update_screen_) {
+        update_screen_();
+    }
     take_due(tick);
     for (auto it = queue_.begin(); it != queue_.end(); ++it) {
         if ((it->type & mask) != 0) {

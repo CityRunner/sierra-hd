@@ -950,6 +950,17 @@ Scope:
   (`docs/formats/replay-and-trace.md`). Interactive runs need the same
   rule, since they also run on virtual time paced by the host. The earlier
   reference traces are unchanged by it. **Decided.**
+- **Time of day in the deterministic mode.** The game times its scenes
+  (the opening, conversations) by the time of day from kGetTime, so a
+  fixed time froze them. The day now starts at Monday 1990-01-01, 12:00:00
+  and runs with the virtual clock, in both engines; the interactive program
+  reports the host's local time, as ScummVM does. **Decided.**
+- **ScummVM's real-time remnants in the deterministic mode.** The
+  screen-update throttle (which is also where a requested quit stops the
+  game) and the text-edit cursor blink run on the host clock in ScummVM;
+  the reference patch moves both to the virtual clock, and sci-vm ports
+  them on the virtual clock. Otherwise where a run stops and when the
+  cursor shows depended on the host's speed. **Decided.**
 - **Screens are compared as well as kernel calls.** A kernel-call trace
   cannot see drawing: with a wrongly signed kDisplay background colour,
   every text box was filled white while the traces matched. The reference

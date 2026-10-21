@@ -11,6 +11,7 @@
 #include "sci/resource/resource_manager.hpp"
 #include "sci/vm/events.hpp"
 #include "sci/vm/files.hpp"
+#include "sci/vm/local_time.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -34,6 +35,8 @@ public:
     // Virtual time is about to pass by `milliseconds`: present `game`'s
     // screen, pass input on, and return once that much real time has passed.
     virtual void wait(Game& game, std::uint32_t milliseconds) = 0;
+    // The date and time of day now, for kGetTime (ScummVM reads the host's).
+    [[nodiscard]] virtual LocalTime local_time() = 0;
 };
 
 // What the player sees, in 1x.

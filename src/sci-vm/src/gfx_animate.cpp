@@ -387,6 +387,8 @@ void Animate::kernel_animate(Reg list, bool cycle, std::span<Reg> /*args*/) {
     }
     update_screen(old_pic_not_valid);
     restore_and_delete();
+    // EQ1's credits run without kGetEvent, so the screen is updated here too.
+    machine.subsystems().update_screen(machine);
     ports.set_port(old_port);
     machine.subsystems().clock().set_throttle_trigger(true);
 }

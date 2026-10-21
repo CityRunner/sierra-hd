@@ -1,0 +1,3 @@
+sierra-hd replay 1
+# Types "look" and Enter on the title screen.
+600 text look

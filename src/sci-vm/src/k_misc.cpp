@@ -48,12 +48,6 @@ namespace {
 constexpr std::uint32_t speed_throttle_delay = 30; // kSpeedThrottleDefaultDelay, in ms.
 
 // 1990-01-01 12:00:00, the date and time of the deterministic mode.
-constexpr unsigned fixed_hour = 12;
-constexpr unsigned fixed_minute = 0;
-constexpr unsigned fixed_second = 0;
-constexpr unsigned fixed_day = 1;
-constexpr unsigned fixed_month = 0; // January, as tm_mon.
-constexpr unsigned fixed_year = 90; // Since 1900, as tm_year.
 
 struct KeyDirection {
     std::uint16_t key;
@@ -208,26 +202,31 @@ Reg k_set_debug(Machine& machine, std::span<Reg> /*args*/) {
 Reg k_get_time(Machine& machine, std::span<Reg> args) {
     const int mode = !args.empty() ? args[0].to_uint16() : 0;
     unsigned value = 0;
+    const LocalTime now = mode != 0 ? machine.subsystems().clock().local_time() : LocalTime{};
+    const auto hour24 = static_cast<unsigned>(now.hour);
+    const auto minute = static_cast<unsigned>(now.minute);
+    const auto second = static_cast<unsigned>(now.second);
     switch (mode) {
     case 0:
         machine.subsystems().clock().read_elapsed(machine.kernel_calls());
         value = machine.subsystems().clock().ticks();
         break;
     case 1: {
-        unsigned hour = fixed_hour % 12;
+        unsigned hour = hour24 % 12;
         if (hour == 0) {
             hour = 12;
         }
-        value = (hour << 12U) | (fixed_minute << 6U) | fixed_second;
+        value = (hour << 12U) | (minute << 6U) | second;
         break;
     }
     case 2:
-        value = (fixed_hour << 11U) | (fixed_minute << 5U) | (fixed_second >> 1U);
+        value = (hour24 << 11U) | (minute << 5U) | (second >> 1U);
         break;
     case 3: {
         // SCI0 late on DOS: years since 1920.
         constexpr unsigned base_year = 20;
-        value = fixed_day | ((fixed_month + 1U) << 5U) | (((fixed_year - base_year) & 0x7FU) << 9U);
+        value = static_cast<unsigned>(now.day) | ((static_cast<unsigned>(now.month) + 1U) << 5U) |
+                (((static_cast<unsigned>(now.year) - base_year) & 0x7FU) << 9U);
         break;
     }
     default:

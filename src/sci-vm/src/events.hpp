@@ -32,6 +32,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <list>
 
 namespace sci::vm {
@@ -63,6 +64,12 @@ public:
     // next poll, before the replayed input.
     void request_quit() { quit_requested_ = true; }
 
+    [[nodiscard]] bool quit_requested() const { return quit_requested_; }
+
+    // Called at the start of every read (EventManager::getSciEvent calls
+    // updateScreen there).
+    void set_update_screen(std::function<void()> hook) { update_screen_ = std::move(hook); }
+
     [[nodiscard]] Point mouse() const { return mouse_; }
 
     void set_mouse(Point position) { mouse_ = position; }
@@ -74,6 +81,7 @@ private:
     std::list<SciEvent> queue_;
     Point mouse_{.x = 160, .y = 100};
     bool quit_requested_ = false;
+    std::function<void()> update_screen_;
 };
 
 } // namespace sci::vm

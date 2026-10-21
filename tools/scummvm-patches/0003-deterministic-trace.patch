@@ -3,7 +3,7 @@
 # With SIERRA_HD_TRACE=<file> set, the SCI engine runs on a virtual clock
 # (time passes only where the engine sleeps or waits), drives the music timer
 # from that clock, seeds its random source with SIERRA_HD_SEED (default 0),
-# returns a fixed date and time, takes input only from SIERRA_HD_REPLAY
+# runs the date and time from noon on 1990-01-01 on that clock, takes input only from SIERRA_HD_REPLAY
 # (docs/formats/replay-and-trace.md), and writes every kernel call with its
 # arguments and result to the trace file. SIERRA_HD_STOP_TICK and
 # SIERRA_HD_STOP_CALLS end the game. With SIERRA_HD_SCREENS=<folder> (milestone
@@ -44,31 +44,34 @@ diff -ruN a/engines/sci/engine/kmisc.cpp b/engines/sci/engine/kmisc.cpp
  #include "sci/debug.h"
  #include "sci/event.h"
  #include "sci/engine/state.h"
-@@ -304,6 +305,23 @@
+@@ -304,6 +305,26 @@
  	KGETTIME_DATE = 3
  };
  
-+// sierra-hd: a fixed date and time in the deterministic mode, 1990-01-01
-+// 12:00:00 (a Monday).
++// sierra-hd: in the deterministic mode the day starts at Monday 1990-01-01,
++// 12:00:00 and runs with the virtual clock.
 +static void sierraHdTimeAndDate(TimeDate &timeDate) {
 +	if (!sierraHdDeterministic()) {
 +		g_system->getTimeAndDate(timeDate);
 +		return;
 +	}
++	const uint32 seconds = 12 * 60 * 60 + sierraHdMillis() / 1000;
++	const uint32 ofDay = seconds % (24 * 60 * 60);
++	const uint32 days = seconds / (24 * 60 * 60);
 +	timeDate = TimeDate();
-+	timeDate.tm_sec = 0;
-+	timeDate.tm_min = 0;
-+	timeDate.tm_hour = 12;
-+	timeDate.tm_mday = 1;
++	timeDate.tm_sec = ofDay % 60;
++	timeDate.tm_min = (ofDay / 60) % 60;
++	timeDate.tm_hour = ofDay / 3600;
++	timeDate.tm_mday = 1 + days;
 +	timeDate.tm_mon = 0;
 +	timeDate.tm_year = 90;
-+	timeDate.tm_wday = 1;
++	timeDate.tm_wday = (1 + days) % 7;
 +}
 +
  reg_t kGetTime(EngineState *s, int argc, reg_t *argv) {
  	TimeDate loc_time;
  	uint16 retval = 0; // Avoid spurious warning
-@@ -317,11 +335,13 @@
+@@ -317,11 +338,13 @@
  
  	switch (mode) {
  	case KGETTIME_TICKS :
@@ -83,7 +86,7 @@ diff -ruN a/engines/sci/engine/kmisc.cpp b/engines/sci/engine/kmisc.cpp
  		loc_time.tm_hour %= 12;
  		if (loc_time.tm_hour == 0) {
  			loc_time.tm_hour = 12;
-@@ -330,13 +350,13 @@
+@@ -330,13 +353,13 @@
  		debugC(kDebugLevelTime, "GetTime(12h) returns %d", retval);
  		break;
  	case KGETTIME_TIME_24HOUR :
@@ -197,7 +200,21 @@ diff -ruN a/engines/sci/event.cpp b/engines/sci/event.cpp
  #include "sci/console.h"
  #include "sci/engine/state.h"
  #include "sci/engine/kernel.h"
-@@ -454,12 +455,32 @@
+@@ -429,9 +430,11 @@
+ 	// Update the screen here, since it's called very often.
+ 	// Throttle the screen update rate to 60fps.
+ 	EngineState *s = g_sci->getEngineState();
+-	if (g_system->getMillis() - s->_screenUpdateTime >= 1000 / 60) {
++	// sierra-hd: on the virtual clock in the deterministic mode.
++	const uint32 now = sierraHdDeterministic() ? sierraHdMillis() : g_system->getMillis();
++	if (now - s->_screenUpdateTime >= 1000 / 60) {
+ 		g_system->updateScreen();
+-		s->_screenUpdateTime = g_system->getMillis();
++		s->_screenUpdateTime = now;
+ 		// Throttle the checking of shouldQuit() to 60fps as well, since
+ 		// Engine::shouldQuit() invokes 2 virtual functions
+ 		// (EventManager::shouldQuit() and EventManager::shouldReturnToLauncher()),
+@@ -454,12 +457,32 @@
  		updateScreen();
  	}
  
@@ -230,6 +247,36 @@ diff -ruN a/engines/sci/event.cpp b/engines/sci/event.cpp
  
  	// Search for matching event in queue
  	Common::List<SciEvent>::iterator iter = _events.begin();
+diff -ruN a/engines/sci/graphics/controls16.cpp b/engines/sci/graphics/controls16.cpp
+--- a/engines/sci/graphics/controls16.cpp
++++ b/engines/sci/graphics/controls16.cpp
+@@ -26,6 +26,7 @@
+ #include "graphics/primitives.h"
+ 
+ #include "sci/sci.h"
++#include "sci/sierra_hd_trace.h"
+ #include "sci/event.h"
+ #include "sci/engine/kernel.h"
+ #include "sci/engine/state.h"
+@@ -154,7 +155,8 @@
+ }
+ 
+ void GfxControls16::texteditSetBlinkTime() {
+-	_texteditBlinkTime = g_system->getMillis() + (30 * 1000 / 60);
++	// sierra-hd: on the virtual clock in the deterministic mode.
++	_texteditBlinkTime = (sierraHdDeterministic() ? sierraHdMillis() : g_system->getMillis()) + (30 * 1000 / 60);
+ }
+ 
+ void GfxControls16::kernelTexteditChange(reg_t controlObject, reg_t eventObject) {
+@@ -294,7 +296,7 @@
+ 		// Write back string
+ 		_segMan->strcpy_(textReference, text.c_str());
+ 	} else {
+-		if (g_system->getMillis() >= _texteditBlinkTime) {
++		if ((sierraHdDeterministic() ? sierraHdMillis() : g_system->getMillis()) >= _texteditBlinkTime) {
+ 			_paint16->invertRect(_texteditCursorRect);
+ 			_paint16->bitsShow(_texteditCursorRect);
+ 			_texteditCursorVisible = !_texteditCursorVisible;
 diff -ruN a/engines/sci/graphics/cursor.cpp b/engines/sci/graphics/cursor.cpp
 --- a/engines/sci/graphics/cursor.cpp
 +++ b/engines/sci/graphics/cursor.cpp
@@ -320,7 +367,7 @@ diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
 diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 --- a/engines/sci/sierra_hd_trace.cpp
 +++ b/engines/sci/sierra_hd_trace.cpp
-@@ -0,0 +1,308 @@
+@@ -0,0 +1,310 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -337,7 +384,9 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 + * - The music timer runs on the virtual clock, once per base tempo of the
 + *   driver, on the main thread; the driver's own timer is not installed.
 + * - The "sci" random source is seeded with SIERRA_HD_SEED (default 0).
-+ * - Date and time are fixed: 1990-01-01, 12:00:00.
++ * - The day starts at Monday 1990-01-01, 12:00:00 and runs with the
++ *   virtual clock. The screen-update throttle (and its quit check) and the
++ *   text-edit cursor blink run on the virtual clock too.
 + * - Input comes only from SIERRA_HD_REPLAY (docs/formats/replay.md in
 + *   sierra-hd); host input other than quitting is ignored. The mouse
 + *   position is virtual too.

@@ -34,6 +34,25 @@ void Clock::set_music_timer(std::function<void()> timer, std::uint32_t tempo_mic
     music_due_ = microseconds_ + tempo_microseconds;
 }
 
+LocalTime Clock::local_time() const {
+    if (local_time_) {
+        return local_time_();
+    }
+    // Noon plus the virtual seconds; days roll over within January 1990,
+    // which no deterministic run leaves.
+    constexpr std::uint64_t seconds_per_day = 24ULL * 60 * 60;
+    const std::uint64_t seconds = (12ULL * 60 * 60) + (microseconds_ / 1000000);
+    const std::uint64_t of_day = seconds % seconds_per_day;
+    return LocalTime{
+        .year = 90,
+        .month = 0,
+        .day = 1 + static_cast<int>(seconds / seconds_per_day),
+        .hour = static_cast<int>(of_day / 3600),
+        .minute = static_cast<int>((of_day / 60) % 60),
+        .second = static_cast<int>(of_day % 60),
+    };
+}
+
 void Clock::read_elapsed(std::uint64_t call) {
     // Calls count from 1, so 0 means no read yet.
     if (last_elapsed_read_ != 0 && call == last_elapsed_read_ + 1) {

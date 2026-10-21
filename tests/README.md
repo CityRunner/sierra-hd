@@ -30,14 +30,40 @@ Tests that need the game files run locally, never in CI:
 
 Each file in `scenarios/` is a hand-written replay, timed in game ticks.
 Both interpreters run it with the same seed and a stop tick, and their
-kernel-call traces must match (`tools/vm-trace/compare.py`):
+kernel-call traces and the screens they show must match.
+`scenarios/scenarios.txt` lists the runs (file, stop tick, seed), and
+
+    SIERRA_HD_MOUNTS=/path/to/game:/game docker/run.sh tools/vm-trace/run-all-scenarios.sh
+
+runs them all (`tools/vm-trace/run-scenario.sh` runs one).
+
+- `boot.txt` (seeds 0, 7 and 12345 to tick 3600; seed 0 to tick 18000): no
+  input; the title and the copy-protection screen.
+- `mouse.txt` (seed 0, stop tick 3600): mouse moves and a click on the
+  copy-protection screen.
+- `text.txt` (seed 0, stop tick 3600): types "look" and Enter on the title.
 
 - `menu-keys.txt` (seed 0, stop tick 3600): opens the menu bar with
   Escape, walks it with the arrow keys, closes it, then opens it again and
   chooses the first item of the first menu.
-- `copy-protection.txt` (seed 0, stop tick 3000): leaves the title with
+- `copy-protection.txt` (seed 0, stop tick 6000): leaves the title with
   Enter and clicks the first name of the copy-protection screen (the
   dialog controls).
+- `intro.txt` (seed 0, stop tick 30000): copy protection, then "No" to
+  "Have you previously attended?" (a click on the button), which plays the
+  whole opening without further input (the will, the theatre, the
+  invitation, the credits, the arrival, the dinner) into Act I.
+- `mansion-walk.txt` (seed 0, stop tick 11000): from Laura's bedroom
+  (room 44), arrow keys only, through Ethel's room (45), the back and front
+  upstairs hallways (43, 47), down the grand staircase into the front
+  downstairs hallway (37) and back, into the Colonel's room (42), where the
+  clock strikes and a conversation starts.
+- `menus.txt` (seed 0, stop tick 9030): in the bedroom, every harmless
+  menu entry (About, Help, Inventory, Pause, the three speeds, Volume) and
+  the keys F1, F2, Tab, Ctrl+P, Ctrl+V and Ctrl+I, each dialog closed with
+  Enter or Escape.
+- `bedroom-wait.txt` (seed 0, stop tick 20000): Act I starts in the
+  bedroom and runs without input; Lillian comes in and sits down.
 
 Every run, of the reference and of `sci-vm-trace`, gives a stop tick:
 
