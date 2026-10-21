@@ -1,7 +1,8 @@
 # tests
 
 - `support/`: the minimal test harness (`SCI_TEST`, `SCI_CHECK`).
-- `unit/`: unit tests, one executable per library.
+- `unit/`: unit tests, one executable per library (`sci-platform` included:
+  configuration and release identification).
 - `fuzz/`: libFuzzer targets with their seed corpora. Without `SCI_FUZZ`,
   each target replays its corpus as a CTest test.
 - `golden/`: golden hashes. `synthetic_test.cpp` renders synthetic pictures
@@ -19,3 +20,6 @@ Tests that need the game files run locally, never in CI:
 - The HD pipeline (milestone 3): `tools/hd-report/README.md` (acceptance
   check) and `tools/golden-hashes/README.md` (golden hashes, also on ARM64
   under qemu-user).
+- Hints (milestone 3a): the hint-anchor check, `sci-hint-tool <game> check
+  hints` (`tools/hint-tool/README.md`). CI checks the hint files against
+  their schema without the game (`scripts/check-hints.py`).

@@ -72,5 +72,8 @@
     {"id": "grass-tuft-13", "lines": [2791, 2792, 2793], "primitive": "spline", "label": "grass tuft"},
     {"id": "grass-tuft-14", "lines": [2796, 2797, 2798, 2799, 2800], "primitive": "spline", "label": "grass tuft"},
     {"id": "grass-tuft-15", "lines": [2802, 2803, 2804, 2805], "primitive": "spline", "label": "grass tuft"}
+  ],
+  "gaps": [
+    {"id": "outline-gap-1", "from": 621, "end": "end", "to": 1207, "label": "accidental gap in an outline", "uncertain": true}
   ]
 }

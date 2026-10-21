@@ -40,22 +40,30 @@ From a Visual Studio developer prompt with LLVM 23.1.4 first on `PATH`, run
 
 ## Running
 
-    build/release/src/app/sierra-hd --version
+    build/release/src/app/sierra-hd /path/to/game
 
-The room viewer, a development tool, draws pictures, views and fonts from
-your game folder into PNG files (`tools/room-viewer/README.md`):
+Release v0.1 is the room viewer in a window. It shows every picture (HD or
+original, visual or priority map), every view with its animation, and every
+font, at any whole-number scale. `sierra-hd --help` lists the keys, and
+`docs/USER-README.md` is the user guide that ships with the binaries. The
+program reads `sierra-hd.ini` and `hints/` next to the executable; in a
+build tree, copy `hints/` next to it, or the HD pictures are drawn without
+hints.
+
+Release binaries for Linux and Windows are built by the release workflow
+(`.github/workflows/release.yml`) and attached to the GitHub releases.
+
+The development room viewer writes the same images to PNG files
+(`tools/room-viewer/README.md`):
 
     build/release/tools/room-viewer/sci-room-viewer /path/to/game pic 1 --map all --scale 2 build/pic1.png
-    build/release/tools/room-viewer/sci-room-viewer /path/to/game pic 1 --hd --scale 5 build/pic1-hd.png
-
-Pointing the program at the game folder, the configuration options and
-MT-32 ROM support arrive with later milestones; this section will describe
-them.
+    build/release/tools/room-viewer/sci-room-viewer /path/to/game pic 1 --hd --hints hints --scale 5 build/pic1-hd.png
 
 ## Checks
 
     docker/run.sh scripts/check-format.sh              # clang-format
     docker/run.sh python3 scripts/check-repo-policy.py # no game data, no float
+    docker/run.sh python3 scripts/check-hints.py       # hint files against their schema
     docker/run.sh scripts/run-clang-tidy.sh build/debug
 
 ## Documentation
@@ -65,6 +73,7 @@ them.
   ScummVM revision
 - `docs/formats/`: the resource, picture, view and font formats
 - `docs/hd-pipeline.md`: how pictures become HD backgrounds
+- `hints/README.md`: the scene-analysis hints and their format
 - `tools/reference-scummvm/README.md`: the reference ScummVM build
 - `reports/`: milestone reports
 - `THIRD_PARTY.md`: third-party components and their licences

@@ -45,6 +45,10 @@
     {"id": "shrub-outline", "lines": [924, 925, 926, 927, 928], "primitive": "spline", "label": "shrub outline", "uncertain": true},
     {"id": "pond-edge", "lines": [1146, 1147, 1148], "primitive": "spline", "label": "pond edge", "uncertain": true}
   ],
+  "gaps": [
+    {"id": "outline-gap-1", "from": 619, "end": "start", "to": 652, "label": "accidental gap in an outline", "uncertain": true},
+    {"id": "outline-gap-2", "from": 621, "end": "start", "to": 650, "label": "accidental gap in an outline", "uncertain": true}
+  ],
   "symmetry": [
     {"kind": "repeat", "chains": ["left-window-arch", "middle-window-arch"], "note": "arched window tops"}
   ]

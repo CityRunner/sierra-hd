@@ -25,6 +25,9 @@
     {"id": "rug-scroll-motif-right-inner", "lines": [406, 407, 408, 409, 410], "primitive": "spline", "label": "rug scroll motif, right inner", "uncertain": true},
     {"id": "rug-medallion", "lines": [357, 358, 359, 360, 361, 362], "primitive": "spline", "label": "rug medallion", "uncertain": true}
   ],
+  "gaps": [
+    {"id": "outline-gap-1", "from": 159, "end": "end", "to": 499, "label": "accidental gap in an outline", "uncertain": true}
+  ],
   "symmetry": [
     {"kind": "mirror", "chains": ["rug-scroll-motif-left-outer", "rug-scroll-motif-right-outer"], "note": "outer rug scroll motifs"},
     {"kind": "mirror", "chains": ["rug-scroll-motif-left-inner", "rug-scroll-motif-right-inner"], "note": "inner rug scroll motifs"},
