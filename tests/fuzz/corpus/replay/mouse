@@ -1,0 +1,8 @@
+sierra-hd replay 1
+# Mouse moves and clicks in the copy-protection room.
+600 move 50 60
+900 down 120 150 0
+905 up 120 150 0
+1500 move 300 190
+1800 down 10 20 0
+1802 up 10 20 0

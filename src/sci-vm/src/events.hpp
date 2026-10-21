@@ -49,6 +49,10 @@ public:
     SciEvent get(std::uint16_t mask, std::uint32_t tick);
     void flush(std::uint32_t tick);
 
+    // The host asks to quit (Engine::quitGame): a quit event comes with the
+    // next poll, before the replayed input.
+    void request_quit() { quit_requested_ = true; }
+
     [[nodiscard]] Point mouse() const { return mouse_; }
 
     void set_mouse(Point position) { mouse_ = position; }
@@ -59,6 +63,7 @@ private:
     std::deque<InputEvent> pending_;
     std::list<SciEvent> queue_;
     Point mouse_{.x = 160, .y = 100};
+    bool quit_requested_ = false;
 };
 
 } // namespace sci::vm

@@ -33,8 +33,15 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
     Machine machine(resources, subsystems);
     Clock& clock = subsystems.clock();
     std::uint32_t calls = 0;
+    // At the stop, the reference calls quitGame(): the game gets a quit
+    // event at its next event poll. Should it never poll, it is stopped a
+    // minute (of virtual time) or a million kernel calls later.
     const auto check_stop = [&] {
         if (clock.ticks() >= options.stop_tick || calls >= options.stop_calls) {
+            subsystems.events().request_quit();
+        }
+        if (clock.ticks() >= options.stop_tick + std::uint64_t{3600} ||
+            calls >= options.stop_calls + std::uint64_t{1000000}) {
             machine.abort(Abort::QuitGame);
         }
     };

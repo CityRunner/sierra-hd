@@ -69,6 +69,20 @@ std::pair<long, std::size_t> parse_long(std::string_view text, std::size_t posit
     return {negative ? -value : value, i - position};
 }
 
+// strcmp and strncmp as glibc computes them (the reference's): the
+// difference of the first differing bytes, as unsigned chars. The C library
+// only fixes the sign, and kStrCmp passes the value on to the scripts.
+int compare_strings(std::string_view first, std::string_view second, std::size_t limit) {
+    for (std::size_t i = 0; i < limit; ++i) {
+        const int a = i < first.size() ? static_cast<unsigned char>(first[i]) : 0;
+        const int b = i < second.size() ? static_cast<unsigned char>(second[i]) : 0;
+        if (a != b || a == 0) {
+            return a - b;
+        }
+    }
+    return 0;
+}
+
 constexpr std::int8_t align_left = -1;
 constexpr std::int8_t align_none = 0;
 constexpr std::int8_t align_right = 1;
@@ -90,16 +104,11 @@ Reg k_str_cat(Machine& machine, std::span<Reg> args) {
 }
 
 Reg k_str_cmp(Machine& machine, std::span<Reg> args) {
-    const SegManager& segments = machine.segments();
+    SegManager& segments = machine.segments();
     const std::string first = segments.get_string(args[0]);
     const std::string second = segments.get_string(args[1]);
-    int result = 0;
-    if (args.size() > 2) {
-        result = std::strncmp(first.c_str(), second.c_str(), args[2].to_uint16());
-    } else {
-        result = std::strcmp(first.c_str(), second.c_str());
-    }
-    return number(std::clamp(result, -32768, 32767));
+    const std::size_t limit = args.size() > 2 ? args[2].to_uint16() : std::string::npos;
+    return number(compare_strings(first, second, limit));
 }
 
 Reg k_str_cpy(Machine& machine, std::span<Reg> args) {

@@ -56,7 +56,7 @@ sci_add_unit_test(NAME sci-platform-tests
     DEPENDS sci-platform)
 
 sci_add_unit_test(NAME sci-vm-tests
-    SOURCES vm/music_test.cpp vm/script_patcher_test.cpp
+    SOURCES vm/input_test.cpp vm/music_test.cpp vm/script_patcher_test.cpp
     DEPENDS sci-vm)
-# The music and patcher tests reach into sci-vm's internals.
+# The tests reach into sci-vm's internals.
 target_include_directories(sci-vm-tests PRIVATE ${PROJECT_SOURCE_DIR}/src/sci-vm/src)

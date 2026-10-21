@@ -36,6 +36,9 @@
 namespace sci::vm {
 
 void EventQueue::take_due(std::uint32_t tick) {
+    if (quit_requested_) {
+        queue_.push_back(SciEvent{.type = event_quit, .modifiers = modifier_none, .character = 0, .mouse = mouse_});
+    }
     while (!pending_.empty() && pending_.front().tick <= tick) {
         InputEvent input = pending_.front();
         pending_.pop_front();
