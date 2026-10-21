@@ -981,11 +981,6 @@ Scope:
   reaches it. **Decided.**
 - **An empty sentence parses as a success**, as in ScummVM; kParse never
   passes one, since it handles empty input first. **Decided.**
-- **Mouse clicks only choose names on the copy-protection screen through
-  the keyboard path.** In both engines a click on a name is taken as a
-  wrong answer; the scenarios pass the screen with the arrow keys and
-  Enter, the answer for seed 0 being found once. This is the game's
-  behaviour, not a port difference. **Decided.**
 
 ## Milestone 4b: the analysis cache (2026-10-21)
 
