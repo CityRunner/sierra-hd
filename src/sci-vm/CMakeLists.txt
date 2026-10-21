@@ -1,4 +1,44 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 sci_add_library(NAME sci-vm
-    SOURCES src/component.cpp
-    DEPENDS sci-core sci-resource sci-text)
+    SOURCES
+        src/component.cpp
+        src/events.cpp
+        src/gc.cpp
+        src/gfx_animate.cpp
+        src/gfx_cache.cpp
+        src/gfx_compare.cpp
+        src/gfx_cursor.cpp
+        src/gfx_menu.cpp
+        src/gfx_paint.cpp
+        src/gfx_ports.cpp
+        src/gfx_screen.cpp
+        src/gfx_text.cpp
+        src/graphics.cpp
+        src/interpreter.cpp
+        src/k_graphics.cpp
+        src/k_lists.cpp
+        src/k_math.cpp
+        src/k_misc.cpp
+        src/k_movement.cpp
+        src/k_scripts.cpp
+        src/k_sound.cpp
+        src/k_strings.cpp
+        src/k_stubs.cpp
+        src/kernel.cpp
+        src/machine.cpp
+        src/midi_parser.cpp
+        src/music.cpp
+        src/object.cpp
+        src/resources.cpp
+        src/script.cpp
+        src/script_patcher.cpp
+        src/script_patches.cpp
+        src/seg_manager.cpp
+        src/segments.cpp
+        src/selectors.cpp
+        src/sound.cpp
+        src/subsystems.cpp
+        src/timing.cpp
+        src/trigonometry.cpp
+        src/workarounds.cpp
+    DEPENDS sci-core sci-resource sci-pic sci-view sci-text)

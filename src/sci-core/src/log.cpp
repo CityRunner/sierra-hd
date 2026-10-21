@@ -70,6 +70,8 @@ std::string_view to_string(LogCategory category) noexcept {
         return "general";
     case LogCategory::Resources:
         return "resources";
+    case LogCategory::Vm:
+        return "vm";
     }
     return "unknown";
 }

@@ -2,8 +2,7 @@
 
 How the program is organised, how data flows through it, and the trade-offs
 behind it. Updated at every milestone (spec section 5.1). State: milestone
-3b, drawing order, occlusion and stroke integrity (addendum A1); release
-v0.1 follows its gate.
+4a, the VM boot gate.
 
 ## Modules
 
@@ -20,7 +19,7 @@ purpose and invariants:
 | sci-text | Fonts (done, milestone 2), messages, vocabulary, Said | sci-core, sci-resource |
 | sci-audio | Sound playback, silent driver, AdLib, MT-32, mixer | sci-core, sci-resource |
 | sci-render | HD rasteriser (done, milestone 3), original mode, acceptance check, A1 checks (milestone 3b); compositor later | sci-core, sci-pic, sci-vector, sci-view |
-| sci-vm | Bytecode interpreter, objects, kernel, animation | sci-core, sci-resource, sci-text |
+| sci-vm | Bytecode interpreter, objects, kernel functions, the 1x graphics they drive, the music player with a silent driver, events, virtual clock, random source (boot gate, milestone 4a) | sci-core, sci-resource, sci-pic, sci-view, sci-text |
 | sci-platform (in `src/app/platform`) | The parts of app without a window, shared with the tools: thread executor, game-folder reading, release identification, configuration file, hint loading (done, milestone 3a) | sci-core, sci-resource, sci-vector |
 | app (`sierra-hd`) | Window, input, presentation (the room viewer at release v0.1), saves, cache | all libraries |
 
@@ -47,6 +46,8 @@ program:
 - `golden-hashes`: writes or checks the golden hashes of every picture.
 - `hint-tool`: proposes hint candidates for review, checks hint files
   against the game, and turns review decisions into hint files.
+- `vm-trace`: runs the game in sci-vm's deterministic mode, writes the
+  kernel-call trace and compares it with the reference's (milestone 4).
 
 ### Dependency rules and how they are enforced
 
@@ -170,6 +171,35 @@ edges with the face after them, and layers. sci-render needs nothing else,
 so the scene can later be cached (spec section 10.2), and the hints only
 change how it is built.
 
+## The interpreter (milestone 4a)
+
+sci-vm is a port of ScummVM's SCI0 engine, kept close to ScummVM's
+structure so that each part can be checked against its source
+(`src/sci-vm/README.md` maps the files):
+
+- `Machine` holds the state ScummVM keeps in `EngineState`: the segment
+  manager, the execution stack, the accumulator. `run_vm` executes
+  bytecode; a `callk` goes through the kernel table, which checks the
+  argument signature and applies ScummVM's workarounds before calling the
+  function.
+- `Subsystems` holds what ScummVM keeps in `SciEngine`: the virtual clock,
+  the random source, the event queue, the graphics, the sound and the
+  parser state. Kernel functions reach them through the machine.
+- `Graphics` ties together the ported GfxScreen, GfxPorts, GfxPaint16,
+  GfxText16, GfxCompare, GfxAnimate, GfxCursor, GfxMenu and GfxTransitions.
+  The screen is the 320 x 200 visual, priority and control maps that the
+  game logic reads; pictures are drawn by sci-pic. Showing the screen is
+  not part of the VM: the program will present these maps (path 1) or the
+  HD scene (path 2) from them.
+- Script patches are applied when a script loads, as in ScummVM.
+- The music player runs on the virtual clock (its timer once per 4 ms of
+  virtual time) and plays to a silent driver; only timing, signals and
+  cues reach the scripts.
+
+`run_deterministic` (`include/sci/vm/interpreter.hpp`) runs the game the
+way the patched reference does and reports each kernel call; `tools/vm-trace`
+uses it. The program does not run the VM yet.
+
 ## The program (release v0.1)
 
 `src/app/src/main.cpp` does the following:
@@ -202,6 +232,12 @@ when off, so they stay in release builds.
 - Functions whose results differ between platforms or standard libraries are
   banned by clang-tidy (`.clang-tidy`, `bugprone-unsafe-functions`).
   `float` and `long double` are banned by `scripts/check-repo-policy.py`.
+- The interpreter's results do not depend on the C library either: string
+  comparison returns glibc's values (the reference's), sin and cos come
+  from a table of glibc's values, and the two kernel functions that
+  ScummVM computes in binary32 round each step to binary32 in `double`
+  (`docs/ASSUMPTIONS.md`, "Milestone 4a"). The kernel-call traces match on
+  x86-64, under ASan and UBSan, and on ARM64 under qemu-user.
 - CI builds with three standard library implementations: libstdc++ on
   Linux, libc++ on macOS, and the MSVC STL on Windows. Differences between
   them therefore show up early.
