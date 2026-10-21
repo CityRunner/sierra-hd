@@ -15,6 +15,7 @@
 #include "viewer.hpp"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -57,7 +58,7 @@ private:
 
 // An SCI0 cursor resource as RGBA pixels (16 x 16) and its hotspot.
 struct CursorImage {
-    std::array<std::uint8_t, 16 * 16 * 4> pixels{};
+    std::array<std::uint8_t, std::size_t{16} * 16 * 4> pixels{};
     int hotspot_x = 0;
     int hotspot_y = 0;
 };

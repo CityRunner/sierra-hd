@@ -205,7 +205,7 @@ void Paint::frame_rect(const Rect& rect) {
 }
 
 void Paint::bits_show(const Rect& rect) {
-    Ports& ports = graphics_->ports();
+    const Ports& ports = graphics_->ports();
     Rect r = rect;
     r.clip(ports.port()->rect);
     if (r.is_empty()) {

@@ -62,7 +62,7 @@ Reg k_file_io_open(Machine& machine, std::span<Reg> args) {
         return signal_reg;
     }
     // The English part of the name, in lower case.
-    name = machine.subsystems().graphics().language_text(name, 1);
+    name = Graphics::language_text(name, 1);
     std::ranges::transform(name, name.begin(),
                            [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); });
     std::string error;

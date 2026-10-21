@@ -299,7 +299,10 @@ std::optional<Game> open_game(SDL_Window* window, sci::platform::Config& config,
         return std::nullopt;
     }
     return Game{
-        .manager = std::move(*manager), .identification = std::move(*identification), .files = std::move(copies)};
+        .manager = std::move(*manager),
+        .identification = std::move(*identification),
+        .files = std::move(copies),
+    };
 }
 
 // The hint files next to the executable. They are made for the tested
@@ -434,24 +437,26 @@ sci::app::KeyPress key_press(const SDL_KeyboardEvent& key) {
         char character;
     };
 
-    static constexpr std::array<Keypad, 16> keypad{{
-        {SDLK_KP_0, Key::Insert, '0'},
-        {SDLK_KP_1, Key::End, '1'},
-        {SDLK_KP_2, Key::Down, '2'},
-        {SDLK_KP_3, Key::PageDown, '3'},
-        {SDLK_KP_4, Key::Left, '4'},
-        {SDLK_KP_5, Key::Center, '5'},
-        {SDLK_KP_6, Key::Right, '6'},
-        {SDLK_KP_7, Key::Home, '7'},
-        {SDLK_KP_8, Key::Up, '8'},
-        {SDLK_KP_9, Key::PageUp, '9'},
-        {SDLK_KP_PERIOD, Key::Delete, '.'},
-        {SDLK_KP_ENTER, Key::Enter, 0},
-        {SDLK_KP_PLUS, Key::Character, '+'},
-        {SDLK_KP_MINUS, Key::Character, '-'},
-        {SDLK_KP_MULTIPLY, Key::Character, '*'},
-        {SDLK_KP_DIVIDE, Key::Character, '/'},
-    }};
+    static constexpr std::array<Keypad, 16> keypad{
+        {
+            {.code = SDLK_KP_0, .key = Key::Insert, .character = '0'},
+            {.code = SDLK_KP_1, .key = Key::End, .character = '1'},
+            {.code = SDLK_KP_2, .key = Key::Down, .character = '2'},
+            {.code = SDLK_KP_3, .key = Key::PageDown, .character = '3'},
+            {.code = SDLK_KP_4, .key = Key::Left, .character = '4'},
+            {.code = SDLK_KP_5, .key = Key::Center, .character = '5'},
+            {.code = SDLK_KP_6, .key = Key::Right, .character = '6'},
+            {.code = SDLK_KP_7, .key = Key::Home, .character = '7'},
+            {.code = SDLK_KP_8, .key = Key::Up, .character = '8'},
+            {.code = SDLK_KP_9, .key = Key::PageUp, .character = '9'},
+            {.code = SDLK_KP_PERIOD, .key = Key::Delete, .character = '.'},
+            {.code = SDLK_KP_ENTER, .key = Key::Enter, .character = 0},
+            {.code = SDLK_KP_PLUS, .key = Key::Character, .character = '+'},
+            {.code = SDLK_KP_MINUS, .key = Key::Character, .character = '-'},
+            {.code = SDLK_KP_MULTIPLY, .key = Key::Character, .character = '*'},
+            {.code = SDLK_KP_DIVIDE, .key = Key::Character, .character = '/'},
+        },
+    };
     for (const Keypad& k : keypad) {
         if (key.key == k.code) {
             press.key = k.key;
@@ -654,10 +659,14 @@ private:
     }
 
     [[nodiscard]] std::vector<sci::app::Rect> full_frame() const {
-        return {sci::app::Rect{.x = 0,
-                               .y = 0,
-                               .width = sci::app::screen_width * screen_.scale(),
-                               .height = sci::app::screen_height * screen_.scale()}};
+        return {
+            sci::app::Rect{
+                .x = 0,
+                .y = 0,
+                .width = sci::app::screen_width * screen_.scale(),
+                .height = sci::app::screen_height * screen_.scale(),
+            },
+        };
     }
 
     // The game's cursor as the window's cursor, scaled N x N, so it moves
@@ -665,8 +674,8 @@ private:
     void update_cursor(const sci::vm::ShownScreen& shown, int scale) {
         if (shown.mouse != last_mouse_) {
             const auto density = static_cast<double>(SDL_GetWindowPixelDensity(window_));
-            const double x = (presenter_.offset_x() + (shown.mouse.x * scale) + (scale / 2)) / density;
-            const double y = (presenter_.offset_y() + (shown.mouse.y * scale) + (scale / 2)) / density;
+            const double x = (presenter_.offset_x() + (shown.mouse.x * scale) + (scale / 2.0)) / density;
+            const double y = (presenter_.offset_y() + (shown.mouse.y * scale) + (scale / 2.0)) / density;
             SDL_WarpMouseInWindow(window_, static_cast<SdlCoordinate>(x), static_cast<SdlCoordinate>(y));
             last_mouse_ = shown.mouse;
         }
@@ -680,7 +689,9 @@ private:
             return;
         }
         const auto resource = manager_->load(sci::resource::ResourceId{
-            .type = sci::resource::ResourceType::Cursor, .number = static_cast<std::uint16_t>(shown.cursor)});
+            .type = sci::resource::ResourceType::Cursor,
+            .number = static_cast<std::uint16_t>(shown.cursor),
+        });
         const auto image = resource ? sci::app::decode_cursor(resource->data) : std::nullopt;
         if (!image) {
             SDL_HideCursor();
@@ -699,8 +710,7 @@ private:
                     ((static_cast<std::size_t>(y / scale) * 16) + static_cast<std::size_t>(x / scale)) * 4;
                 const std::size_t to = (static_cast<std::size_t>(y) * static_cast<std::size_t>(surface->pitch)) +
                                        (static_cast<std::size_t>(x) * 4);
-                std::copy_n(image->pixels.begin() + static_cast<std::ptrdiff_t>(from), 4,
-                            pixels.begin() + static_cast<std::ptrdiff_t>(to));
+                std::ranges::copy(std::span(image->pixels).subspan(from, 4), pixels.subspan(to, 4).begin());
             }
         }
         SDL_Cursor* cursor = SDL_CreateColorCursor(surface, image->hotspot_x * scale, image->hotspot_y * scale);
@@ -751,8 +761,9 @@ std::optional<Options> parse_options(std::span<char*> args) {
         } else if (arg == "--seed" && has_value) {
             const std::string_view value = args[++i];
             std::uint32_t seed = 0;
-            const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), seed);
-            if (error != std::errc{} || end != value.data() + value.size()) {
+            const auto [end, error] =
+                std::from_chars(std::to_address(value.begin()), std::to_address(value.end()), seed);
+            if (error != std::errc{} || end != std::to_address(value.end())) {
                 return std::nullopt;
             }
             options.seed = seed;
@@ -770,7 +781,7 @@ std::optional<Options> parse_options(std::span<char*> args) {
 
 // The input events of a replay file; an error message if it cannot be read.
 sci::core::Result<std::vector<sci::vm::InputEvent>> read_replay(const fs::path& path) {
-    std::ifstream file(path, std::ios::binary);
+    const std::ifstream file(path, std::ios::binary);
     std::stringstream text;
     text << file.rdbuf();
     if (!file) {

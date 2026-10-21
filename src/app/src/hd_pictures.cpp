@@ -23,7 +23,8 @@ const render::RgbaImage* HdPictures::get(int picture, bool mirrored, int ega_pal
     };
     if (const auto it = std::ranges::find_if(cache_, same); it != cache_.end()) {
         cache_.splice(cache_.begin(), cache_, it);
-        return cache_.front().image ? &*cache_.front().image : nullptr;
+        const auto& image = cache_.front().image;
+        return image ? &*image : nullptr;
     }
     Entry entry{.picture = picture, .mirrored = mirrored, .ega_palette = ega_palette, .scale = scale, .image = {}};
     const auto scene = analysis_->scene(platform::SceneVariant{
@@ -42,7 +43,8 @@ const render::RgbaImage* HdPictures::get(int picture, bool mirrored, int ega_pal
     if (cache_.size() > kept) {
         cache_.pop_back();
     }
-    return cache_.front().image ? &*cache_.front().image : nullptr;
+    const auto& image = cache_.front().image;
+    return image ? &*image : nullptr;
 }
 
 } // namespace sci::app

@@ -62,7 +62,13 @@ std::uint16_t altify(char character) {
         std::string_view keys;
     };
 
-    constexpr std::array<Row, 3> rows{{{0x10, "QWERTYUIOP[]"}, {0x1E, "ASDFGHJKL;'\\"}, {0x2C, "ZXCVBNM,./"}}};
+    constexpr std::array<Row, 3> rows{
+        {
+            {.offset = 0x10, .keys = "QWERTYUIOP[]"},
+            {.offset = 0x1E, .keys = "ASDFGHJKL;'\\"},
+            {.offset = 0x2C, .keys = "ZXCVBNM,./"},
+        },
+    };
     const auto upper = static_cast<char>(std::toupper(static_cast<unsigned char>(character)));
     for (const Row& row : rows) {
         if (const auto at = row.keys.find(upper); at != std::string_view::npos) {
@@ -78,23 +84,24 @@ struct Mapping {
     std::uint16_t code;
 };
 
-constexpr std::array<Mapping, 11> key_mappings{{
-    {KeyPress::Key::Up, key_up},
-    {KeyPress::Key::Down, key_down},
-    {KeyPress::Key::Left, key_left},
-    {KeyPress::Key::Right, key_right},
-    {KeyPress::Key::Insert, key_insert},
-    {KeyPress::Key::Home, key_home},
-    {KeyPress::Key::End, key_end},
-    {KeyPress::Key::PageUp, key_page_up},
-    {KeyPress::Key::PageDown, key_page_down},
-    {KeyPress::Key::Delete, key_delete},
-    {KeyPress::Key::Center, key_center},
-}};
+constexpr std::array<Mapping, 11> key_mappings{
+    {
+        {.key = KeyPress::Key::Up, .code = key_up},
+        {.key = KeyPress::Key::Down, .code = key_down},
+        {.key = KeyPress::Key::Left, .code = key_left},
+        {.key = KeyPress::Key::Right, .code = key_right},
+        {.key = KeyPress::Key::Insert, .code = key_insert},
+        {.key = KeyPress::Key::Home, .code = key_home},
+        {.key = KeyPress::Key::End, .code = key_end},
+        {.key = KeyPress::Key::PageUp, .code = key_page_up},
+        {.key = KeyPress::Key::PageDown, .code = key_page_down},
+        {.key = KeyPress::Key::Delete, .code = key_delete},
+        {.key = KeyPress::Key::Center, .code = key_center},
+    },
+};
 
-} // namespace
-
-std::optional<vm::SciEvent> sci_key_event(const KeyPress& key) {
+// The modifier bits of the key press.
+std::uint16_t key_modifiers(const KeyPress& key) {
     std::uint16_t modifiers = vm::modifier_none;
     if (key.alt) {
         modifiers |= vm::modifier_alt;
@@ -105,47 +112,57 @@ std::optional<vm::SciEvent> sci_key_event(const KeyPress& key) {
     if (key.shift) {
         modifiers |= vm::modifier_shift;
     }
+    return modifiers;
+}
+
+// A navigation key (or a keypad digit with Num Lock): its character or scancode.
+std::uint16_t navigation_character(const KeyPress& key) {
+    if (key.keypad && key.num_lock && key.character != 0) {
+        return static_cast<std::uint8_t>(key.character); // Keypad digits and the period.
+    }
     std::uint16_t character = 0;
+    for (const Mapping& mapping : key_mappings) {
+        if (mapping.key == key.key) {
+            character = mapping.code;
+        }
+    }
+    return character;
+}
+
+// The character of the key before Alt and Ctrl; nothing for a key the game
+// does not see.
+std::optional<std::uint16_t> base_character(const KeyPress& key) {
     switch (key.key) {
-    case KeyPress::Key::Character:
-        character = static_cast<std::uint8_t>(key.character);
+    case KeyPress::Key::Character: {
+        const std::uint16_t character = static_cast<std::uint8_t>(key.character);
         if (character >= 0x80) {
             return std::nullopt; // This game's fonts have no extended characters.
         }
-        break;
+        return character;
+    }
     case KeyPress::Key::Enter:
-        character = vm::key_enter;
-        break;
+        return vm::key_enter;
     case KeyPress::Key::Escape:
-        character = vm::key_escape;
-        break;
+        return vm::key_escape;
     case KeyPress::Key::Backspace:
-        character = 8;
-        break;
+        return 8;
     case KeyPress::Key::Tab:
-        character = key.shift ? key_shift_tab : '\t';
-        break;
+        return key.shift ? key_shift_tab : '\t';
     case KeyPress::Key::Function:
         if (key.function < 1 || key.function > 10) {
             return std::nullopt;
         }
-        character = static_cast<std::uint16_t>((key.shift ? key_shift_f1 : key_f1) +
-                                               (static_cast<unsigned>(key.function - 1) << 8U));
-        break;
+        return static_cast<std::uint16_t>((key.shift ? key_shift_f1 : key_f1) +
+                                          (static_cast<unsigned>(key.function - 1) << 8U));
     case KeyPress::Key::Other:
         return std::nullopt;
     default:
-        if (key.keypad && key.num_lock && key.character != 0) {
-            character = static_cast<std::uint8_t>(key.character); // Keypad digits and the period.
-        } else {
-            for (const Mapping& mapping : key_mappings) {
-                if (mapping.key == key.key) {
-                    character = mapping.code;
-                }
-            }
-        }
-        break;
+        return navigation_character(key);
     }
+}
+
+// Alt and Ctrl applied to the character.
+std::uint16_t apply_alt_ctrl(const KeyPress& key, std::uint16_t character) {
     if (key.alt && character > 0 && character < 27) {
         character += 96;
     }
@@ -154,9 +171,21 @@ std::optional<vm::SciEvent> sci_key_event(const KeyPress& key) {
     } else if (key.ctrl && !key.shift && character >= 'a' && character <= 'z') {
         character -= 96; // Ctrl+letter is the ASCII control character.
     }
+    return character;
+}
+
+} // namespace
+
+std::optional<vm::SciEvent> sci_key_event(const KeyPress& key) {
+    const std::optional<std::uint16_t> base = base_character(key);
+    if (!base) {
+        return std::nullopt;
+    }
+    const std::uint16_t character = apply_alt_ctrl(key, *base);
     if (character == 0) {
         return std::nullopt;
     }
+    const std::uint16_t modifiers = key_modifiers(key);
     return vm::SciEvent{.type = vm::event_key_down, .modifiers = modifiers, .character = character, .mouse = {}};
 }
 
@@ -258,10 +287,12 @@ void GameScreen::update(const vm::ShownScreen& shown, platform::GraphicsMode mod
         }
     }
     if (right >= 0) {
-        dirty_.push_back(Rect{.x = left * scale_,
-                              .y = top * scale_,
-                              .width = (right - left + 1) * scale_,
-                              .height = (bottom - top + 1) * scale_});
+        dirty_.push_back(Rect{
+            .x = left * scale_,
+            .y = top * scale_,
+            .width = (right - left + 1) * scale_,
+            .height = (bottom - top + 1) * scale_,
+        });
     }
     last_visual_.assign(shown.visual.begin(), shown.visual.end());
     last_cover_.assign(shown.cover.begin(), shown.cover.end());

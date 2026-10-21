@@ -222,7 +222,7 @@ void Screen::bits_restore(std::span<const std::uint8_t> memory) {
 
 void Screen::show(const Rect& rect) {
     Rect clipped = rect;
-    clipped.clip(Rect::from(0, 0, width, height));
+    clipped.clip(Rect{.top = 0, .left = 0, .bottom = height, .right = width});
     bool changed = false;
     for (int y = clipped.top; y < clipped.bottom; ++y) {
         for (int x = clipped.left; x < clipped.right; ++x) {

@@ -55,7 +55,7 @@ public:
     // name is already in English and lower case.
     std::uint16_t open(const std::string& name, int mode, std::string& error);
     // Closes and writes what was written; false for an unused handle.
-    bool close(std::uint16_t handle);
+    bool close(std::uint16_t number);
 
     // fgets_wrapper: a line of at most `max_size - 1` bytes without its
     // line feed, and the bytes read as it counts them (with the line feed,
@@ -66,9 +66,9 @@ public:
         std::size_t bytes = 0;
     };
 
-    std::optional<Line> read_line(std::uint16_t handle, int max_size, std::string& error);
+    std::optional<Line> read_line(std::uint16_t number, int max_size, std::string& error);
     // The bytes written, or nothing for a handle not open for writing.
-    std::optional<std::size_t> write(std::uint16_t handle, std::string_view text);
+    std::optional<std::size_t> write(std::uint16_t number, std::string_view text);
     // RunGame closes all files.
     void close_all();
 

@@ -54,9 +54,8 @@ bool DirectoryFileStore::write(std::string_view name, std::span<const std::uint8
     std::error_code error;
     std::filesystem::create_directories(folder_, error);
     std::ofstream file(path_of(name), std::ios::binary | std::ios::trunc);
-    file.write(reinterpret_cast<const char*>(data.data()),
-               static_cast<std::streamsize>(
-                   data.size())); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast): bytes to the stream.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): bytes to the stream.
+    file.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
     if (!file) {
         core::log(core::LogLevel::Warning, core::LogCategory::General,
                   std::format("Cannot write {}", path_of(name).string()));
