@@ -1,0 +1,32 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 87,
+  "pic_sha256": "d063a62e2efa8c98d51e87df7e45346aa103b8e96e303d58b3071aa4f711a267",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "thermometer", "at": [133, 90], "label": "thermometer"},
+    {"id": "mansion", "at": [240, 160], "label": "mansion"},
+    {"id": "night-sky", "at": [250, 70], "label": "night sky"},
+    {"id": "moon", "at": [263, 93], "label": "moon"},
+    {"id": "blank-panel", "at": [60, 100], "label": "blank panel"}
+  ],
+  "chains": [
+    {"id": "bush-outline-left", "lines": [619, 620, 621], "primitive": "spline", "label": "bush outline, left", "uncertain": true},
+    {"id": "bush-outline-right", "lines": [623, 624, 625], "primitive": "spline", "label": "bush outline, right"},
+    {"id": "bush-outline-left-2", "lines": [627, 628, 629], "primitive": "spline", "label": "bush outline, left", "uncertain": true},
+    {"id": "tree-top-behind-roof", "lines": [631, 632, 633, 634, 635, 637], "primitive": "spline", "label": "tree top behind roof", "uncertain": true},
+    {"id": "oak-foliage-outline", "lines": [705, 706, 707, 708, 709], "primitive": "spline", "label": "oak foliage outline"},
+    {"id": "oak-foliage-outline-2", "lines": [710, 711, 712, 713, 714, 715, 716], "primitive": "spline", "label": "oak foliage outline"},
+    {"id": "oak-foliage-outline-3", "lines": [741, 742, 743, 744, 745, 746], "primitive": "spline", "label": "oak foliage outline"},
+    {"id": "oak-foliage-outline-4", "lines": [756, 757, 758, 759, 760, 761], "primitive": "spline", "label": "oak foliage outline"},
+    {"id": "oak-foliage-outline-5", "lines": [780, 781, 782, 783, 784, 785], "primitive": "spline", "label": "oak foliage outline"},
+    {"id": "oak-foliage-outline-6", "lines": [786, 787, 788], "primitive": "spline", "label": "oak foliage outline"},
+    {"id": "oak-foliage-outline-7", "lines": [804, 805, 806], "primitive": "spline", "label": "oak foliage outline"},
+    {"id": "oak-foliage-outline-8", "lines": [822, 823, 824, 825, 826], "primitive": "spline", "label": "oak foliage outline"},
+    {"id": "oak-foliage-outline-9", "lines": [841, 842, 843], "primitive": "spline", "label": "oak foliage outline", "uncertain": true},
+    {"id": "oak-foliage-outline-10", "lines": [848, 849, 850, 851], "primitive": "spline", "label": "oak foliage outline"},
+    {"id": "oak-foliage-outline-11", "lines": [871, 872, 873], "primitive": "spline", "label": "oak foliage outline"},
+    {"id": "oak-foliage-outline-12", "lines": [901, 902, 903], "primitive": "spline", "label": "oak foliage outline"}
+  ]
+}

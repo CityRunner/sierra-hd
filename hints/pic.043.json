@@ -1,0 +1,32 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 43,
+  "pic_sha256": "f932fa72d377cac7ae782328bffe59e9b785bba99bdb79efd8cb52a921b66e79",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "patterned-rug", "at": [160, 160], "label": "patterned rug"},
+    {"id": "tiled-floor", "at": [100, 115], "label": "tiled floor"},
+    {"id": "end-doorway", "at": [160, 60], "label": "end doorway"},
+    {"id": "left-chest-of-drawers", "at": [95, 90], "label": "left chest of drawers"},
+    {"id": "right-chest-of-drawers", "at": [220, 90], "label": "right chest of drawers"},
+    {"id": "left-wall", "at": [30, 60], "label": "left wall"},
+    {"id": "right-wall", "at": [290, 60], "label": "right wall"}
+  ],
+  "chains": [
+    {"id": "left-alcove-outer-arch", "lines": [226, 227, 228, 229], "primitive": "spline", "label": "left alcove outer arch"},
+    {"id": "left-alcove-inner-arch", "lines": [449, 450, 451], "primitive": "spline", "label": "left alcove inner arch"},
+    {"id": "left-alcove-arch-edge", "lines": [841, 842, 843], "primitive": "spline", "label": "left alcove arch edge"},
+    {"id": "right-alcove-arch", "lines": [873, 874, 875, 876, 877, 878, 879], "primitive": "spline", "label": "right alcove arch"},
+    {"id": "right-alcove-inner-arch", "lines": [307, 308, 309, 310], "primitive": "spline", "label": "right alcove inner arch"},
+    {"id": "right-alcove-inner-edge", "lines": [454, 455, 456, 457], "primitive": "spline", "label": "right alcove inner edge"},
+    {"id": "right-alcove-arch-edge", "lines": [865, 866, 867], "primitive": "spline", "label": "right alcove arch edge"},
+    {"id": "right-alcove-outer-arch", "lines": [976, 977, 978, 979, 980], "primitive": "spline", "label": "right alcove outer arch", "uncertain": true},
+    {"id": "rounded-wall-panel-top", "lines": [343, 344, 345, 346], "primitive": "spline", "label": "rounded wall panel top", "uncertain": true}
+  ],
+  "symmetry": [
+    {"kind": "mirror", "chains": ["left-alcove-inner-arch", "right-alcove-inner-edge"], "note": "inner arches of the two alcoves"},
+    {"kind": "mirror", "chains": ["left-alcove-outer-arch", "right-alcove-outer-arch"], "note": "outer arches of the two alcoves"},
+    {"kind": "repeat", "chains": ["left-alcove-arch-edge", "right-alcove-arch-edge"], "note": "arch edges of the two alcoves"}
+  ]
+}

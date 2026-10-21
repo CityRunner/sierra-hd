@@ -1,0 +1,23 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 76,
+  "pic_sha256": "91c8b00e8e80453e44dd024c8ee306422f8c320aac3dd44e40e52208309c925b",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "roof", "at": [100, 30], "label": "roof"},
+    {"id": "night-sky", "at": [10, 10], "label": "night sky"},
+    {"id": "attic-floor", "at": [250, 110], "label": "attic floor"},
+    {"id": "piled-junk", "at": [180, 60], "label": "piled junk"},
+    {"id": "window", "at": [305, 15], "label": "window"}
+  ],
+  "chains": [
+    {"id": "draped-sheet-edge", "lines": [817, 818, 819], "primitive": "spline", "label": "draped sheet edge"},
+    {"id": "small-round-object-top", "lines": [503, 504, 505, 506, 507], "primitive": "arc", "label": "small round object top", "uncertain": true},
+    {"id": "small-round-object-base", "lines": [755, 756, 757], "primitive": "spline", "label": "small round object base", "uncertain": true},
+    {"id": "trunk-lid-curve", "lines": [581, 582, 583], "primitive": "arc", "label": "trunk lid curve", "uncertain": true},
+    {"id": "trunk-lid-curve-2", "lines": [636, 637, 638, 639], "primitive": "spline", "label": "trunk lid curve", "uncertain": true},
+    {"id": "draped-cloth-edge", "lines": [610, 611, 612, 613, 614], "primitive": "spline", "label": "draped cloth edge", "uncertain": true},
+    {"id": "hanging-cloth-edge", "lines": [670, 671, 672], "primitive": "spline", "label": "hanging cloth edge", "uncertain": true}
+  ]
+}

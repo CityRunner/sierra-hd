@@ -1,0 +1,11 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 88,
+  "pic_sha256": "f9f50dec43ad93b3d892caa49f42f890e5130fb44d1a7f97cd551bb2fa02cfe6",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "blank-panel", "at": [160, 90], "label": "blank panel"},
+    {"id": "dark-border", "at": [20, 20], "label": "dark border"}
+  ]
+}

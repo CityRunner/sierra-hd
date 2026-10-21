@@ -1,0 +1,30 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 56,
+  "pic_sha256": "93a6dfda0f0bd7324b429094001594e11cf39dc998999cb858740019afdf6886",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "stone-staircase", "at": [200, 140], "label": "stone staircase"},
+    {"id": "rocky-wall", "at": [290, 160], "label": "rocky wall"},
+    {"id": "stone-landing-wall", "at": [185, 90], "label": "stone landing wall", "uncertain": true},
+    {"id": "water-below", "at": [260, 185], "label": "water below", "uncertain": true},
+    {"id": "darkness", "at": [80, 60], "label": "darkness"}
+  ],
+  "chains": [
+    {"id": "rock-wall-contour", "lines": [109, 110, 111, 112, 113, 114, 115], "primitive": "spline", "label": "rock wall contour"},
+    {"id": "rock-wall-contour-2", "lines": [125, 126, 127, 128, 129], "primitive": "spline", "label": "rock wall contour"},
+    {"id": "rock-wall-contour-3", "lines": [134, 135, 136, 137, 138, 139], "primitive": "spline", "label": "rock wall contour"},
+    {"id": "rock-wall-contour-4", "lines": [158, 159, 160, 161, 162], "primitive": "spline", "label": "rock wall contour"},
+    {"id": "rock-wall-contour-5", "lines": [191, 192, 193, 194, 195, 196], "primitive": "spline", "label": "rock wall contour"},
+    {"id": "rock-wall-contour-6", "lines": [200, 201, 202, 203, 204, 205], "primitive": "spline", "label": "rock wall contour"},
+    {"id": "rock-wall-contour-7", "lines": [360, 361, 362, 363, 364, 365, 366, 367, 368, 369, 370, 371], "primitive": "spline", "label": "rock wall contour"},
+    {"id": "rock-wall-contour-8", "lines": [220, 221, 222, 223], "primitive": "spline", "label": "rock wall contour"},
+    {"id": "rock-wall-contour-9", "lines": [163, 164, 165, 166, 167], "primitive": "arc", "label": "rock wall contour", "uncertain": true},
+    {"id": "rock-outline-small", "lines": [82, 83, 84], "primitive": "spline", "label": "rock outline, small", "uncertain": true},
+    {"id": "rock-outline-small-2", "lines": [206, 207, 208], "primitive": "spline", "label": "rock outline, small", "uncertain": true},
+    {"id": "rock-outline-small-3", "lines": [382, 383, 384], "primitive": "spline", "label": "rock outline, small", "uncertain": true},
+    {"id": "rock-outline-small-4", "lines": [393, 394, 395], "primitive": "spline", "label": "rock outline, small", "uncertain": true},
+    {"id": "stone-wall-bulge", "lines": [411, 412, 413, 414, 415], "primitive": "spline", "label": "stone wall bulge", "uncertain": true}
+  ]
+}

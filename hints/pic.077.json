@@ -1,0 +1,29 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 77,
+  "pic_sha256": "b9b8e7660bc4b87bb484383ae72ea2c7d8766476cd853a7a88acb26cd367793c",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "document", "at": [120, 80], "label": "document"},
+    {"id": "wooden-table", "at": [30, 160], "label": "wooden table"},
+    {"id": "wooden-table-right", "at": [290, 140], "label": "wooden table, right"},
+    {"id": "dark-background", "at": [250, 10], "label": "dark background"}
+  ],
+  "chains": [
+    {"id": "curled-paper-edge-left", "lines": [47, 48, 49, 50, 51, 52, 53], "primitive": "spline", "label": "curled paper edge, left"},
+    {"id": "wood-grain-line", "lines": [473, 474, 475, 476, 477, 478, 479], "primitive": "spline", "label": "wood grain line"},
+    {"id": "wood-grain-line-2", "lines": [487, 488, 489, 490, 491, 492], "primitive": "spline", "label": "wood grain line"},
+    {"id": "wood-grain-line-3", "lines": [493, 494, 495, 496, 497, 498], "primitive": "spline", "label": "wood grain line"},
+    {"id": "wood-grain-line-4", "lines": [504, 505, 506, 507, 508], "primitive": "spline", "label": "wood grain line"},
+    {"id": "wood-grain-line-5", "lines": [509, 510, 511, 512, 513, 514], "primitive": "spline", "label": "wood grain line"},
+    {"id": "wood-grain-line-6", "lines": [515, 516, 517, 518, 519, 520], "primitive": "spline", "label": "wood grain line"},
+    {"id": "wood-grain-line-7", "lines": [521, 522, 523, 524, 525], "primitive": "spline", "label": "wood grain line"},
+    {"id": "wood-grain-line-8", "lines": [537, 538, 539], "primitive": "spline", "label": "wood grain line"},
+    {"id": "wood-grain-line-9", "lines": [542, 543, 544], "primitive": "spline", "label": "wood grain line"},
+    {"id": "wood-grain-line-10", "lines": [545, 546, 547, 548], "primitive": "spline", "label": "wood grain line"},
+    {"id": "wood-grain-line-11", "lines": [549, 550, 551, 552], "primitive": "spline", "label": "wood grain line"},
+    {"id": "wood-grain-line-12", "lines": [563, 564, 565, 566], "primitive": "spline", "label": "wood grain line"},
+    {"id": "wood-grain-line-13", "lines": [574, 575, 576], "primitive": "spline", "label": "wood grain line"}
+  ]
+}

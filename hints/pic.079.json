@@ -1,0 +1,33 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 79,
+  "pic_sha256": "51512587e484432a67fd8600e92cbcdaebb694cc9d10c91e9465d04561de8e47",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "night-sky", "at": [140, 40], "label": "night sky"},
+    {"id": "swamp-water", "at": [140, 125], "label": "swamp water"},
+    {"id": "tree-left", "at": [80, 80], "label": "tree, left"},
+    {"id": "tree-right", "at": [230, 90], "label": "tree, right"},
+    {"id": "moon", "at": [142, 57], "label": "moon"},
+    {"id": "picture-frame", "at": [20, 100], "label": "picture frame"}
+  ],
+  "chains": [
+    {"id": "left-shore", "lines": [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45], "primitive": "spline", "label": "left shore"},
+    {"id": "far-shore", "lines": [587, 588, 589], "primitive": "spline", "label": "far shore"},
+    {"id": "tree-branch-left", "lines": [599, 600, 601, 602], "primitive": "spline", "label": "tree branch, left"},
+    {"id": "tree-trunk-right", "lines": [183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193], "primitive": "spline", "label": "tree trunk, right"},
+    {"id": "tree-branch-centre", "lines": [867, 868, 869, 870, 871, 872], "primitive": "spline", "label": "tree branch, centre"},
+    {"id": "tree-branch-centre-2", "lines": [859, 860, 861, 862, 863, 864], "primitive": "spline", "label": "tree branch, centre"},
+    {"id": "tree-branch-right", "lines": [523, 524, 525, 526, 527], "primitive": "spline", "label": "tree branch, right"},
+    {"id": "tree-branch-right-2", "lines": [243, 244, 245, 246], "primitive": "spline", "label": "tree branch, right"},
+    {"id": "tree-branch-right-3", "lines": [836, 837, 838], "primitive": "spline", "label": "tree branch, right"},
+    {"id": "tree-branch-right-4", "lines": [839, 840, 841], "primitive": "spline", "label": "tree branch, right"},
+    {"id": "tree-branch-left-2", "lines": [111, 112, 113, 114], "primitive": "spline", "label": "tree branch, left"},
+    {"id": "tree-branch-left-3", "lines": [653, 654, 655, 656], "primitive": "spline", "label": "tree branch, left"},
+    {"id": "tree-branch-left-4", "lines": [657, 658, 659, 660], "primitive": "spline", "label": "tree branch, left"},
+    {"id": "tree-branch-upper-left", "lines": [130, 131, 132], "primitive": "spline", "label": "tree branch, upper left"},
+    {"id": "tree-branch-upper-left-2", "lines": [614, 615, 616], "primitive": "spline", "label": "tree branch, upper left"},
+    {"id": "tree-branch-upper-left-3", "lines": [617, 618, 619, 620, 621], "primitive": "spline", "label": "tree branch, upper left"}
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 162,
+  "pic_sha256": "36384c4b595746fd7bdddba8312b56dd149b765ad0a300bab874aefc1f8d2890",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "blank-background", "at": [160, 60], "label": "blank background"}
+  ]
+}

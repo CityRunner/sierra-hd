@@ -1,0 +1,17 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 174,
+  "pic_sha256": "b223437e3ee0817e04f51229a9ec59b115f3d1310be99b2f2b6cee5d7ab65b1a",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "rug", "at": [150, 120], "label": "rug"},
+    {"id": "panelled-wall", "at": [120, 40], "label": "panelled wall"},
+    {"id": "roof", "at": [250, 20], "label": "roof"},
+    {"id": "wooden-floor", "at": [100, 150], "label": "wooden floor"},
+    {"id": "night-sky", "at": [315, 10], "label": "night sky"}
+  ],
+  "chains": [
+    {"id": "foliage-outside-window", "lines": [481, 482, 483, 484], "primitive": "spline", "label": "foliage outside window", "uncertain": true}
+  ]
+}

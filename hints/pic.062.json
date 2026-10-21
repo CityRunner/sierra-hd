@@ -1,0 +1,17 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 62,
+  "pic_sha256": "bc0daa96ad6137b4a7fd9631336d258a28899738bd21c732b212812531b897d9",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "dark-lobed-opening", "at": [160, 75], "label": "dark lobed opening", "uncertain": true},
+    {"id": "upper-mist", "at": [160, 20], "label": "upper mist", "uncertain": true},
+    {"id": "lower-mist", "at": [160, 160], "label": "lower mist", "uncertain": true}
+  ],
+  "chains": [
+    {"id": "left-lobe-outline", "lines": [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18], "primitive": "spline", "label": "left lobe outline"},
+    {"id": "lobe-neck-lower", "lines": [20, 21, 22, 23], "primitive": "spline", "label": "lobe neck, lower"},
+    {"id": "mist-band-edge", "lines": [100, 101, 102], "primitive": "spline", "label": "mist band edge", "uncertain": true}
+  ]
+}

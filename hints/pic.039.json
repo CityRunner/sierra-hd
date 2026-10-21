@@ -1,0 +1,29 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 39,
+  "pic_sha256": "fa65b908129387a4e5d648a92713ba6f4360c640a4b8802704d9f482913fb1d2",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "wooden-floorboards", "at": [60, 107], "label": "wooden floorboards"},
+    {"id": "back-wall-panels", "at": [200, 50], "label": "back wall panels"},
+    {"id": "dark-area", "at": [100, 60], "label": "dark area", "uncertain": true},
+    {"id": "ceiling-beam", "at": [100, 15], "label": "ceiling beam"},
+    {"id": "doorway", "at": [193, 80], "label": "doorway", "uncertain": true},
+    {"id": "dark-foreground", "at": [150, 150], "label": "dark foreground", "uncertain": true}
+  ],
+  "chains": [
+    {"id": "dark-shape-lower-bulge", "lines": [11, 12, 13, 14, 15], "primitive": "spline", "label": "dark shape, lower bulge", "uncertain": true},
+    {"id": "dark-shape-outline", "lines": [17, 18, 19], "primitive": "spline", "label": "dark shape outline", "uncertain": true},
+    {"id": "dark-shape-outline-2", "lines": [104, 105, 106, 107, 108, 109], "primitive": "spline", "label": "dark shape outline", "uncertain": true},
+    {"id": "dark-shape-inner-outline", "lines": [389, 390, 391, 392, 393, 394, 395, 396], "primitive": "spline", "label": "dark shape inner outline", "uncertain": true},
+    {"id": "dark-shape-left-edge", "lines": [80, 81, 82, 83, 84, 85], "primitive": "spline", "label": "dark shape, left edge", "uncertain": true},
+    {"id": "dark-shape-left-edge-2", "lines": [401, 402, 403, 404, 405, 406], "primitive": "spline", "label": "dark shape, left edge", "uncertain": true},
+    {"id": "small-dark-shape", "lines": [431, 432, 433], "primitive": "spline", "label": "small dark shape", "uncertain": true},
+    {"id": "dark-shape-by-steps", "lines": [436, 437, 438], "primitive": "spline", "label": "dark shape by steps", "uncertain": true},
+    {"id": "dark-shape-by-steps-2", "lines": [439, 440, 441, 442], "primitive": "spline", "label": "dark shape by steps", "uncertain": true}
+  ],
+  "symmetry": [
+    {"kind": "repeat", "chains": ["dark-shape-outline-2", "dark-shape-inner-outline"], "note": "two parallel outlines of the same edge"}
+  ]
+}

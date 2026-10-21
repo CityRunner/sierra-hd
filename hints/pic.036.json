@@ -1,0 +1,22 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 36,
+  "pic_sha256": "748a584ad7f0567151b7f9e8e744cfb385828538ada6b812c5144a17ba6c42df",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "rug", "at": [150, 120], "label": "rug"},
+    {"id": "piano", "at": [180, 70], "label": "piano"},
+    {"id": "back-wall", "at": [200, 40], "label": "back wall"},
+    {"id": "wooden-floor", "at": [280, 160], "label": "wooden floor"},
+    {"id": "doorway-to-stairs", "at": [140, 60], "label": "doorway to stairs", "uncertain": true},
+    {"id": "left-wall", "at": [40, 50], "label": "left wall"}
+  ],
+  "chains": [
+    {"id": "light-pool-edge-on-wall", "lines": [134, 135, 136, 137, 138, 139], "primitive": "spline", "label": "light pool edge on wall", "uncertain": true},
+    {"id": "light-pool-edge-right", "lines": [110, 111, 112, 113], "primitive": "spline", "label": "light pool edge, right", "uncertain": true},
+    {"id": "curved-stair-rail", "lines": [1123, 1124, 1125, 1126, 1127, 1128, 1129, 1130, 1131, 1132], "primitive": "spline", "label": "curved stair rail", "uncertain": true},
+    {"id": "curtain-edge-left-wall", "lines": [143, 144, 145, 146], "primitive": "spline", "label": "curtain edge, left wall"},
+    {"id": "curtain-edge-far-left", "lines": [1060, 1061, 1062], "primitive": "spline", "label": "curtain edge, far left", "uncertain": true}
+  ]
+}

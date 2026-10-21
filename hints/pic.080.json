@@ -1,0 +1,29 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 80,
+  "pic_sha256": "a424764d88cafe9591327dfdd59b2c95de512ff7a1a3d591432e2606a1520497",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "open-door", "at": [200, 100], "label": "open door"},
+    {"id": "dark-doorway", "at": [130, 100], "label": "dark doorway"},
+    {"id": "inner-door-leaf", "at": [90, 100], "label": "inner door leaf"},
+    {"id": "wall", "at": [250, 60], "label": "wall"},
+    {"id": "picture-frame", "at": [20, 10], "label": "picture frame"}
+  ],
+  "chains": [
+    {"id": "door-panel-wood-grain", "lines": [170, 171, 172, 173, 174], "primitive": "spline", "label": "door panel wood grain"},
+    {"id": "door-panel-wood-grain-2", "lines": [175, 176, 177, 178], "primitive": "spline", "label": "door panel wood grain"},
+    {"id": "door-panel-wood-grain-3", "lines": [182, 183, 184], "primitive": "spline", "label": "door panel wood grain"},
+    {"id": "door-panel-wood-grain-4", "lines": [214, 215, 216, 217], "primitive": "spline", "label": "door panel wood grain"},
+    {"id": "door-panel-wood-grain-5", "lines": [224, 225, 226, 227, 228, 229], "primitive": "spline", "label": "door panel wood grain"},
+    {"id": "door-panel-wood-grain-6", "lines": [230, 231, 232], "primitive": "spline", "label": "door panel wood grain"},
+    {"id": "door-panel-wood-grain-7", "lines": [237, 238, 239], "primitive": "spline", "label": "door panel wood grain"},
+    {"id": "door-panel-wood-grain-8", "lines": [247, 248, 249], "primitive": "spline", "label": "door panel wood grain"},
+    {"id": "door-panel-wood-grain-9", "lines": [256, 257, 258], "primitive": "spline", "label": "door panel wood grain"},
+    {"id": "door-panel-wood-grain-10", "lines": [282, 283, 284], "primitive": "spline", "label": "door panel wood grain"},
+    {"id": "door-panel-wood-grain-11", "lines": [285, 286, 287], "primitive": "spline", "label": "door panel wood grain"},
+    {"id": "door-stile-wood-grain", "lines": [186, 187, 188], "primitive": "spline", "label": "door stile wood grain", "uncertain": true},
+    {"id": "door-stile-wood-grain-2", "lines": [189, 190, 191], "primitive": "spline", "label": "door stile wood grain", "uncertain": true}
+  ]
+}

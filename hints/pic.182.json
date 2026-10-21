@@ -1,0 +1,35 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 182,
+  "pic_sha256": "010aafe9162aac699df90c96588ba5d138e6039cb19b834bc3af6115120901a9",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "blank-background", "at": [160, 60], "label": "blank background"},
+    {"id": "coat-front", "at": [150, 170], "label": "coat front"},
+    {"id": "right-shoulder", "at": [240, 160], "label": "right shoulder"}
+  ],
+  "chains": [
+    {"id": "left-shoulder-outline", "lines": [7, 8, 9, 10, 11, 12], "primitive": "spline", "label": "left shoulder outline"},
+    {"id": "left-sleeve-fold", "lines": [189, 190, 191, 192, 193], "primitive": "spline", "label": "left sleeve fold"},
+    {"id": "coat-fold-left", "lines": [202, 203, 204, 205], "primitive": "spline", "label": "coat fold, left"},
+    {"id": "coat-fold-left-2", "lines": [210, 211, 212], "primitive": "spline", "label": "coat fold, left"},
+    {"id": "coat-fold-left-3", "lines": [214, 215, 216, 217], "primitive": "spline", "label": "coat fold, left"},
+    {"id": "lapel-edge-left", "lines": [218, 219, 220], "primitive": "spline", "label": "lapel edge, left"},
+    {"id": "lapel-edge-left-2", "lines": [223, 224, 225, 226], "primitive": "spline", "label": "lapel edge, left"},
+    {"id": "shirt-front-edge", "lines": [119, 120, 121, 122], "primitive": "spline", "label": "shirt front edge"},
+    {"id": "shirt-front-edge-2", "lines": [131, 132, 133, 134, 135], "primitive": "spline", "label": "shirt front edge"},
+    {"id": "collar-band-edge", "lines": [124, 125, 126, 127, 128, 129, 130], "primitive": "spline", "label": "collar band edge"},
+    {"id": "collar-band-edge-2", "lines": [136, 137, 138, 139, 140], "primitive": "spline", "label": "collar band edge"},
+    {"id": "collar-top-edge", "lines": [111, 113, 114, 115, 116], "primitive": "spline", "label": "collar top edge"},
+    {"id": "lapel-edge-right", "lines": [146, 147, 148, 149], "primitive": "spline", "label": "lapel edge, right"},
+    {"id": "coat-fold-right", "lines": [89, 90, 91], "primitive": "spline", "label": "coat fold, right"},
+    {"id": "right-collar-edge", "lines": [17, 18, 19, 20], "primitive": "spline", "label": "right collar edge"},
+    {"id": "right-collar-edge-2", "lines": [72, 73, 74, 75, 76, 77], "primitive": "spline", "label": "right collar edge"},
+    {"id": "coat-fold-right-2", "lines": [84, 85, 86], "primitive": "spline", "label": "coat fold, right"},
+    {"id": "right-shoulder-outline", "lines": [151, 152, 153, 154, 155, 156], "primitive": "spline", "label": "right shoulder outline"},
+    {"id": "armpit-fold-right", "lines": [27, 28, 29], "primitive": "spline", "label": "armpit fold, right"},
+    {"id": "coat-fold-right-3", "lines": [92, 93, 94], "primitive": "arc", "label": "coat fold, right", "uncertain": true},
+    {"id": "coat-fold-right-4", "lines": [96, 97, 98], "primitive": "arc", "label": "coat fold, right", "uncertain": true}
+  ]
+}

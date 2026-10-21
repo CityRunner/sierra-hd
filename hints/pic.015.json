@@ -1,0 +1,51 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 15,
+  "pic_sha256": "1f300c80159cbf4ebcb387aa7711fb1c75a0dd7b3c371c16c8f3ab5ac61bcbc3",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "house-front-wall", "at": [120, 20], "label": "house front wall"},
+    {"id": "open-doorway", "at": [135, 70], "label": "open doorway"},
+    {"id": "column", "at": [290, 80], "label": "column"},
+    {"id": "lawn", "at": [40, 140], "label": "lawn"},
+    {"id": "stone-patio", "at": [120, 135], "label": "stone patio"},
+    {"id": "potted-topiary", "at": [90, 90], "label": "potted topiary"},
+    {"id": "pond", "at": [10, 178], "label": "pond"}
+  ],
+  "chains": [
+    {"id": "far-left-window-arch", "lines": [237, 238, 239, 240, 241, 242, 243], "primitive": "arc", "label": "far left window arch"},
+    {"id": "far-left-window-arch-2", "lines": [1418, 1419, 1420, 1421, 1422, 1423, 1424], "primitive": "arc", "label": "far left window arch"},
+    {"id": "left-window-arch", "lines": [1412, 1413, 1414, 1415, 1416, 1417], "primitive": "arc", "label": "left window arch"},
+    {"id": "doorway-arch", "lines": [1406, 1407, 1408, 1409, 1410, 1411], "primitive": "arc", "label": "doorway arch"},
+    {"id": "doorway-arch-end", "lines": [430, 431, 432], "primitive": "arc", "label": "doorway arch end", "uncertain": true},
+    {"id": "middle-window-arch", "lines": [1399, 1400, 1401, 1402, 1403, 1404, 1405], "primitive": "arc", "label": "middle window arch"},
+    {"id": "middle-window-arch-end", "lines": [441, 442, 443], "primitive": "arc", "label": "middle window arch end", "uncertain": true},
+    {"id": "right-window-arch", "lines": [822, 823, 824], "primitive": "arc", "label": "right window arch"},
+    {"id": "right-window-arch-2", "lines": [725, 726, 727], "primitive": "arc", "label": "right window arch"},
+    {"id": "curtain-behind-glass", "lines": [1671, 1672, 1673, 1674], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-2", "lines": [1667, 1668, 1669, 1670], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-3", "lines": [1652, 1653, 1654, 1655], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-4", "lines": [1659, 1660, 1661, 1662], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-5", "lines": [1638, 1639, 1640, 1641], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-6", "lines": [1635, 1636, 1637], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-7", "lines": [1597, 1598, 1599, 1600], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-8", "lines": [1593, 1594, 1595, 1596], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-9", "lines": [1620, 1621, 1622, 1623], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-10", "lines": [1605, 1606, 1607, 1608], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-11", "lines": [1609, 1610, 1611, 1612], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-12", "lines": [1568, 1569, 1570, 1571], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-13", "lines": [1572, 1573, 1574, 1575], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-14", "lines": [1563, 1564, 1565], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-15", "lines": [1554, 1555, 1556, 1557, 1558], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-16", "lines": [1550, 1551, 1552, 1553], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-17", "lines": [1541, 1542, 1543, 1544, 1545], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-18", "lines": [1546, 1547, 1548, 1549], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-19", "lines": [1576, 1577, 1578], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "shrub-outline", "lines": [924, 925, 926, 927, 928], "primitive": "spline", "label": "shrub outline", "uncertain": true},
+    {"id": "pond-edge", "lines": [1146, 1147, 1148], "primitive": "spline", "label": "pond edge", "uncertain": true}
+  ],
+  "symmetry": [
+    {"kind": "repeat", "chains": ["left-window-arch", "middle-window-arch"], "note": "arched window tops"}
+  ]
+}

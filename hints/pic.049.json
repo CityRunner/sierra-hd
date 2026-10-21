@@ -1,0 +1,31 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 49,
+  "pic_sha256": "a5399348fcbf059db4d19fbf6a64888f8395141dab2b5c895eba2dc03805e02e",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "suit-of-armour", "at": [140, 110], "label": "suit of armour"},
+    {"id": "wooden-floor", "at": [260, 170], "label": "wooden floor"},
+    {"id": "stair-railing", "at": [60, 150], "label": "stair railing"},
+    {"id": "upper-staircase", "at": [60, 30], "label": "upper staircase"},
+    {"id": "gallery-railing", "at": [260, 80], "label": "gallery railing"},
+    {"id": "back-wall", "at": [80, 80], "label": "back wall"},
+    {"id": "lit-archway", "at": [312, 20], "label": "lit archway", "uncertain": true}
+  ],
+  "chains": [
+    {"id": "helmet-crest-top", "lines": [261, 262, 263], "primitive": "arc", "label": "helmet crest top"},
+    {"id": "helmet-back-edge", "lines": [265, 266, 267], "primitive": "spline", "label": "helmet back edge"},
+    {"id": "helmet-inner-edge", "lines": [1053, 1054, 1055], "primitive": "spline", "label": "helmet inner edge", "uncertain": true},
+    {"id": "helmet-front-edge", "lines": [7, 8, 9], "primitive": "spline", "label": "helmet front edge"},
+    {"id": "helmet-visor-opening", "lines": [13, 14, 15, 16, 17, 18], "primitive": "spline", "label": "helmet visor opening"},
+    {"id": "knee-guard-edge", "lines": [1000, 1001, 1002], "primitive": "spline", "label": "knee guard edge", "uncertain": true},
+    {"id": "knee-guard-edge-2", "lines": [234, 235, 237], "primitive": "spline", "label": "knee guard edge", "uncertain": true},
+    {"id": "axe-blade-edge-upper", "lines": [1450, 1451, 1452], "primitive": "spline", "label": "axe blade edge, upper"},
+    {"id": "axe-blade-edge-lower", "lines": [1454, 1455, 1456], "primitive": "spline", "label": "axe blade edge, lower"},
+    {"id": "axe-blade-top-curve", "lines": [1457, 1458, 1459], "primitive": "spline", "label": "axe blade top curve", "uncertain": true},
+    {"id": "arched-opening-edge", "lines": [454, 455, 456], "primitive": "spline", "label": "arched opening edge", "uncertain": true},
+    {"id": "newel-post-knob", "lines": [42, 43, 44, 45, 47, 48], "primitive": "arc", "label": "newel post knob"},
+    {"id": "newel-post-knob-inner", "lines": [527, 528, 529], "primitive": "spline", "label": "newel post knob, inner", "uncertain": true}
+  ]
+}

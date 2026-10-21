@@ -1,0 +1,27 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 41,
+  "pic_sha256": "a4f276850772cc6c714798db3e5e781afebf7cb5aba0b8668daab7e2cb6bfe12",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "wooden-floor", "at": [200, 100], "label": "wooden floor"},
+    {"id": "back-wall", "at": [160, 30], "label": "back wall"},
+    {"id": "side-wall", "at": [30, 60], "label": "side wall"},
+    {"id": "stacked-crates", "at": [60, 145], "label": "stacked crates"},
+    {"id": "sheet-covered-furniture", "at": [160, 145], "label": "sheet-covered furniture", "uncertain": true},
+    {"id": "back-window", "at": [160, 50], "label": "back window"}
+  ],
+  "chains": [
+    {"id": "left-back-window-arch", "lines": [240, 241, 242, 243, 244, 245, 246], "primitive": "arc", "label": "left back window arch"},
+    {"id": "right-back-window-arch", "lines": [250, 251, 252, 253, 254, 255, 256, 257], "primitive": "arc", "label": "right back window arch"},
+    {"id": "right-window-outer-frame", "lines": [297, 298, 299, 300, 301, 302, 303, 304, 305, 306], "primitive": "spline", "label": "right window outer frame"},
+    {"id": "light-glow-lower-end", "lines": [20, 21, 22, 23], "primitive": "spline", "label": "light glow, lower end", "uncertain": true},
+    {"id": "dust-sheet-hem", "lines": [1048, 1049, 1050, 1051, 1052, 1053], "primitive": "spline", "label": "dust sheet hem"},
+    {"id": "dust-sheet-edge", "lines": [897, 898, 899], "primitive": "spline", "label": "dust sheet edge"},
+    {"id": "dust-sheet-corner", "lines": [40, 41, 42], "primitive": "spline", "label": "dust sheet corner", "uncertain": true}
+  ],
+  "symmetry": [
+    {"kind": "repeat", "chains": ["left-back-window-arch", "right-back-window-arch"], "note": "the two back window arches"}
+  ]
+}

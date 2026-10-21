@@ -1,0 +1,21 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 48,
+  "pic_sha256": "0b3d4b7a796038c0e75def2fc2a05475ee5a163759ad893853e2dcd75f031e7c",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "red-rug", "at": [160, 115], "label": "red rug"},
+    {"id": "tiled-floor", "at": [40, 110], "label": "tiled floor"},
+    {"id": "draped-back-wall", "at": [110, 30], "label": "draped back wall"},
+    {"id": "balustrade", "at": [60, 70], "label": "balustrade"},
+    {"id": "curtained-windows", "at": [290, 90], "label": "curtained windows"},
+    {"id": "dark-doorway", "at": [170, 50], "label": "dark doorway", "uncertain": true}
+  ],
+  "chains": [
+    {"id": "curtain-edge-front-window", "lines": [227, 228, 229, 230], "primitive": "spline", "label": "curtain edge, front window"},
+    {"id": "curtain-edge-rear-window", "lines": [255, 256, 257], "primitive": "spline", "label": "curtain edge, rear window"},
+    {"id": "rounded-shape-outline", "lines": [1038, 1039, 1040, 1041, 1042, 1043, 1044, 1045], "primitive": "spline", "label": "rounded shape outline", "uncertain": true},
+    {"id": "rounded-shape-lower-outline", "lines": [1034, 1035, 1036, 1037], "primitive": "spline", "label": "rounded shape, lower outline", "uncertain": true}
+  ]
+}

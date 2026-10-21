@@ -1,0 +1,19 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 69,
+  "pic_sha256": "fc7f2d0338522b9d211883fc130351da9032d266974b4843527c04ba63a869df",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "dirt-floor", "at": [160, 150], "label": "dirt floor"},
+    {"id": "wooden-stall", "at": [100, 110], "label": "wooden stall"},
+    {"id": "woodpile", "at": [210, 125], "label": "woodpile", "uncertain": true},
+    {"id": "back-wall-windows", "at": [180, 50], "label": "back wall windows"},
+    {"id": "loft-floor", "at": [150, 30], "label": "loft floor"},
+    {"id": "roof", "at": [260, 20], "label": "roof"},
+    {"id": "left-wall", "at": [50, 90], "label": "left wall"}
+  ],
+  "chains": [
+    {"id": "woodpile-outline", "lines": [224, 226, 228, 229], "primitive": "spline", "label": "woodpile outline", "uncertain": true}
+  ]
+}

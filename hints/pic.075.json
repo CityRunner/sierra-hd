@@ -1,0 +1,23 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 75,
+  "pic_sha256": "35c6fa6727c7d24f0c028dd294beb8e32e23e7606213eff39e2bfd05c9577279",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "floor", "at": [130, 135], "label": "floor"},
+    {"id": "window-wall", "at": [150, 40], "label": "window wall"},
+    {"id": "draped-figure", "at": [280, 90], "label": "draped figure"},
+    {"id": "crates", "at": [295, 140], "label": "crates"},
+    {"id": "sheet-covered-furniture", "at": [40, 80], "label": "sheet-covered furniture"}
+  ],
+  "chains": [
+    {"id": "sheet-draped-object-top", "lines": [450, 451, 452], "primitive": "spline", "label": "sheet-draped object top"},
+    {"id": "draped-sheet-edge-left", "lines": [749, 750, 751], "primitive": "spline", "label": "draped sheet edge, left"},
+    {"id": "draped-sheet-fold-left", "lines": [755, 756, 757, 758], "primitive": "spline", "label": "draped sheet fold, left"},
+    {"id": "purple-drape-top", "lines": [308, 309, 310, 311], "primitive": "spline", "label": "purple drape top"},
+    {"id": "purple-drape-fold", "lines": [668, 669, 670, 671], "primitive": "spline", "label": "purple drape fold"},
+    {"id": "covered-object-edge-lower-le", "lines": [47, 48, 49, 50], "primitive": "spline", "label": "covered object edge, lower left", "uncertain": true},
+    {"id": "covered-object-edge-lower-le-2", "lines": [51, 52, 53], "primitive": "spline", "label": "covered object edge, lower left", "uncertain": true}
+  ]
+}

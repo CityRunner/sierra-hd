@@ -1,0 +1,32 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 65,
+  "pic_sha256": "e23c111d07d89dc3508c89552e2afa5f8a2d57c3ccd1706aaf9c6f4b468fb526",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "stone-pool", "at": [160, 120], "label": "stone pool"},
+    {"id": "stone-block", "at": [238, 90], "label": "stone block"},
+    {"id": "lawn", "at": [120, 80], "label": "lawn"},
+    {"id": "back-hedge-wall", "at": [160, 30], "label": "back hedge wall"},
+    {"id": "left-hedge", "at": [30, 110], "label": "left hedge"},
+    {"id": "hedge-arch-gate", "at": [60, 165], "label": "hedge arch gate"},
+    {"id": "trees-beyond-hedge", "at": [290, 10], "label": "trees beyond hedge", "uncertain": true}
+  ],
+  "chains": [
+    {"id": "hedge-archway", "lines": [466, 467, 468, 469, 470, 471, 472, 473, 474, 475, 476], "primitive": "spline", "label": "hedge archway"},
+    {"id": "tree-foliage-upper-left", "lines": [735, 736, 737], "primitive": "spline", "label": "tree foliage, upper left", "uncertain": true},
+    {"id": "tree-foliage-upper-left-2", "lines": [1010, 1011, 1012], "primitive": "spline", "label": "tree foliage, upper left", "uncertain": true},
+    {"id": "tree-foliage-upper-left-3", "lines": [1046, 1047, 1048], "primitive": "spline", "label": "tree foliage, upper left", "uncertain": true},
+    {"id": "tree-foliage-upper-right", "lines": [1080, 1081, 1082], "primitive": "spline", "label": "tree foliage, upper right", "uncertain": true},
+    {"id": "tree-foliage-upper-right-2", "lines": [966, 967, 968], "primitive": "spline", "label": "tree foliage, upper right", "uncertain": true},
+    {"id": "hedge-foliage-edge", "lines": [906, 907, 908], "primitive": "spline", "label": "hedge foliage edge", "uncertain": true},
+    {"id": "hedge-top-bump", "lines": [823, 824, 825], "primitive": "spline", "label": "hedge top bump", "uncertain": true},
+    {"id": "hedge-top-bump-2", "lines": [849, 850, 851], "primitive": "spline", "label": "hedge top bump", "uncertain": true},
+    {"id": "hedge-top-edge-left", "lines": [556, 557, 558], "primitive": "spline", "label": "hedge top edge, left", "uncertain": true},
+    {"id": "front-hedge-mound", "lines": [408, 409, 410, 411, 412], "primitive": "spline", "label": "front hedge mound", "uncertain": true},
+    {"id": "lawn-back-edge", "lines": [1677, 1678, 1679], "primitive": "spline", "label": "lawn back edge", "uncertain": true},
+    {"id": "lawn-patch-edge", "lines": [1530, 1531, 1532], "primitive": "spline", "label": "lawn patch edge", "uncertain": true},
+    {"id": "lawn-patch-edge-2", "lines": [1533, 1534, 1535], "primitive": "spline", "label": "lawn patch edge", "uncertain": true}
+  ]
+}

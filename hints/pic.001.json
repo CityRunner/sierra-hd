@@ -1,0 +1,29 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 1,
+  "pic_sha256": "305b317c6d4ff575b9b3bdebb8c2be73142b8445e83f172ab4f6951a1b34a30e",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "water", "at": [100, 140], "label": "water"},
+    {"id": "tree-canopy", "at": [160, 10], "label": "tree canopy"},
+    {"id": "iron-fence", "at": [140, 40], "label": "iron fence"},
+    {"id": "wooden-dock", "at": [120, 95], "label": "wooden dock"},
+    {"id": "crates-on-dock", "at": [250, 140], "label": "crates on dock"},
+    {"id": "marsh-bank", "at": [40, 170], "label": "marsh bank"}
+  ],
+  "chains": [
+    {"id": "shoreline-below-dock", "lines": [100, 101, 102], "primitive": "spline", "label": "shoreline below dock", "uncertain": true},
+    {"id": "tree-canopy-edge", "lines": [127, 128, 129, 130, 131, 132, 133, 134, 135], "primitive": "spline", "label": "tree canopy edge"},
+    {"id": "foliage-underside", "lines": [212, 213, 214, 215], "primitive": "spline", "label": "foliage underside"},
+    {"id": "foliage-underside-2", "lines": [230, 231, 232], "primitive": "spline", "label": "foliage underside", "uncertain": true},
+    {"id": "tree-trunk-upper-left", "lines": [369, 370, 371], "primitive": "spline", "label": "tree trunk, upper left"},
+    {"id": "foliage-edge", "lines": [379, 380, 381], "primitive": "spline", "label": "foliage edge"},
+    {"id": "small-foliage-tuft", "lines": [394, 395, 396], "primitive": "spline", "label": "small foliage tuft", "uncertain": true},
+    {"id": "foliage-edge-2", "lines": [2268, 2269, 2270, 2271], "primitive": "spline", "label": "foliage edge", "uncertain": true},
+    {"id": "tree-trunk-right-side", "lines": [2257, 2258, 2259, 2260], "primitive": "spline", "label": "tree trunk, right side"},
+    {"id": "far-shore-edge", "lines": [783, 784, 785, 786, 787], "primitive": "spline", "label": "far shore edge", "uncertain": true},
+    {"id": "far-shore-bank", "lines": [788, 789, 790], "primitive": "spline", "label": "far shore bank", "uncertain": true},
+    {"id": "tree-trunk-left-side", "lines": [2272, 2273, 2274, 2275, 2276, 2277], "primitive": "spline", "label": "tree trunk, left side"}
+  ]
+}
