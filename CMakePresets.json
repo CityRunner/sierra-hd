@@ -9,6 +9,7 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++"
       }
     },
@@ -30,6 +31,7 @@
     {
       "name": "windows-base", "hidden": true, "inherits": "base",
       "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang-cl",
         "CMAKE_CXX_COMPILER": "clang-cl",
         "CMAKE_LINKER": "lld-link"
       },
