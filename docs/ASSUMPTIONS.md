@@ -9,7 +9,10 @@ Changes the customer made to the spec itself are recorded in
 `docs/SPEC_ADDENDA.md`. **A1** (2026-10-21) adds milestone 3b and section
 6.10 (drawing order, occlusion and stroke integrity), amends sections 6.4,
 6.7 and 12, and moves release v0.1 to after milestone 3b; see "Addendum A1"
-below.
+below. **A2** (2026-10-21) adds section 6.11 (sprite undithering) and
+milestone SU, a separate gate between milestones 6 and 7, and amends
+sections 1.1, 2 (the output decision, approved by the customer), 6.5 and
+12; it is implemented at milestone SU, not before.
 
 Status markers: **decided** (final unless the customer objects),
 **assumed** (to be confirmed), **pending** (waiting for input).
@@ -472,11 +475,19 @@ Estimated from the measured job durations, before ccache's savings:
     included minutes run out within days.
   - At list prices, the overage is small: about $1.40 a gate run.
   - So a spending limit is the deciding control, not the included minutes.
-    **Open:** the customer sets the amount (Settings, Billing and
+    **Pending:** the amount of the spending limit (the customer accepted
+    the estimates at the 4b gate). Once the repository is public, its
+    standard GitHub-hosted runners cost nothing, so the limit then only
+    guards the private-repository case. The customer sets it (Settings, Billing and
     licensing, Budgets and alerts: an Actions budget that stops usage at
     the limit). The session cannot reach the billing settings.
 
-### Proposals (not set up; for the customer's approval)
+### Proposals (accepted by the customer at the 4b gate; not set up)
+
+macOS stays in every gate (confirmed). The self-hosted runners below need
+a machine of the customer's and are set up only when the customer provides
+one; for a public repository they are not recommended (anyone can open a
+pull request whose code would run on them).
 
 - **A self-hosted Linux runner** would make the Linux jobs free (no
   platform fee as of October 2026).
@@ -1145,18 +1156,18 @@ Scope:
   transitions), not the visual map drawing goes to. sci-vm keeps that
   shown screen, and with it the picture it shows. **Decided.**
 - **HD mode while the game runs (milestone 4b approximation).** A pixel of
-  the shown screen that still equals the picture as drawn comes from the HD
-  background; any other pixel (sprites, text, windows, the menu bar)
-  is drawn as an N x N block of its EGA colour. Sprites are occluded
-  correctly because the interpreter only draws their visible pixels; a
-  sprite pixel that happens to have the background's colour at that spot
-  shows the HD background instead, which is invisible in practice. F12
-  switches between HD and original mode at any time (spec section 1);
-  F11 or Alt+Enter toggles fullscreen. **Proposed** (the HD sprite pipeline
-  belongs to milestone 5).
+  the shown screen that nothing but the picture drew (the cover map, kept
+  by sci-vm and saved and restored with the screen bits) comes from the HD
+  background; any other pixel (sprites, text, windows, the menu bar) is
+  drawn as an N x N block of its EGA colour. Sprites are occluded correctly
+  because the interpreter only draws their visible pixels. F12 switches
+  between HD and original mode at any time (spec section 1); F11 or
+  Alt+Enter toggles fullscreen. **Decided** (approved at the 4b gate; the
+  HD sprite pipeline belongs to milestone 5).
 - **The game's own files** (and later the saves) are kept in a `files`
   folder next to the configuration; a file the game opens is looked for
-  there first, then in the game folder. **Proposed.**
+  there first, then in the game folder. **Decided** (approved at the 4b
+  gate).
 - **SDL's single-precision window coordinates.** SDL3 reports and takes
   mouse and window positions as `float`; the program names that type
   `SdlCoordinate` (via `decltype`) and does all arithmetic on it in double.
@@ -1169,7 +1180,8 @@ Scope:
   (`docs/formats/replay-and-trace.md`). Interactive runs need the same
   rule, since they also run on virtual time paced by the host. The earlier
   reference traces are unchanged by it. **Decided.**
-- **Time of day in the deterministic mode.** The game times its scenes
+- **Time of day in the deterministic mode** (start date and time approved
+  at the 4b gate). The game times its scenes
   (the opening, conversations) by the time of day from kGetTime, so a
   fixed time froze them. The day now starts at Monday 1990-01-01, 12:00:00
   and runs with the virtual clock, in both engines; the interactive program
@@ -1226,7 +1238,8 @@ Scope:
     time they are needed.
   - Overlays (`kDrawPic` with add-to) are not cached, because their scene
     depends on the picture below.
-  - **Proposal**, to be confirmed.
+  - **Decided** (approved at the 4b gate), as is the cache's size (83 MB,
+    uncompressed).
 - **Batches of 16 on the executor.** The executor's `run` blocks until it
   is done. So the progress bar and the window events are handled between
   batches, on the main thread, and only the main thread writes files.

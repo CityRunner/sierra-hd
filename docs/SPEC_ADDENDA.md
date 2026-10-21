@@ -2,7 +2,7 @@
 
 Changes to the task spec that the customer made after its version 15. Each
 addendum is recorded as given, with its date. None changes a fixed decision
-in spec section 2 unless it says so.
+in spec section 2 unless it says so (A2 does, with the customer's approval).
 
 ## A1: Drawing order, occlusion and stroke integrity, content-aware (2026-10-21)
 
@@ -121,3 +121,91 @@ none of the following, except the cases listed in the report:
 The customer's side-by-side review includes rooms with dense overlapping
 detail and many curves, such as walls with windows, furniture in front of
 patterned walls, roofs, arches and round objects.
+
+## A2: Sprite undithering (2026-10-21)
+
+A2 adds milestone SU and section 6.11. It amends section 1.1 and the output
+decision in section 2 (a fixed decision: **changed with the customer's
+approval**, given with this addendum), and sections 6.5 (shared colour
+blending) and 12 (milestones).
+
+### Milestone plan after this change
+
+- **Milestone SU** (sprite undithering): a separate gate between milestones
+  6 and 7.
+  - It starts after milestone 6 (6b) is approved, implements A2, reports,
+    and waits for approval before milestone 7 starts.
+  - The numbering of milestones 7 to 12 does not change.
+  - Approved milestones are not reopened.
+  - If something in the design makes A2 impractical, the agent stops and
+    explains it in a report instead of improvising.
+- **Milestone 9**: the playthrough in HD mode is done with sprite
+  undithering on.
+- Milestone 4 continues unchanged; A2 is recorded without interrupting it.
+
+### Amendment to sections 1.1 and 2
+
+Sprites keep their original shape and pixels and are still scaled in N x N
+blocks with no added detail, but in HD mode their dithered areas are shown
+as computed colours, like the backgrounds.
+
+### Section 6.11: Sprite undithering
+
+Difference from backgrounds: in PIC resources a dithered area is stored as a
+colour pair, so the pair is known. In views the dithering is baked into the
+cel as a checkerboard of two palette colours, so the pairs must be detected
+in the raster.
+
+**Rules.**
+
+- **Detection:** a dithered area is a connected region of a cel where
+  exactly two opaque colours alternate in a checkerboard pattern (by parity
+  of x + y in cel coordinates). A region qualifies only above a minimum size
+  and with no dimension below 2 pixels, so that intentional fine detail
+  (eyes, outlines, highlights, single-pixel lines) is kept. The thresholds
+  are tuned on the game's cels at this milestone and recorded in
+  `docs/ASSUMPTIONS.md`.
+- **Colour:** every pixel of a qualifying region gets the blended colour of
+  its pair from the same 256-entry LUT and the same rules as the backgrounds
+  (section 6.5), so sprites and backgrounds match exactly.
+- **Transparency:** patterns mixing a colour with the transparent key are
+  left as they are (no alpha blending). The cel's transparency mask is never
+  changed, so sprite shapes, collisions and priority occlusion stay exactly
+  as in the original.
+- **Scaling:** undithering happens on the 1x cel; the result is then scaled
+  in N x N blocks as before. No smoothing at region edges.
+- **Scope:** every cel drawn in HD mode, including static views added to the
+  picture (addToPic). Fonts and cursor resources are not affected.
+- **Mirrored cels:** detection runs on the stored cel, and the result is
+  mirrored with it.
+- **Original mode:** off; sprites look exactly as in the original. In HD
+  mode the feature is on by default and can be switched off in the
+  configuration.
+- **Ambiguous cases:** an override file per view resource (in
+  `hints/views/`, with a schema validated in CI) may exclude a region or
+  force one, anchored to view, loop, cel and 1x coordinates and to a hash of
+  the view resource. The agent may use AI at development time to review the
+  detections; the overrides are frozen at the SU gate, like the picture
+  hints. A mismatch with another release's resource skips the override and
+  logs it.
+- **Determinism:** integer arithmetic only; the results are computed once
+  per cel and cached together with the picture analysis (section 10.2).
+- **Reference:** check whether ScummVM at the pinned revision has its own
+  view undithering, and if so compare its detections with ours and document
+  the differences.
+
+**Acceptance (milestone SU).**
+
+- Unit tests on synthetic cels: checkerboards of every colour pair are
+  detected; fine detail, transparency patterns and regions below the
+  thresholds are not.
+- A report listing, for every view, the undithered regions and the
+  overrides used, with side-by-side images (original and HD) of all
+  characters, captured both as isolated cels and in game scenes, and of the
+  views the customer chooses; images stay in the git-ignored
+  `reports/images/` directory.
+- The game logic is unaffected: the 1x priority and control maps and the
+  cel transparency masks are bit-identical with and without undithering,
+  and the scenario recordings of milestones 4 to 6 still give matching
+  traces.
+- Golden hashes of sprite rendering are regenerated once at the gate.
