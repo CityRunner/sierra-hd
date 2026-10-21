@@ -289,8 +289,26 @@ Reg k_device_info(Machine& machine, std::span<Reg> args) {
         return number(match_path(segments.get_string(args[2]), segments.get_string(args[1])) ? 1 : 0);
     case 3: // Is floppy: never.
         return null_reg;
+    case 4: // The configuration path: none.
+        return null_reg;
+    case 5: // The save catalogue's name, for deleting saves.
+        segments.strcpy(args[1], "__throwaway");
+        break;
+    case 6: { // A save file's name, for deleting it.
+        segments.strcpy(args[1], "__throwaway");
+        // SAVEGAMEID_OFFICIALRANGE_START and _END. Until the save format of
+        // milestone 8 there are no saves, so none is deleted.
+        constexpr int first_save_id = 100;
+        constexpr int last_save_id = 199;
+        const int virtual_id = args[3].to_uint16();
+        if (virtual_id < first_save_id || virtual_id > last_save_id) {
+            machine.faults().raise("kDeviceInfo(deleteSave): invalid savegame ID specified");
+            return null_reg;
+        }
+        break;
+    }
     default:
-        machine.faults().raise(std::format("kDeviceInfo sub-op {} is not implemented", args[0].to_uint16()));
+        machine.faults().raise(std::format("Unknown DeviceInfo() sub-command: {}", args[0].to_uint16()));
         return null_reg;
     }
     return machine.acc();
