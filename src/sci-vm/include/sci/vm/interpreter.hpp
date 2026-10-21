@@ -8,6 +8,7 @@
 
 #include "sci/resource/resource_manager.hpp"
 #include "sci/vm/events.hpp"
+#include "sci/vm/files.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -31,6 +32,8 @@ struct RunOptions {
     // Appends " @<script>:<offset>" of the calling instruction to each line
     // (for debugging; the reference does not write it).
     bool trace_callers = false;
+    // The files the game may open; none can be opened without a store.
+    FileStore* files = nullptr;
 };
 
 struct RunResult {

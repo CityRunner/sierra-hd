@@ -899,6 +899,15 @@ Scope:
   failure to the game, as ScummVM does when it cannot save, and log why.
   The project's save format comes at milestone 8 (spec section 9), and the
   scenario recordings do not save. **Decided.**
+- **The game's own save and restore dialogs.** ScummVM replaces the
+  game's save and restore methods with calls to its own dialogs unless
+  `originalsaveload` is set. sci-vm keeps the game's methods, and the
+  reference now runs with `originalsaveload=true`, so both run the same
+  bytecode; the boot trace is unchanged by it. **Decided.**
+- **Files the game opens** come from a `FileStore` the host supplies
+  (sci-vm does no I/O): files the game wrote, else the game folder's, as
+  ScummVM falls back to the game files. The tool uses an in-memory store
+  that starts empty, as the reference's save folder does. **Decided.**
 - **The referenced kernel functions** are found by `sci-vm-trace
   --scan-kernel`: every callk in the scripts' code blocks, after the script
   patches. The tested release references 97; DoAvoider is not among them.

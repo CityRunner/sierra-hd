@@ -72,6 +72,8 @@ public:
     // SciEngine::strSplit: the text up to a marker of another language
     // (%F, #G and so on), with the subtitle language after `separator`.
     [[nodiscard]] std::string str_split(std::string_view text, const char* separator);
+    // SciEngine::getSciLanguageString: the part of `text` in `language`.
+    [[nodiscard]] static std::string language_text(std::string_view text, int language);
 
 private:
     Machine* machine_ = nullptr;

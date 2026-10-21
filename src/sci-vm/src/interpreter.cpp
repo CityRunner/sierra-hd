@@ -3,6 +3,7 @@
 #include "sci/vm/interpreter.hpp"
 
 #include "events.hpp"
+#include "files.hpp"
 #include "machine.hpp"
 #include "subsystems.hpp"
 #include "timing.hpp"
@@ -50,6 +51,7 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
     for (const InputEvent& event : options.input) {
         subsystems.events().schedule(event);
     }
+    subsystems.files().set_store(options.files);
     Machine machine(resources, subsystems);
     Clock& clock = subsystems.clock();
     std::uint32_t calls = 0;

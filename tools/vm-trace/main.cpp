@@ -21,11 +21,14 @@
 #include "sci/vm/interpreter.hpp"
 #include "sci/vm/scan.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <charconv>
 #include <cstdio>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
@@ -35,6 +38,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -160,6 +164,23 @@ int main(int argc, char** argv) {
         return 1;
     }
     options.trace = [&](std::string_view line) { trace << line << '\n'; };
+    // The game folder's files for kFOpen to read, under lower-case names,
+    // and nothing written yet: the reference starts with an empty save folder.
+    std::map<std::string, std::vector<std::uint8_t>> game_files;
+    std::error_code error;
+    for (const auto& entry : std::filesystem::directory_iterator(args[1], error)) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+        std::ifstream file{entry.path(), std::ios::binary};
+        std::vector<std::uint8_t> bytes{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+        std::string name = entry.path().filename().string();
+        std::ranges::transform(name, name.begin(),
+                               [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); });
+        game_files.emplace(std::move(name), std::move(bytes));
+    }
+    sci::vm::MemoryFileStore files(std::move(game_files));
+    options.files = &files;
     const sci::vm::RunResult result = sci::vm::run_deterministic(*manager, options);
     trace.close();
     std::println(stderr, "{} kernel calls in {} ticks", result.calls, result.ticks);

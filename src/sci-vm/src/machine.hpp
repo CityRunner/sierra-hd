@@ -208,6 +208,9 @@ public:
     // EngineState::shrinkStackToBase.
     void shrink_stack_to_base();
 
+    // Where the running run_vm started: 0 unless a kernel function invoked it.
+    [[nodiscard]] int execution_stack_base() const { return execution_stack_base_; }
+
 private:
     struct Variables {
         std::vector<Reg>* store = nullptr;

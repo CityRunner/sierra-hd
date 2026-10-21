@@ -105,6 +105,10 @@ std::vector<Reg> Graphics::engine_hunks() const {
     return ports_ ? ports_->engine_hunks() : std::vector<Reg>{};
 }
 
+std::string Graphics::language_text(std::string_view text, int language) {
+    return language_string(text, language, nullptr);
+}
+
 std::string Graphics::str_split(std::string_view text, const char* separator) {
     const SelectorCache& s = machine_->selector();
     int active = language_english;

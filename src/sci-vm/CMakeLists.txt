@@ -4,6 +4,7 @@ sci_add_library(NAME sci-vm
         src/bytecode.cpp
         src/component.cpp
         src/events.cpp
+        src/files.cpp
         src/gc.cpp
         src/gfx_animate.cpp
         src/gfx_cache.cpp
@@ -16,6 +17,7 @@ sci_add_library(NAME sci-vm
         src/gfx_text.cpp
         src/graphics.cpp
         src/interpreter.cpp
+        src/k_files.cpp
         src/k_graphics.cpp
         src/k_lists.cpp
         src/k_math.cpp

@@ -36,6 +36,8 @@
 
 #include <array>
 #include <format>
+#include <optional>
+#include <string_view>
 #include <utility>
 
 namespace sci::vm {
@@ -70,6 +72,88 @@ constexpr std::array<KeyDirection, 9> key_directions{
         {.key = 81U << 8U, .direction = 4},
     },
 };
+
+// Common::matchString(str, pattern, false, "/"): * any run, ? one
+// character, # one digit, \\ escapes; neither wildcard crosses a slash.
+// The end of the string counts as excluded too, as strchr finds the NUL.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): kept close to Common::matchString.
+bool match_path(std::string_view str, std::string_view pattern) {
+    const auto at = [](std::string_view text, std::size_t i) { return i < text.size() ? text[i] : '\0'; };
+    std::size_t s = 0;
+    std::size_t p = 0;
+    std::optional<std::size_t> back_pattern;
+    std::size_t back_string = 0;
+    bool escaped = false;
+    for (;;) {
+        const char c = at(str, s);
+        if (c == '\0' || c == '/') {
+            back_pattern.reset();
+            if (at(pattern, p) == '?') {
+                return false;
+            }
+        }
+        const char current = at(pattern, p);
+        bool literal = false;
+        switch (current) {
+        case '*':
+            if (c != '\0') {
+                back_pattern = ++p;
+                back_string = s;
+            } else {
+                ++p;
+                back_pattern.reset();
+            }
+            break; // With exclusions, a trailing * is no early match.
+        case '\\':
+            if (!escaped) {
+                ++p;
+                break;
+            }
+            literal = true;
+            break;
+        case '#':
+            if (!escaped) {
+                if (c < '0' || c > '9') {
+                    return false;
+                }
+                ++p;
+                ++s;
+                break;
+            }
+            literal = true;
+            break;
+        case '?':
+            if (c == '\0') {
+                return at(pattern, p) == '\0';
+            }
+            ++p;
+            ++s;
+            break;
+        default:
+            literal = true;
+            break;
+        }
+        if (literal) {
+            if (current != c) {
+                if (!back_pattern) {
+                    return false;
+                }
+                p = *back_pattern;
+                s = ++back_string;
+                if (at(str, s) == '\0') {
+                    return at(pattern, p) == '\0';
+                }
+            } else {
+                if (c == '\0') {
+                    return at(pattern, p) == '\0';
+                }
+                ++p;
+                ++s;
+            }
+        }
+        escaped = !escaped && current == '\\';
+    }
+}
 
 } // namespace
 
@@ -204,7 +288,7 @@ Reg k_device_info(Machine& machine, std::span<Reg> args) {
         segments.strcpy(args[1], "/");
         break;
     case 2: // Paths equal.
-        return number(segments.get_string(args[2]) == segments.get_string(args[1]) ? 1 : 0);
+        return number(match_path(segments.get_string(args[2]), segments.get_string(args[1])) ? 1 : 0);
     case 3: // Is floppy: never.
         return null_reg;
     default:
