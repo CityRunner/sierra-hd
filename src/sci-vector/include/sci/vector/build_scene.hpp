@@ -94,6 +94,11 @@ struct BuiltScene {
     SceneStats stats;
 };
 
+// The version of the analysis, part of the analysis cache's key (spec
+// section 10.2): bump it with every change that changes the scenes
+// build_scene makes, that is whenever tests/golden/pictures.txt changes.
+inline constexpr std::uint32_t analyser_version = 1;
+
 // Builds the scene of one plane from the maps and trace of path 1. `hints`
 // holds the hints of each draw_picture call of the trace (by the trace's
 // picture index; null or missing for none). Hints for lines not drawn into

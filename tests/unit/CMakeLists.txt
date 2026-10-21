@@ -42,6 +42,7 @@ sci_add_unit_test(NAME sci-vector-tests
         vector/fitting_test.cpp
         vector/hint_scene_test.cpp
         vector/hints_test.cpp
+        vector/scene_io_test.cpp
         vector/stroke_integrity_test.cpp
     DEPENDS sci-vector sci-render)
 # The fitting tests reach into sci-vector's internals.
@@ -52,7 +53,7 @@ sci_add_unit_test(NAME sci-render-tests
     DEPENDS sci-render)
 
 sci_add_unit_test(NAME sci-platform-tests
-    SOURCES platform/platform_test.cpp
+    SOURCES platform/analysis_cache_test.cpp platform/platform_test.cpp
     DEPENDS sci-platform)
 
 sci_add_unit_test(NAME sci-vm-tests

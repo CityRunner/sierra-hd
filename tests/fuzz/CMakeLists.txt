@@ -49,6 +49,11 @@ sci_add_fuzz_target(NAME fuzz-replay
     DEPENDS sci-vm
     CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/replay)
 
+sci_add_fuzz_target(NAME fuzz-scene
+    SOURCE fuzz_scene.cpp
+    DEPENDS sci-vector
+    CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/scene)
+
 # The list of fuzz targets and their seed corpora, for scripts/run-fuzzers.sh.
 if(SCI_FUZZ)
     get_property(targets GLOBAL PROPERTY SCI_FUZZ_TARGETS)

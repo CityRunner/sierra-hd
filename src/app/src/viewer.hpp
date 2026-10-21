@@ -8,6 +8,8 @@
 #pragma once
 
 #include "sci/core/executor.hpp"
+#include "sci/pic/picture_maps.hpp"
+#include "sci/platform/analysis_cache.hpp"
 #include "sci/platform/config.hpp"
 #include "sci/render/rasterize.hpp"
 #include "sci/resource/resource_manager.hpp"
@@ -53,9 +55,9 @@ enum class Command : std::int8_t {
 
 class Viewer {
 public:
-    // `hints` is the directory of the hint files; none if it does not exist.
-    Viewer(const resource::ResourceManager& manager, std::optional<std::filesystem::path> hints,
-           core::Executor& executor, platform::GraphicsMode mode, int scale);
+    // HD backgrounds come from the analysis cache.
+    Viewer(const resource::ResourceManager& manager, platform::AnalysisCache& cache, core::Executor& executor,
+           platform::GraphicsMode mode, int scale);
 
     // The window's drawable size in physical pixels; decides N.
     void set_window_size(int width, int height);
@@ -90,6 +92,8 @@ private:
     void draw_font();
     static void step(const std::vector<std::uint16_t>& numbers, std::size_t& index, int direction);
     [[nodiscard]] const render::RgbaImage& background();
+    // The HD background of the current plane, or path 1's if it has no scene.
+    [[nodiscard]] render::RgbaImage hd_background(std::uint16_t number, const pic::PictureMaps& maps);
     [[nodiscard]] std::string status_text() const;
     void fill(Rect rect, std::uint8_t color);
     void blit_indices(const std::vector<std::uint8_t>& indices, int width, int height, int x, int y,
@@ -97,7 +101,7 @@ private:
     void mark(Rect rect);
 
     const resource::ResourceManager* manager_;
-    std::optional<std::filesystem::path> hints_;
+    platform::AnalysisCache* analysis_;
     core::Executor* executor_;
     platform::GraphicsMode mode_;
     int chosen_scale_;

@@ -5,10 +5,11 @@
 find_package(Threads REQUIRED)
 sci_add_library(NAME sci-platform
     SOURCES
+        src/analysis_cache.cpp
         src/config.cpp
         src/game_files.cpp
         src/identify.cpp
         src/picture_hints.cpp
         src/thread_executor.cpp
-    DEPENDS sci-core sci-resource sci-vector)
+    DEPENDS sci-core sci-resource sci-pic sci-vector)
 target_link_libraries(sci-platform PUBLIC Threads::Threads)

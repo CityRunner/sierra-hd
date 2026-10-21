@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes the synthetic seed corpora of the sci-resource fuzz targets.
+"""Writes the synthetic seed corpora of the fuzz targets.
 
     python3 tests/fuzz/make_seeds.py
 
@@ -73,6 +73,10 @@ def main() -> None:
         (HERE / "corpus" / "pic" / name).write_bytes(data)
     (HERE / "corpus" / "view_font" / "view").write_bytes(view())
     (HERE / "corpus" / "view_font" / "font").write_bytes(font())
+    scene_corpus = HERE / "corpus" / "scene"
+    scene_corpus.mkdir(exist_ok=True)
+    for name, data in scenes().items():
+        (scene_corpus / name).write_bytes(data)
 
     game_folder = HERE / "corpus" / "game_folder"
     (game_folder / "volume").write_bytes(folder({"RESOURCE.MAP": resource_map, "RESOURCE.001": volume}))
@@ -118,6 +122,31 @@ def view() -> bytes:
 
 def font() -> bytes:
     return bytes([0, 0, 3, 0, 9, 0, 12, 0, 0xFF, 0, 18, 0, 10, 2, 0xA0, 0x40, 0x01, 0x80, 0, 0])
+
+
+def scenes() -> dict[str, bytes]:
+    """Vector scenes in the analysis-cache format (docs/formats/analysis-cache.md)."""
+
+    def header(plane: int) -> bytes:
+        return b"SHDS" + struct.pack("<HB", 1, plane)
+
+    def point(x: float, y: float) -> bytes:
+        return struct.pack("<dd", x, y)
+
+    blocks = bytes(320 * 190)
+    empty = header(0) + struct.pack("<I", 0) + struct.pack("<I", 0) + blocks + struct.pack("<I", 0)
+    faces = struct.pack("<I", 2) + bytes([0, 3, 1, 0])
+    edges = struct.pack("<I", 1) + point(0, 0) + point(0, 190) + struct.pack("<i", 1)
+    stroke = (
+        bytes([1]) + struct.pack("<iI", 4, 2) + point(1.5, 2.5) + point(7.25, 9.125)
+        + struct.pack("<d", 0.5) + bytes([0x4C, 1]) + struct.pack("<I", 1) + point(7, 9) + point(0.6, -0.8)
+    )
+    ellipse = bytes([2]) + struct.pack("<i", 5) + point(50.5, 60.5) + struct.pack("<dd", 3, 2) + bytes([9])
+    box = bytes([3]) + struct.pack("<i", -1) + struct.pack("<dddd", 1, 2, 3, 4) + bytes([1])
+    block_layer = bytes([4]) + struct.pack("<iI", 8, 2) + struct.pack("<IB", 5, 1) + struct.pack("<IB", 400, 2)
+    layers = struct.pack("<I", 4) + stroke + ellipse + box + block_layer
+    full = header(1) + faces + edges + blocks + layers
+    return {"empty": empty, "layers": full}
 
 
 if __name__ == "__main__":

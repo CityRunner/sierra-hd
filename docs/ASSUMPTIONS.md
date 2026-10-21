@@ -913,6 +913,47 @@ Scope:
   patches. The tested release references 97; DoAvoider is not among them.
   **Decided.**
 
+## Milestone 4b: the analysis cache (2026-10-21)
+
+- **Where the cache lives.**
+  - The scene serialization is in sci-vector, as bytes in and bytes out.
+  - The cache with its file I/O is in sci-platform (app's library), because
+    spec section 4.2 keeps the libraries free of OS files.
+  - The files are in `cache/` next to `sierra-hd.ini`.
+  - **Decided.**
+- **The key** is the SHA-256 of the game digest, `analyser_version`,
+  `scene_format_version`, the bytes of the picture's hint file and the
+  variant (picture, plane, mirrored, EGA palette). **Decided.**
+- **The game digest is computed over the resources** (type, number, size
+  and data of each, as the resource manager delivers them), not over the
+  files on disk. So a patch file that changes a picture changes the digest,
+  and identical content in another file layout does not. It takes about
+  the time of reading the game once at launch. **Decided.**
+- **`analyser_version` is increased with every change of
+  `tests/golden/pictures.txt`**, since any change to a scene changes those
+  hashes. **Decided.**
+- **What the first launch prepares.**
+  - It prepares both planes of every picture as drawn without options.
+  - Mirrored and EGA-palette variants are analysed and stored the first
+    time they are needed.
+  - Overlays (`kDrawPic` with add-to) are not cached, because their scene
+    depends on the picture below.
+  - **Proposal**, to be confirmed.
+- **Batches of 16 on the executor.** The executor's `run` blocks until it
+  is done. So the progress bar and the window events are handled between
+  batches, on the main thread, and only the main thread writes files.
+  Closing the window cancels the analysis and quits; the entries written so
+  far are kept. **Decided.**
+- **The last 8 scenes are also kept in memory**, so going back and forth
+  between rooms does not read files. **Decided.**
+- **The original mode still draws path 1 directly**; only the HD mode uses
+  the cache. **Decided.**
+- **Measured** (release build, 4 cores, the tested release):
+  - The first launch analyses all 176 entries in 2.8 s, against the 15 s
+    budget.
+  - A scene loads from its file in 4 ms, against 64 ms to analyse it.
+  - The entries take 83 MB.
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with

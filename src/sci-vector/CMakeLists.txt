@@ -5,6 +5,7 @@ sci_add_library(NAME sci-vector
         src/curves.cpp
         src/fitting.cpp
         src/hints.cpp
+        src/scene_io.cpp
         src/stroke_integrity.cpp
         src/topology.cpp
     DEPENDS sci-core sci-pic)

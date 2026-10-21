@@ -12,6 +12,7 @@
 #include "sci/core/assert.hpp"
 #include "sci/core/fp_profile.hpp"
 #include "sci/core/log.hpp"
+#include "sci/platform/analysis_cache.hpp"
 #include "sci/platform/config.hpp"
 #include "sci/platform/game_files.hpp"
 #include "sci/platform/identify.hpp"
@@ -271,6 +272,57 @@ std::optional<fs::path> hint_directory(const fs::path& base) {
     return hints;
 }
 
+// The first launch's analysis of every picture (spec section 10.2), with a
+// progress bar; later launches find the entries and skip it. False when the
+// user closed the window meanwhile.
+bool prepare_analysis(SDL_Renderer* renderer, sci::platform::AnalysisCache& analysis) {
+    const auto all = analysis.all_variants();
+    const auto missing = analysis.missing(all);
+    if (missing.empty()) {
+        return true;
+    }
+    const std::uint64_t start = SDL_GetTicks();
+    bool open = true;
+    const bool done = analysis.prepare(missing, [&](std::size_t finished, std::size_t total) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_EVENT_QUIT) {
+                open = false;
+            }
+        }
+        int width = 0;
+        int height = 0;
+        SDL_GetCurrentRenderOutputSize(renderer, &width, &height);
+        SDL_SetRenderViewport(renderer, nullptr);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+        // Integer rectangles, converted for SDL's drawing calls.
+        const SDL_Rect frame{.x = width / 5, .y = height / 2, .w = width * 3 / 5, .h = 12};
+        SDL_Rect bar = frame;
+        bar.w = total == 0 ? frame.w : static_cast<int>(static_cast<std::size_t>(frame.w) * finished / total);
+        SDL_FRect frame_f{};
+        SDL_FRect bar_f{};
+        SDL_RectToFRect(&frame, &frame_f);
+        SDL_RectToFRect(&bar, &bar_f);
+        SDL_SetRenderDrawColor(renderer, 85, 85, 85, 255);
+        SDL_RenderRect(renderer, &frame_f);
+        SDL_SetRenderDrawColor(renderer, 170, 170, 170, 255);
+        SDL_RenderFillRect(renderer, &bar_f);
+        const std::string label = std::format("Analysing the pictures for HD: {} of {}", finished, total);
+        const SDL_Rect label_at{.x = frame.x, .y = frame.y - 16, .w = 0, .h = 0};
+        SDL_FRect label_f{};
+        SDL_RectToFRect(&label_at, &label_f);
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_RenderDebugText(renderer, label_f.x, label_f.y, label.c_str());
+        SDL_RenderPresent(renderer);
+        return open;
+    });
+    sci::core::log(
+        sci::core::LogLevel::Info, sci::core::LogCategory::General,
+        std::format("analysed {} scenes in {} ms{}", missing.size(), SDL_GetTicks() - start, done ? "" : " (stopped)"));
+    return open;
+}
+
 // Handles one event; false when the program should end.
 bool handle_event(const SDL_Event& event, SDL_Window* window, sci::app::Viewer& viewer, bool& changed) {
     if (event.type == SDL_EVENT_QUIT) {
@@ -354,7 +406,11 @@ int run(std::span<char*> args) {
     SDL_SetRenderVSync(renderer.get(), 1);
     SDL_SetWindowTitle(window.get(), std::format("sierra-hd {} - {}", SCI_VERSION, game->identification.name).c_str());
     sci::platform::ThreadExecutor executor;
-    sci::app::Viewer viewer(game->manager, hint_directory(base), executor, config->mode, config->scale);
+    sci::platform::AnalysisCache analysis(game->manager, hint_directory(base), base / "cache", executor);
+    if (!prepare_analysis(renderer.get(), analysis)) {
+        return 0;
+    }
+    sci::app::Viewer viewer(game->manager, analysis, executor, config->mode, config->scale);
     event_loop(window.get(), renderer.get(), viewer);
     config->mode = viewer.mode();
     config->scale = viewer.chosen_scale();
