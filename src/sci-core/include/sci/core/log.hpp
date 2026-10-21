@@ -23,6 +23,7 @@ enum class LogLevel : std::int8_t {
 enum class LogCategory : std::int8_t {
     General,   // Always enabled.
     Resources, // Resource loading: skipped map entries, patch files, failed loads.
+    Vm,        // Script execution: script bugs the interpreter works around, unusual kernel calls.
 };
 
 using LogSink = void (*)(LogLevel level, LogCategory category, std::string_view message) noexcept;
