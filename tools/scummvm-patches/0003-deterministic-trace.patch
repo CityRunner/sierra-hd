@@ -367,7 +367,7 @@ diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
 diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 --- a/engines/sci/sierra_hd_trace.cpp
 +++ b/engines/sci/sierra_hd_trace.cpp
-@@ -0,0 +1,310 @@
+@@ -0,0 +1,320 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -395,7 +395,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 + *   with values as unsigned decimal numbers, or <segment>:<offset> in hex
 + *   for pointers.
 + * - SIERRA_HD_STOP_TICK and SIERRA_HD_STOP_CALLS end the game when the tick
-+ *   or the number of kernel calls reaches them.
++ *   or the number of kernel calls reaches them; should the game not stop,
++ *   the process ends a minute of virtual time or a million calls later.
 + * - With SIERRA_HD_SCREENS=<folder>, the screen the player sees is written
 + *   there as <tick>.ppm whenever the clock reaches the next multiple of
 + *   SIERRA_HD_SCREEN_EVERY ticks (default 60), once graphics are up.
@@ -556,6 +557,15 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +		if (s.trace)
 +			fflush(s.trace);
 +		g_sci->quitGame();
++	}
++	// A script that never returns to the event loop would not see the quit:
++	// a minute (of virtual time) or a million kernel calls later, the
++	// process ends, as sci-vm stops then too.
++	if ((uint64)currentTick(s) >= (uint64)s.stopTick + 3600 || (uint64)s.calls >= (uint64)s.stopCalls + 1000000) {
++		if (s.trace)
++			fclose(s.trace);
++		warning("sierra-hd: the game did not stop at the limit; ending the process");
++		exit(0);
 +	}
 +}
 +

@@ -13,3 +13,6 @@ intro.txt 30000 0
 mansion-walk.txt 11000 0
 menus.txt 9030 0
 bedroom-wait.txt 20000 0
+parser-look.txt 7700 0
+parser-verbs.txt 7700 0
+parser-errors.txt 7700 0

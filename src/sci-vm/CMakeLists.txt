@@ -25,6 +25,7 @@ sci_add_library(NAME sci-vm
         src/k_math.cpp
         src/k_misc.cpp
         src/k_movement.cpp
+        src/k_parse.cpp
         src/k_scripts.cpp
         src/k_sound.cpp
         src/k_strings.cpp

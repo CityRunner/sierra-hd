@@ -32,7 +32,7 @@ sci_add_unit_test(NAME sci-view-tests
     DEPENDS sci-view)
 
 sci_add_unit_test(NAME sci-text-tests
-    SOURCES text/font_test.cpp
+    SOURCES text/font_test.cpp text/parser_test.cpp
     DEPENDS sci-text)
 
 sci_add_unit_test(NAME sci-vector-tests

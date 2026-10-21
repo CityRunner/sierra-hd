@@ -20,12 +20,4 @@ Reg k_do_avoider(Machine& machine, std::span<Reg> /*args*/) {
     return not_implemented(machine, "k_do_avoider");
 }
 
-Reg k_parse(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_parse");
-}
-
-Reg k_said(Machine& machine, std::span<Reg> /*args*/) {
-    return not_implemented(machine, "k_said");
-}
-
 } // namespace sci::vm

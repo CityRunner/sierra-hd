@@ -1,0 +1,36 @@
+sierra-hd replay 1
+# Verbs other than look in Laura's room; the last one makes Laura walk to the suitcase.
+# Copy protection (seed 0): leaves the title, moves the pointer to the
+# right answer and confirms; Enter on the message that follows.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+# "Have you previously attended?": Yes. Laura's room is playable from
+# about tick 4000.
+1520 key 13
+# Each command is typed, then its message closed with Enter.
+4500 text listen
+4700 key 13
+4900 text smell
+5100 key 13
+5300 text jump
+5500 key 13
+5700 text sit down
+5900 key 13
+6100 text talk to lillian
+6300 key 13
+6500 text inventory
+6700 key 13
+6900 text read
+7100 key 13
+7300 text open the suitcase
+7500 key 13
