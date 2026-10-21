@@ -6,9 +6,13 @@
 // compared line by line (tools/vm-trace/compare.py):
 //
 //   sci-vm-trace <game folder> <trace file> [--replay <file>] [--seed <n>]
-//                [--stop-tick <n>] [--stop-calls <n>] [--callers]
+//                [--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]
+//
+// --vm-log prints the interpreter's warnings and debug messages, such as the
+// script patches applied.
 
 #include "game_folder.hpp"
+#include "sci/core/log.hpp"
 #include "sci/vm/interpreter.hpp"
 
 #include <charconv>
@@ -35,7 +39,7 @@ std::optional<std::uint32_t> parse_number(std::string_view text) {
 
 int usage() {
     std::println(stderr, "usage: sci-vm-trace <game folder> <trace file> [--replay <file>] [--seed <n>] "
-                         "[--stop-tick <n>] [--stop-calls <n>] [--callers]");
+                         "[--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]");
     return 2;
 }
 
@@ -51,6 +55,11 @@ int main(int argc, char** argv) {
     sci::vm::RunOptions options;
     for (std::size_t i = 3; i < args.size(); i += 2) {
         const std::string_view flag = args[i];
+        if (flag == "--vm-log") {
+            sci::core::set_log_category_enabled(sci::core::LogCategory::Vm, true);
+            --i;
+            continue;
+        }
         if (flag == "--callers") {
             options.trace_callers = true;
             --i;
