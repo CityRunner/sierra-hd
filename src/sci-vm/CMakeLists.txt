@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 sci_add_library(NAME sci-vm
     SOURCES
+        src/bytecode.cpp
         src/component.cpp
         src/events.cpp
         src/gc.cpp
@@ -31,6 +32,7 @@ sci_add_library(NAME sci-vm
         src/object.cpp
         src/resources.cpp
         src/script.cpp
+        src/scan.cpp
         src/script_patcher.cpp
         src/script_patches.cpp
         src/seg_manager.cpp

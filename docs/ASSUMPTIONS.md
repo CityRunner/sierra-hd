@@ -891,6 +891,19 @@ Scope:
 - 4b adds two items to the spec's scope: running the game in the program,
   and the analysis cache of spec section 10.2.
 
+## Milestone 4b: kernel coverage (2026-10-21)
+
+- **Saves are listed, not written, until milestone 8** (the customer's
+  choice at the start of 4b). GetSaveFiles and CheckSaveGame work as in
+  ScummVM with an empty save folder; SaveGame and RestoreGame report
+  failure to the game, as ScummVM does when it cannot save, and log why.
+  The project's save format comes at milestone 8 (spec section 9), and the
+  scenario recordings do not save. **Decided.**
+- **The referenced kernel functions** are found by `sci-vm-trace
+  --scan-kernel`: every callk in the scripts' code blocks, after the script
+  patches. The tested release references 97; DoAvoider is not among them.
+  **Decided.**
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with
