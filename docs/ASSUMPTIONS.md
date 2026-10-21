@@ -869,8 +869,7 @@ Sound:
   by VM object, writes their signals and is driven by kDoSound, so it
   belongs with the kernel functions; what reaches the silent driver is
   dropped. The device layer (OPL, MT-32, mixer) goes into sci-audio at
-  milestone 7, under this player. **Assumed; for the customer to
-  confirm.**
+  milestone 7, under this player. **Decided** (confirmed at the 4a gate).
 - The game has no SCI0 sound with a digital sample, so one faults.
   ScummVM's volume round trip through its configuration value always
   returns the same volume, so kDoSound MasterVolume is a plain set. The
@@ -882,8 +881,15 @@ Scope:
 - **The program does not run the VM yet, and the analysis cache stays
   deferred.** The 4a gate needs only the deterministic runs. Running the
   game in the window, with the cache of spec section 10.2, is proposed
-  for 4b. **Assumed; for the customer to confirm** (the cache was
-  deferred to milestone 4 at the 3a gate).
+  for 4b. **Decided** (confirmed at the 4a gate: both are added to 4b).
+
+## Milestone 4a approval (2026-10-21)
+
+- The gate is approved and merged.
+- The music player stays in sci-vm; the audible devices go into sci-audio
+  at milestone 7.
+- 4b adds two items to the spec's scope: running the game in the program,
+  and the analysis cache of spec section 10.2.
 
 ## Spec items carried forward
 

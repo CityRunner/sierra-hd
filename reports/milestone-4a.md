@@ -1,6 +1,8 @@
 # Milestone 4a: the VM boot gate
 
-Status: **awaiting review**.
+Status: **approved** (2026-10-21). The music player stays in sci-vm, and
+running the game in the program, with the analysis cache, is added to 4b.
+The text below is the report as reviewed.
 
 Exit criteria (spec section 12): scripts load and run, the first room is
 reached, kernel-call traces match ScummVM.
