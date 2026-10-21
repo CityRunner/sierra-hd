@@ -31,6 +31,7 @@
 #include "seg_manager.hpp"
 
 #include <format>
+#include <utility>
 
 namespace sci::vm {
 
@@ -56,7 +57,8 @@ std::uint16_t Script::read16(std::uint32_t offset) const {
     if (offset + 1 >= buffer_.size()) {
         return 0;
     }
-    return static_cast<std::uint16_t>(buffer_[offset] | (buffer_[offset + 1] << 8U));
+    return static_cast<std::uint16_t>(static_cast<unsigned>(buffer_[offset]) |
+                                      (static_cast<unsigned>(buffer_[offset + 1]) << 8U));
 }
 
 bool Script::load(int number, Resources& resources, const ScriptPatcher* patcher, std::string& message) {
@@ -161,8 +163,8 @@ bool Script::relocate_local(SegmentId segment, int location) {
     if (relative < 0) {
         return false;
     }
-    const auto index = static_cast<std::size_t>(relative >> 1);
-    if (index >= locals_block_->locals.size() || (relative & 1) != 0) {
+    const auto index = static_cast<std::size_t>(relative / 2); // Not negative.
+    if (index >= locals_block_->locals.size() || relative % 2 != 0) {
         return false;
     }
     locals_block_->locals[index].segment = segment;
@@ -197,7 +199,7 @@ void Script::decrement_lockers() {
 }
 
 std::optional<std::uint32_t> Script::export_offset(int index) const {
-    if (index < 0 || index >= num_exports_) {
+    if (index < 0 || std::cmp_greater_equal(index, num_exports_)) {
         return std::nullopt;
     }
     const std::uint16_t offset = read16(exports_offset_ + (static_cast<std::uint32_t>(index) * 2));
@@ -211,7 +213,7 @@ std::span<const std::uint8_t> Script::synonyms() const {
     if (num_synonyms_ == 0) {
         return {};
     }
-    return std::span<const std::uint8_t>(buffer_).subspan(synonyms_offset_, num_synonyms_ * 4U);
+    return std::span<const std::uint8_t>(buffer_).subspan(synonyms_offset_, std::size_t{num_synonyms_} * 4);
 }
 
 SegmentRef Script::dereference(Reg pointer) {

@@ -34,6 +34,8 @@
 
 #include <algorithm>
 #include <format>
+#include <ranges>
+#include <utility>
 
 namespace sci::vm {
 
@@ -103,12 +105,24 @@ struct Instruction {
     std::uint32_t length = 0;
 };
 
+// `value >> 1` on a signed value, as ScummVM shifts its int16 operands: the
+// arithmetic shift rounds towards negative infinity.
+constexpr int half_floor(int value) {
+    return value >= 0 ? value / 2 : -((1 - value) / 2);
+}
+
 // Reads one instruction (readPMachineInstruction). Bytes past the end of
 // the script read as 0.
 Instruction read_instruction(std::span<const std::uint8_t> code, std::uint32_t pc) {
     const auto byte_at = [&](std::uint32_t offset) -> std::uint8_t { return offset < code.size() ? code[offset] : 0; };
     const auto word_at = [&](std::uint32_t offset) -> std::uint16_t {
-        return static_cast<std::uint16_t>(byte_at(offset) | (byte_at(offset + 1) << 8U));
+        return static_cast<std::uint16_t>(static_cast<unsigned>(byte_at(offset)) |
+                                          (static_cast<unsigned>(byte_at(offset + 1)) << 8U));
+    };
+    // A byte as a signed value, as a cast to int8 does.
+    const auto signed_byte_at = [&](std::uint32_t offset) -> std::int16_t {
+        const int value = byte_at(offset);
+        return static_cast<std::int16_t>(value >= 0x80 ? value - 0x100 : value);
     };
     Instruction instruction;
     std::uint32_t offset = pc;
@@ -121,12 +135,9 @@ Instruction read_instruction(std::span<const std::uint8_t> code, std::uint32_t p
             instruction.params[i] = byte_at(offset++);
             break;
         case Operand::SByte:
-            instruction.params[i] = static_cast<std::int8_t>(byte_at(offset++));
+            instruction.params[i] = signed_byte_at(offset++);
             break;
         case Operand::Word:
-            instruction.params[i] = static_cast<std::int16_t>(word_at(offset));
-            offset += 2;
-            break;
         case Operand::SWord:
             instruction.params[i] = static_cast<std::int16_t>(word_at(offset));
             offset += 2;
@@ -142,7 +153,7 @@ Instruction read_instruction(std::span<const std::uint8_t> code, std::uint32_t p
         case Operand::SVariable:
         case Operand::Relative:
             if (byte_operands) {
-                instruction.params[i] = static_cast<std::int8_t>(byte_at(offset++));
+                instruction.params[i] = signed_byte_at(offset++);
             } else {
                 instruction.params[i] = static_cast<std::int16_t>(word_at(offset));
                 offset += 2;
@@ -157,7 +168,12 @@ Instruction read_instruction(std::span<const std::uint8_t> code, std::uint32_t p
     // pushSelf with the low bit set is the debug opcode "file", followed by
     // a zero-terminated file name.
     if (opcode == op_push_self && byte_operands) {
-        while (byte_at(offset++) != 0 && offset < code.size()) {
+        while (true) {
+            const std::uint8_t c = byte_at(offset);
+            ++offset;
+            if (c == 0 || offset >= code.size()) {
+                break;
+            }
         }
     }
     instruction.length = offset - pc;
@@ -207,15 +223,17 @@ bool Machine::init_game() {
         faults_.raise("Failed to instantiate script 0");
         return false;
     }
-    Script* script = segments_.script(1);
+    const Script* script = segments_.script(1);
     if (script == nullptr || script->locals_count() == 0) {
         faults_.raise("Script 0 has no locals block");
         return false;
     }
-    variables_[var_global] = Variables{.store = &script->locals_block()->locals,
-                                       .start = 0,
-                                       .segment = script->locals_segment(),
-                                       .max = script->locals_count()};
+    variables_[var_global] = Variables{
+        .store = &script->locals_block()->locals,
+        .start = 0,
+        .segment = script->locals_segment(),
+        .max = script->locals_count(),
+    };
     segments_.init_sys_strings();
     acc_ = null_reg;
     prev_ = null_reg;
@@ -276,7 +294,7 @@ void Machine::run_game() {
 
 Reg Machine::global(std::size_t index) const {
     const Variables& globals = variables_[var_global];
-    if (globals.store == nullptr || index >= static_cast<std::size_t>(globals.max)) {
+    if (globals.store == nullptr || std::cmp_greater_equal(index, globals.max)) {
         return null_reg;
     }
     return (*globals.store)[globals.start + index];
@@ -284,7 +302,7 @@ Reg Machine::global(std::size_t index) const {
 
 void Machine::set_global(std::size_t index, Reg value) {
     const Variables& globals = variables_[var_global];
-    if (globals.store != nullptr && index < static_cast<std::size_t>(globals.max)) {
+    if (globals.store != nullptr && std::cmp_less(index, globals.max)) {
         (*globals.store)[globals.start + index] = value;
     }
 }
@@ -295,6 +313,7 @@ std::uint16_t Machine::current_room_number() const {
 
 // Arithmetic -----------------------------------------------------------------
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): ScummVM's call origin and workaround search.
 WorkaroundSolution Machine::find_workaround(int index, std::span<const WorkaroundEntry> list) {
     if (xs_ == nullptr) {
         return {};
@@ -308,10 +327,10 @@ WorkaroundSolution Machine::find_workaround(int index, std::span<const Workaroun
     Selector selector = call.debug_selector;
     int export_id = call.debug_export;
     if (call.debug_local_call != -1) {
-        for (auto it = stack_frames_.rbegin(); it != stack_frames_.rend(); ++it) {
-            if (it->debug_selector != -1 || it->debug_export != -1) {
-                selector = it->debug_selector;
-                export_id = it->debug_export;
+        for (const ExecStack& frame : std::views::reverse(stack_frames_)) {
+            if (frame.debug_selector != -1 || frame.debug_export != -1) {
+                selector = frame.debug_selector;
+                export_id = frame.debug_export;
                 break;
             }
         }
@@ -364,6 +383,10 @@ Reg Machine::arithmetic_workaround(Reg left, Reg right, const char* operation) {
 }
 
 Reg Machine::add(Reg left, Reg right) {
+    // A number plus a pointer is the pointer plus the number.
+    if (left.is_number() && right.is_pointer()) {
+        std::swap(left, right);
+    }
     if (left.is_pointer() && right.is_number()) {
         const Segment* segment = segments_.segment(left.segment);
         if (segment == nullptr) {
@@ -379,9 +402,6 @@ Reg Machine::add(Reg left, Reg right) {
         default:
             return arithmetic_workaround(left, right, "addition");
         }
-    }
-    if (left.is_number() && right.is_pointer()) {
-        return add(right, left);
     }
     if (left.is_number() && right.is_number()) {
         return number(left.to_sint16() + right.to_sint16());
@@ -470,7 +490,7 @@ Reg Machine::read_selector(Reg object, Selector selector) {
     if (selector < 0 || lookup_selector(object, selector, &var_object, &var_index, nullptr) != SelectorKind::Variable) {
         return null_reg;
     }
-    Object* obj = segments_.object(var_object);
+    const Object* obj = segments_.object(var_object);
     return obj != nullptr ? obj->variable(static_cast<std::size_t>(var_index)) : null_reg;
 }
 
@@ -566,8 +586,9 @@ ExecStack* Machine::send_selector(Reg send_obj, Reg work_obj, StackIndex sp, int
         Reg function;
         const SelectorKind kind = lookup_selector(send_obj, selector, &var_object, &var_index, &function);
         if (kind == SelectorKind::None) {
-            faults_.raise(std::format("Send to invalid selector 0x{:x} ({}) of object at {}", selector & 0xFFFF,
-                                      selectors_.name(selector & 0xFFFF), reg_text(send_obj)));
+            faults_.raise(std::format(
+                "Send to invalid selector 0x{:x} ({}) of object at {}", static_cast<unsigned>(selector) & 0xFFFFU,
+                selectors_.name(static_cast<Selector>(static_cast<unsigned>(selector) & 0xFFFFU)), reg_text(send_obj)));
             return nullptr;
         }
         ExecStack frame;
@@ -606,7 +627,7 @@ ExecStack* Machine::send_selector(Reg send_obj, Reg work_obj, StackIndex sp, int
 ExecStack* Machine::execute_method(int script_number, int export_index, StackIndex sp, Reg calling_obj, int argc,
                                    StackIndex argp) {
     SegmentId segment = segments_.script_segment(script_number);
-    Script* script = segments_.script_if_loaded(segment);
+    const Script* script = segments_.script_if_loaded(segment);
     if (script == nullptr || script->is_marked_deleted()) {
         segment = segments_.instantiate_script(script_number);
         script = segments_.script(segment);
@@ -668,7 +689,8 @@ void Machine::call_kernel(int kernel_number, int argc) {
         .name = name,
         .arguments = std::vector<Reg>(arguments.begin() + static_cast<std::ptrdiff_t>(first), arguments.end()),
         .result = acc_,
-        .caller = caller});
+        .caller = caller,
+    });
 }
 
 void Machine::call_kernel_untraced(int kernel_number, int argc) {
@@ -767,7 +789,8 @@ Reg Machine::kernel_argument(std::size_t index) const {
 
 void Machine::shrink_stack_to_base() {
     if (!stack_frames_.empty()) {
-        const auto size = static_cast<std::size_t>(execution_stack_base_ + 1);
+        const int frames = execution_stack_base_ + 1;
+        const auto size = static_cast<std::size_t>(frames);
         while (stack_frames_.size() > size) {
             stack_frames_.pop_back();
         }
@@ -777,15 +800,15 @@ void Machine::shrink_stack_to_base() {
 // Variables ------------------------------------------------------------------------
 
 Reg Machine::read_var(int type, int index) {
-    Variables& vars = variables_[static_cast<std::size_t>(type)];
+    const Variables& vars = variables_[static_cast<std::size_t>(type)];
     const auto position = static_cast<std::ptrdiff_t>(vars.start) + index;
     bool valid = index >= 0 && index < vars.max;
     if (!valid && (type == var_param || type == var_temp)) {
         // Out of range, but within the stack: SSCI allowed it.
-        valid = position >= 0 && position < static_cast<std::ptrdiff_t>(stack_->entries.size());
+        valid = position >= 0 && std::cmp_less(position, stack_->entries.size());
     }
     if (!valid || vars.store == nullptr) {
-        if (!(type == var_param || type == var_temp)) {
+        if (type != var_param && type != var_temp) {
             debug(std::format("[VM] Attempt to use invalid variable {} of type {}", index, type));
         }
         return acc_;
@@ -814,11 +837,11 @@ Reg Machine::read_var(int type, int index) {
 }
 
 void Machine::write_var(int type, int index, Reg value) {
-    Variables& vars = variables_[static_cast<std::size_t>(type)];
+    const Variables& vars = variables_[static_cast<std::size_t>(type)];
     const auto position = static_cast<std::ptrdiff_t>(vars.start) + index;
     bool valid = index >= 0 && index < vars.max;
     if (!valid && (type == var_param || type == var_temp)) {
-        valid = position >= 0 && position < static_cast<std::ptrdiff_t>(stack_->entries.size());
+        valid = position >= 0 && std::cmp_less(position, stack_->entries.size());
     }
     if (!valid || vars.store == nullptr) {
         return;
@@ -839,7 +862,7 @@ Reg& Machine::property(Object* object, int index) {
         dummy = null_reg;
         return dummy;
     }
-    index >>= 1;
+    index = half_floor(index);
     if (index < 0 || static_cast<std::size_t>(index) >= object->var_count()) {
         dummy = null_reg;
         return dummy;
@@ -863,7 +886,7 @@ Reg Machine::pop() {
     return stack_->entries[--xs_->sp];
 }
 
-std::uint32_t Machine::find_offset(std::int16_t relative, std::uint32_t pc_offset) const {
+std::uint32_t Machine::find_offset(std::int16_t relative, std::uint32_t pc_offset) {
     // SCI0: relative to the program counter.
     return static_cast<std::uint16_t>(static_cast<std::int64_t>(pc_offset) + relative);
 }
@@ -871,16 +894,17 @@ std::uint32_t Machine::find_offset(std::int16_t relative, std::uint32_t pc_offse
 void Machine::setup_frame() {
     xs_ = &stack_frames_.back();
     stack_position_changed_ = false;
-    Script* local = segments_.script_if_loaded(xs_->local_segment);
+    const Script* local = segments_.script_if_loaded(xs_->local_segment);
     if (local == nullptr) {
         faults_.raise(std::format("Could not find local script from segment {:x}", xs_->local_segment));
         return;
     }
-    variables_[var_local] =
-        Variables{.store = local->locals_block() != nullptr ? &local->locals_block()->locals : nullptr,
-                  .start = 0,
-                  .segment = local->locals_segment(),
-                  .max = local->locals_count()};
+    variables_[var_local] = Variables{
+        .store = local->locals_block() != nullptr ? &local->locals_block()->locals : nullptr,
+        .start = 0,
+        .segment = local->locals_segment(),
+        .max = local->locals_count(),
+    };
     const SegmentId stack_segment = segments_.find_segment_by_type(SegmentType::Stack);
     variables_[var_temp] =
         Variables{.store = &stack_->entries, .start = xs_->fp, .segment = stack_segment, .max = xs_->temp_count};
@@ -890,8 +914,7 @@ void Machine::setup_frame() {
 
 // The interpreter ------------------------------------------------------------------
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity): the bytecode dispatch, kept as one switch like ScummVM's
-// run_vm.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): the bytecode dispatch switch, as in ScummVM.
 void Machine::run_vm() {
     rest_ = 0;
     if (stack_frames_.empty()) {
@@ -907,7 +930,7 @@ void Machine::run_vm() {
     }
     Script* scr = nullptr;
     Object* obj = nullptr;
-    Script* local_script = nullptr;
+    const Script* local_script = nullptr;
     ExecStack* xs_new = nullptr;
 
     while (true) {
@@ -931,6 +954,10 @@ void Machine::run_vm() {
             faults_.raise("run_vm(): stack underflow");
             return;
         }
+        if (scr == nullptr) { // Set with the first frame; kept for the analyzer.
+            faults_.raise("run_vm(): no script");
+            return;
+        }
         if (xs_->pc.offset >= scr->size()) {
             faults_.raise(std::format("run_vm(): program counter gone astray, addr: {}, code buffer size: {}",
                                       xs_->pc.offset, scr->size()));
@@ -943,7 +970,7 @@ void Machine::run_vm() {
 
         switch (opcode) {
         case 0x00: // bnot
-            acc_ = number(0xFFFF ^ require_uint16(acc_));
+            acc_ = number(static_cast<int>(0xFFFFU ^ require_uint16(acc_)));
             break;
         case 0x01: { // add
             const Reg left = pop();
@@ -1115,7 +1142,7 @@ void Machine::run_vm() {
             break;
         }
         case 0x20: { // call
-            const int argc = (op[1] >> 1) + 1 + rest_;
+            const int argc = half_floor(op[1]) + 1 + rest_;
             const StackIndex call_base = xs_->sp - static_cast<StackIndex>(argc);
             const auto local_call = static_cast<std::uint16_t>(xs_->pc.offset + op[0]);
             const int final_argc = require_uint16(stack_->entries[call_base]) + rest_;
@@ -1144,7 +1171,7 @@ void Machine::run_vm() {
                 gc_count_down_ = gc_interval;
                 run_gc();
             }
-            xs_->sp -= static_cast<StackIndex>((op[1] >> 1) + 1);
+            xs_->sp -= static_cast<StackIndex>(half_floor(op[1]) + 1);
             xs_->sp -= static_cast<StackIndex>(rest_);
             const int argc = require_uint16(stack_->entries[xs_->sp]) + rest_;
             call_kernel(op[0], argc);
@@ -1163,7 +1190,7 @@ void Machine::run_vm() {
         case 0x22:   // callb
         case 0x23: { // calle
             const bool external = opcode == 0x23;
-            const int frame_args = ((external ? op[2] : op[1]) >> 1) + rest_ + 1;
+            const int frame_args = half_floor(external ? op[2] : op[1]) + rest_ + 1;
             const StackIndex old_sp = xs_->sp;
             xs_->sp -= static_cast<StackIndex>(frame_args);
             stack_->entries[xs_->sp].offset = static_cast<std::uint16_t>(stack_->entries[xs_->sp].offset + rest_);
@@ -1211,11 +1238,12 @@ void Machine::run_vm() {
         case 0x25:   // send
         case 0x2a: { // self
             const StackIndex old_sp = xs_->sp;
-            xs_->sp -= static_cast<StackIndex>((op[0] >> 1) + rest_);
+            xs_->sp -= static_cast<StackIndex>(half_floor(op[0]) + rest_);
             stack_->entries[xs_->sp + 1].offset =
                 static_cast<std::uint16_t>(stack_->entries[xs_->sp + 1].offset + rest_);
             const Reg target = opcode == 0x25 ? acc_ : xs_->objp;
-            xs_new = send_selector(target, target, old_sp, (op[0] >> 1) + static_cast<std::uint16_t>(rest_), xs_->sp);
+            xs_new =
+                send_selector(target, target, old_sp, half_floor(op[0]) + static_cast<std::uint16_t>(rest_), xs_->sp);
             if (xs_new != nullptr && xs_new != xs_) {
                 stack_position_changed_ = true;
             }
@@ -1233,10 +1261,11 @@ void Machine::run_vm() {
                 break;
             }
             const StackIndex old_sp = xs_->sp;
-            xs_->sp -= static_cast<StackIndex>((op[1] >> 1) + rest_);
+            xs_->sp -= static_cast<StackIndex>(half_floor(op[1]) + rest_);
             stack_->entries[xs_->sp + 1].offset =
                 static_cast<std::uint16_t>(stack_->entries[xs_->sp + 1].offset + rest_);
-            xs_new = send_selector(klass, xs_->objp, old_sp, (op[1] >> 1) + static_cast<std::uint16_t>(rest_), xs_->sp);
+            xs_new =
+                send_selector(klass, xs_->objp, old_sp, half_floor(op[1]) + static_cast<std::uint16_t>(rest_), xs_->sp);
             if (xs_new != nullptr && xs_new != xs_) {
                 stack_position_changed_ = true;
             }
@@ -1252,11 +1281,11 @@ void Machine::run_vm() {
             break;
         }
         case 0x2d: { // lea
-            const int kind = static_cast<std::uint16_t>(op[0]) >> 1;
-            const int var_type = kind & 0x03;
+            const unsigned kind = static_cast<unsigned>(static_cast<std::uint16_t>(op[0])) >> 1U;
+            const auto var_type = static_cast<int>(kind & 0x03U);
             const Variables& vars = variables_[static_cast<std::size_t>(var_type)];
             int offset = static_cast<int>(vars.start);
-            if ((kind & 0x08) != 0) {
+            if ((kind & 0x08U) != 0) {
                 offset += require_sint16(acc_);
             }
             offset += op[1];
@@ -1288,7 +1317,7 @@ void Machine::run_vm() {
         case 0x37:   // ipTos
         case 0x38: { // dpTos
             Reg& prop = property(obj, op[0]);
-            prop = (opcode & 1) != 0 ? add(prop, number(1)) : subtract(prop, number(1));
+            prop = (static_cast<unsigned>(opcode) & 1U) != 0 ? add(prop, number(1)) : subtract(prop, number(1));
             if (opcode == 0x35 || opcode == 0x36) {
                 acc_ = prop;
             } else {
@@ -1329,10 +1358,10 @@ void Machine::run_vm() {
             break;
         default:
             if (opcode >= 0x40) {
-                const int var_type = opcode & 0x03;
-                const bool indexed = (opcode & 0x08) != 0;
-                const int group = (opcode - 0x40) >> 4; // 0 load, 1 store, 2 increment, 3 decrement
-                const bool to_stack = (opcode & 0x04) != 0;
+                const auto var_type = static_cast<int>(static_cast<unsigned>(opcode) & 0x03U);
+                const bool indexed = (static_cast<unsigned>(opcode) & 0x08U) != 0;
+                const int group = (opcode - 0x40) / 16; // 0 load, 1 store, 2 increment, 3 decrement
+                const bool to_stack = (static_cast<unsigned>(opcode) & 0x04U) != 0;
                 const int index = op[0] + (indexed ? require_sint16(acc_) : 0);
                 switch (group) {
                 case 0: // l[as][gltp][i]

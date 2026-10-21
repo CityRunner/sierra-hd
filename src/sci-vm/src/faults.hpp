@@ -26,7 +26,10 @@ public:
 
     [[nodiscard]] bool raised() const { return message_.has_value(); }
 
-    [[nodiscard]] const std::string& message() const { return *message_; }
+    [[nodiscard]] const std::string& message() const {
+        static const std::string none;
+        return message_ ? *message_ : none;
+    }
 
 private:
     std::optional<std::string> message_;

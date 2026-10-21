@@ -190,7 +190,7 @@ void Transitions::doit(const Rect& /*pic_rect*/) {
         }
     }
     do_transition(number_, false);
-    graphics_->screen().pic_not_valid = 0;
+    graphics_->screen().set_pic_not_valid(0);
 }
 
 void Transitions::do_transition(int number, bool blackout) {

@@ -70,7 +70,7 @@ void Object::init(const Script& owner, Reg pos, bool init_variables) {
                          pos.offset, owner.number()));
     }
     base_method_.clear();
-    base_method_.reserve(method_count_ * 2U);
+    base_method_.reserve(std::size_t{method_count_} * 2);
     for (std::uint32_t i = 0; i < method_count_; ++i) {
         base_method_.push_back(owner.read16(method_block + 2 + (i * 2)));
         base_method_.push_back(owner.read16(method_block + 2 + ((method_count_ + 1 + i) * 2)));

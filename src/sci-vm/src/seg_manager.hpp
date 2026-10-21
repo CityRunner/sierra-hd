@@ -68,7 +68,7 @@ public:
 
     // Segments.
     SegmentId alloc_segment(std::unique_ptr<Segment> segment);
-    void deallocate(SegmentId segment);
+    void deallocate(SegmentId id);
     [[nodiscard]] Segment* segment(SegmentId id) const;
     [[nodiscard]] Segment* segment(SegmentId id, SegmentType type) const;
     [[nodiscard]] SegmentType segment_type(SegmentId id) const;
@@ -77,8 +77,8 @@ public:
     [[nodiscard]] std::size_t heap_size() const { return heap_.size(); }
 
     // Scripts.
-    [[nodiscard]] Script* script(SegmentId segment) const; // A fault if not a script.
-    [[nodiscard]] Script* script_if_loaded(SegmentId segment) const;
+    [[nodiscard]] Script* script(SegmentId id) const; // A fault if not a script.
+    [[nodiscard]] Script* script_if_loaded(SegmentId id) const;
     [[nodiscard]] SegmentId script_segment(int number) const;
     SegmentId script_segment(int number, ScriptLoad load);
     // Loads a script (or adds a locker if it is loaded); its segment, or 0.
@@ -110,7 +110,7 @@ public:
     [[nodiscard]] List* lookup_list(Reg address) const;
     [[nodiscard]] Node* lookup_node(Reg address, bool stop_on_discarded = true) const;
     Reg allocate_hunk_entry(std::string_view type, std::size_t size);
-    void free_hunk_entry(Reg address);
+    void free_hunk_entry(Reg address) const;
     [[nodiscard]] Hunk* hunk(Reg address) const;
     std::span<std::uint8_t> allocate_dynmem(std::size_t size, std::string_view description, Reg& address);
     bool free_dynmem(Reg address);
@@ -128,16 +128,16 @@ public:
     // empty with a warning otherwise.
     [[nodiscard]] std::span<std::uint8_t> deref_bulk(Reg pointer, int entries) const;
     [[nodiscard]] std::span<Reg> deref_regs(Reg pointer, int entries) const;
-    void strncpy(Reg dest, std::string_view source, std::size_t n);
-    void strncpy(Reg dest, Reg source, std::size_t n);
+    void strncpy(Reg dest, std::string_view source, std::size_t n) const;
+    void strncpy(Reg dest, Reg source, std::size_t n) const;
 
-    void strcpy(Reg dest, std::string_view source) { strncpy(dest, source, unbounded); }
+    void strcpy(Reg dest, std::string_view source) const { strncpy(dest, source, unbounded); }
 
-    void strcpy(Reg dest, Reg source) { strncpy(dest, source, unbounded); }
+    void strcpy(Reg dest, Reg source) const { strncpy(dest, source, unbounded); }
 
-    void memcpy(Reg dest, std::span<const std::uint8_t> source);
-    void memcpy(Reg dest, Reg source, std::size_t n);
-    void memcpy(std::span<std::uint8_t> dest, Reg source);
+    void memcpy(Reg dest, std::span<const std::uint8_t> source) const;
+    void memcpy(Reg dest, Reg source, std::size_t n) const;
+    void memcpy(std::span<std::uint8_t> dest, Reg source) const;
     [[nodiscard]] std::size_t strlen(Reg str) const;
     [[nodiscard]] std::string get_string(Reg pointer) const;
 

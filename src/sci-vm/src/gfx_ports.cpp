@@ -36,6 +36,16 @@
 
 namespace sci::vm {
 
+Window* Ports::as_window(Port* port) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast): ports with an id from 2 are windows.
+    return static_cast<Window*>(port);
+}
+
+const Window* Ports::as_window(const Port* port) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast): ports with an id from 2 are windows.
+    return static_cast<const Window*>(port);
+}
+
 void Ports::init() {
     free_counter_ = 0;
     // The menu port has the fixed id 0xFFFF and is unknown to the window manager.
@@ -43,7 +53,7 @@ void Ports::init() {
     open_port(menu_port_.get());
     set_port(menu_port_.get());
     graphics_->text().set_font(0);
-    menu_port_->rect = Rect::from(0, 0, Screen::width, Screen::height);
+    menu_port_->rect = Rect{.top = 0, .left = 0, .bottom = Screen::height, .right = Screen::width};
     menu_bar_rect_ = Rect::from(0, 0, Screen::width, 9);
     menu_rect_ = Rect::from(0, 0, Screen::width, 10);
     menu_line_ = Rect::from(0, 9, Screen::width, 10);
@@ -62,7 +72,7 @@ void Ports::init() {
     wmgr_port_->cur_left = 0;
     windows_.push_front(wmgr_port_.get());
 
-    const Rect pic_rect = Rect::from(0, off_top, Screen::width, Screen::height);
+    const Rect pic_rect{.top = off_top, .left = 0, .bottom = Screen::height, .right = Screen::width};
     pic_window_ = add_window(pic_rect, nullptr, nullptr, style_transparent | style_no_frame, 0, true);
     kernel_init_priority_bands();
 }
@@ -71,7 +81,7 @@ void Ports::reset() {
     set_port(pic_window_);
     for (std::size_t id = first_script_window_id; id < by_id_.size(); ++id) {
         if (by_id_[id] != nullptr) {
-            free_window(static_cast<Window*>(by_id_[id]));
+            free_window(as_window(by_id_[id]));
         }
     }
     free_counter_ = 0;
@@ -84,7 +94,7 @@ void Ports::kernel_set_active(std::uint16_t port_id) {
     if (free_counter_ != 0) {
         // Windows waiting to be freed.
         for (std::size_t id = first_script_window_id; id < by_id_.size(); ++id) {
-            auto* window = static_cast<Window*>(by_id_[id]);
+            auto* window = as_window(by_id_[id]);
             if (window != nullptr && window->counter_till_free != 0) {
                 --window->counter_till_free;
                 if (window->counter_till_free == 0) {
@@ -136,7 +146,7 @@ Reg Ports::kernel_new_window(const Rect& dims, const Rect& restore_rect, std::ui
 }
 
 void Ports::kernel_dispose_window(std::uint16_t window_id, bool reanimate) {
-    auto* window = static_cast<Window*>(port_by_id(window_id));
+    auto* window = as_window(port_by_id(window_id));
     if (window == nullptr) {
         graphics_->faults().raise(std::format("kDisposeWindow: used unknown window id {}", window_id));
         return;
@@ -156,7 +166,7 @@ void Ports::begin_update(Window* window) {
         if (it == end) {
             break;
         }
-        update_window(static_cast<Window*>(*it));
+        update_window(as_window(*it));
     }
     set_port(old_port);
 }
@@ -166,7 +176,7 @@ void Ports::end_update(Window* window) {
     auto it = std::ranges::find(windows_, window);
     if (it != windows_.end()) {
         for (++it; it != windows_.end(); ++it) {
-            update_window(static_cast<Window*>(*it));
+            update_window(as_window(*it));
         }
     }
     // SCI0 also redraws the box (SCI_VERSION_1_EGA_ONLY and older).
@@ -182,7 +192,7 @@ Window* Ports::add_window(const Rect& dims, const Rect* restore_rect, const std:
     while (id < by_id_.size() && by_id_[id] != nullptr) {
         if (by_id_[id]->counter_till_free != 0) {
             // Disposed but not freed yet: reuse the id.
-            free_window(static_cast<Window*>(by_id_[id]));
+            free_window(as_window(by_id_[id]));
             --free_counter_;
             break;
         }
@@ -353,7 +363,7 @@ void Ports::remove_window(Window* window, bool reanimate) {
 }
 
 void Ports::free_window(Window* window) {
-    SegManager& segments = graphics_->machine().segments();
+    const SegManager& segments = graphics_->machine().segments();
     if (!window->saved_visual.is_null()) {
         segments.free_hunk_entry(window->saved_visual);
     }
@@ -514,7 +524,7 @@ std::vector<Reg> Ports::engine_hunks() const {
     std::vector<Reg> hunks;
     for (const Port* port : windows_) {
         if (port->is_window()) {
-            const auto* window = static_cast<const Window*>(port);
+            const Window* window = as_window(port);
             hunks.push_back(window->saved_visual);
             hunks.push_back(window->saved_priority);
         }

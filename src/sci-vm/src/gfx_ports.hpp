@@ -163,6 +163,11 @@ public:
     [[nodiscard]] const Rect& menu_line() const { return menu_line_; }
 
 private:
+    // The window a port is: GfxPorts casts the ports from id 2 on, which are
+    // windows, the same way.
+    [[nodiscard]] static Window* as_window(Port* port);
+    [[nodiscard]] static const Window* as_window(const Port* port);
+
     Graphics* graphics_;
     std::unique_ptr<Port> wmgr_port_;
     std::unique_ptr<Port> menu_port_;

@@ -40,6 +40,7 @@ namespace sci::vm {
 // The selectors the interpreter itself uses, by name (-1 if the game has no
 // such selector). The C++ name is the selector name, except where it is not
 // a valid identifier.
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage): the selector list, expanded twice (an X-macro).
 #define SCI_VM_SELECTORS(X)                                                                                            \
     X(info, "-info-")                                                                                                  \
     X(y, "y")                                                                                                          \
@@ -137,7 +138,9 @@ namespace sci::vm {
     X(controls, "controls")
 
 struct SelectorCache {
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage): expands the selector list.
 #define SCI_VM_SELECTOR_FIELD(field, name) Selector field = no_selector;
+    // NOLINTNEXTLINE(readability-identifier-naming): delete_ stands for the selector "delete", a keyword.
     SCI_VM_SELECTORS(SCI_VM_SELECTOR_FIELD)
 #undef SCI_VM_SELECTOR_FIELD
 };

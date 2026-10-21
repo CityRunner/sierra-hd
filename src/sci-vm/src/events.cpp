@@ -30,6 +30,8 @@
 
 #include <charconv>
 #include <format>
+#include <iterator>
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -80,11 +82,12 @@ std::optional<long> parse_number(std::string_view& text) {
         text.remove_prefix(1);
     }
     long value = 0;
-    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
-    if (error != std::errc{} || end == text.data()) {
+    const char* const first = std::to_address(text.begin());
+    const auto [end, error] = std::from_chars(first, std::to_address(text.end()), value);
+    if (error != std::errc{} || end == first) {
         return std::nullopt;
     }
-    text.remove_prefix(static_cast<std::size_t>(end - text.data()));
+    text.remove_prefix(static_cast<std::size_t>(std::distance(first, end)));
     return value;
 }
 
@@ -100,6 +103,57 @@ std::string_view next_word(std::string_view& text) {
 
 SciEvent make_event(std::uint16_t type, std::uint16_t character, std::uint16_t modifiers, Point mouse) {
     return SciEvent{.type = type, .modifiers = modifiers, .character = character, .mouse = mouse};
+}
+
+} // namespace
+
+namespace {
+
+// The events of one line after the header, from `position` (the mouse,
+// which mouse lines move); false for a bad line.
+bool parse_event_line(std::string_view line, Point& position, std::vector<InputEvent>& events) {
+    const auto tick = parse_number(line);
+    if (!tick || *tick < 0) {
+        return false;
+    }
+    const std::string_view kind = next_word(line);
+    const SciEvent none{};
+    InputEvent input{
+        .tick = static_cast<std::uint32_t>(*tick),
+        .event = none,
+        .move_only = false,
+    };
+    if (kind == "text") {
+        if (!line.empty() && line.front() == ' ') {
+            line.remove_prefix(1);
+        }
+        for (const char c : line) {
+            input.event = make_event(event_key_down, static_cast<std::uint8_t>(c), modifier_none, position);
+            events.push_back(input);
+        }
+        input.event = make_event(event_key_down, key_enter, modifier_none, position);
+        events.push_back(input);
+        return true;
+    }
+    const auto a = parse_number(line);
+    const auto b = parse_number(line);
+    const auto c = parse_number(line);
+    if (kind == "key" && a) {
+        input.event = make_event(event_key_down, static_cast<std::uint16_t>(*a),
+                                 static_cast<std::uint16_t>(b.value_or(0)), position);
+    } else if ((kind == "down" || kind == "up") && a && b) {
+        position = Point{.x = static_cast<std::int16_t>(*a), .y = static_cast<std::int16_t>(*b)};
+        input.event = make_event(kind == "down" ? event_mouse_press : event_mouse_release, 0,
+                                 static_cast<std::uint16_t>(c.value_or(0)), position);
+    } else if (kind == "move" && a && b) {
+        position = Point{.x = static_cast<std::int16_t>(*a), .y = static_cast<std::int16_t>(*b)};
+        input.event = make_event(event_none, 0, 0, position);
+        input.move_only = true;
+    } else {
+        return false;
+    }
+    events.push_back(input);
+    return true;
 }
 
 } // namespace
@@ -127,45 +181,9 @@ core::Result<std::vector<InputEvent>> parse_replay(std::string_view text) {
             header = true;
             continue;
         }
-        const auto bad = [&] {
+        if (!parse_event_line(line, position, events)) {
             return core::make_error(core::ErrorCode::InvalidData, std::format("bad replay line {}", line_number));
-        };
-        const auto tick = parse_number(line);
-        if (!tick || *tick < 0) {
-            return bad();
         }
-        const std::string_view kind = next_word(line);
-        InputEvent input{.tick = static_cast<std::uint32_t>(*tick), .event = SciEvent{}, .move_only = false};
-        if (kind == "text") {
-            if (!line.empty() && line.front() == ' ') {
-                line.remove_prefix(1);
-            }
-            for (const char c : line) {
-                input.event = make_event(event_key_down, static_cast<std::uint8_t>(c), modifier_none, position);
-                events.push_back(input);
-            }
-            input.event = make_event(event_key_down, key_enter, modifier_none, position);
-            events.push_back(input);
-            continue;
-        }
-        const auto a = parse_number(line);
-        const auto b = parse_number(line);
-        const auto c = parse_number(line);
-        if (kind == "key" && a) {
-            input.event = make_event(event_key_down, static_cast<std::uint16_t>(*a),
-                                     static_cast<std::uint16_t>(b.value_or(0)), position);
-        } else if ((kind == "down" || kind == "up") && a && b) {
-            position = Point{.x = static_cast<std::int16_t>(*a), .y = static_cast<std::int16_t>(*b)};
-            input.event = make_event(kind == "down" ? event_mouse_press : event_mouse_release, 0,
-                                     static_cast<std::uint16_t>(c.value_or(0)), position);
-        } else if (kind == "move" && a && b) {
-            position = Point{.x = static_cast<std::int16_t>(*a), .y = static_cast<std::int16_t>(*b)};
-            input.event = make_event(event_none, 0, 0, position);
-            input.move_only = true;
-        } else {
-            return bad();
-        }
-        events.push_back(input);
     }
     if (!header) {
         return core::make_error(core::ErrorCode::InvalidData, "not a version 1 replay file");

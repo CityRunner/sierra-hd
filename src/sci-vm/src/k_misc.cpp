@@ -195,7 +195,7 @@ Reg k_valid_path(Machine& /*machine*/, std::span<Reg> /*args*/) {
 }
 
 Reg k_device_info(Machine& machine, std::span<Reg> args) {
-    SegManager& segments = machine.segments();
+    const SegManager& segments = machine.segments();
     switch (args[0].to_uint16()) {
     case 0: // The device of a path.
         segments.strcpy(args[2], "/");

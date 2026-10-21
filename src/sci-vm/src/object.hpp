@@ -68,7 +68,7 @@ public:
     }
 
     [[nodiscard]] Selector func_selector(std::uint16_t index) const {
-        return static_cast<Selector>(base_method_[index * 2U]);
+        return static_cast<Selector>(base_method_[std::size_t{index} * 2]);
     }
 
     // The index of the method the object itself defines for the selector,

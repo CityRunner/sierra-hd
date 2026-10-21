@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <optional>
 #include <print>
 #include <span>
@@ -30,8 +31,9 @@ namespace {
 
 std::optional<std::uint32_t> parse_number(std::string_view text) {
     std::uint32_t value = 0;
-    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
-    if (error != std::errc{} || end != text.data() + text.size()) {
+    const char* const last = std::to_address(text.end());
+    const auto [end, error] = std::from_chars(std::to_address(text.begin()), last, value);
+    if (error != std::errc{} || end != last) {
         return std::nullopt;
     }
     return value;

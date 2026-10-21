@@ -91,7 +91,7 @@ void Animate::make_sorted_list(Reg list) {
     }
     // By y, then z, then the given order: a total order, so the sort is the
     // one ScummVM's (unstable) sort gives.
-    std::ranges::sort(list_, [](const AnimateEntry& a, const AnimateEntry& b) {
+    std::ranges::stable_sort(list_, [](const AnimateEntry& a, const AnimateEntry& b) {
         if (a.y == b.y) {
             if (a.z == b.z) {
                 return a.given_order < b.given_order;
@@ -165,7 +165,7 @@ void Animate::update() {
         if ((it.signal & signal_no_update) != 0) {
             if ((it.signal & signal_remove_view) == 0) {
                 const Reg bits = machine.read_selector(it.object, s.under_bits);
-                if (graphics_->screen().pic_not_valid != 1) {
+                if (graphics_->screen().pic_not_valid() != 1) {
                     paint.bits_restore(bits);
                     it.show_bits = true;
                 } else {
@@ -242,9 +242,10 @@ void Animate::update_screen(int old_pic_not_valid) {
     const SelectorCache& s = machine.selector();
     Paint& paint = graphics_->paint();
     for (AnimateEntry& it : list_) {
-        if (it.show_bits || !((it.signal & (signal_remove_view | signal_no_update)) != 0 ||
-                              ((it.signal & signal_remove_view) == 0 && (it.signal & signal_no_update) != 0 &&
-                               old_pic_not_valid != 0))) {
+        const bool removed_or_no_update = (it.signal & (signal_remove_view | signal_no_update)) != 0;
+        const bool no_update_on_new_pic =
+            (it.signal & signal_remove_view) == 0 && (it.signal & signal_no_update) != 0 && old_pic_not_valid != 0;
+        if (it.show_bits || (!removed_or_no_update && !no_update_on_new_pic)) {
             const Rect ls_rect{
                 .top = machine.read_selector_value(it.object, s.ls_top),
                 .left = machine.read_selector_value(it.object, s.ls_left),
@@ -302,7 +303,7 @@ void Animate::re_animate(const Rect& rect) {
         paint.draw_cel(graphics_->cache().view(it.view), it.loop, it.cel, it.cel_rect, it.priority);
     }
     paint.bits_show(rect);
-    for (auto& it : std::views::reverse(last_cast_)) {
+    for (const auto& it : std::views::reverse(last_cast_)) {
         paint.bits_restore(it.cast_handle);
     }
 }
@@ -346,10 +347,10 @@ void Animate::kernel_animate(Reg list, bool cycle, std::span<Reg> /*args*/) {
     Machine& machine = graphics_->machine();
     const Screen& screen = graphics_->screen();
     Ports& ports = graphics_->ports();
-    int old_pic_not_valid = screen.pic_not_valid;
+    int old_pic_not_valid = screen.pic_not_valid();
     if (list.is_null()) {
         dispose_last_cast();
-        if (screen.pic_not_valid != 0) {
+        if (screen.pic_not_valid() != 0) {
             show_pic();
         }
         return;
@@ -381,7 +382,7 @@ void Animate::kernel_animate(Reg list, bool cycle, std::span<Reg> /*args*/) {
         update();
     }
     draw_cels();
-    if (screen.pic_not_valid != 0) {
+    if (screen.pic_not_valid() != 0) {
         show_pic();
     }
     update_screen(old_pic_not_valid);
@@ -400,7 +401,7 @@ void Animate::kernel_add_to_pic_list(Reg list) {
     }
     make_sorted_list(list);
     add_to_pic_draw_cels();
-    graphics_->screen().pic_not_valid = 1;
+    graphics_->screen().set_pic_not_valid(1);
 }
 
 void Animate::kernel_add_to_pic_view(int view, int loop, int cel, int x, int y, int priority, int control) {
@@ -418,7 +419,7 @@ void Animate::kernel_add_to_pic_view(int view, int loop, int cel, int x, int y, 
                                                             static_cast<int>(cel_rect.top), cel_rect.bottom - 1));
         paint.fill_rect(cel_rect, mask_control, 0, 0, static_cast<std::uint8_t>(control));
     }
-    graphics_->screen().pic_not_valid = 1;
+    graphics_->screen().set_pic_not_valid(1);
 }
 
 } // namespace sci::vm

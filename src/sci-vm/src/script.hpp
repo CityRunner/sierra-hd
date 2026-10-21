@@ -43,7 +43,7 @@ class Resources;
 class ScriptPatcher;
 
 // The block types of an SCI0 script.
-enum class ScriptBlock : std::uint16_t {
+enum class ScriptBlock : std::uint8_t {
     Terminator = 0,
     Object = 1,
     Code = 2,

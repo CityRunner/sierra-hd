@@ -38,7 +38,8 @@ std::uint16_t read16(const std::vector<std::uint8_t>& data, std::size_t offset) 
     if (offset + 1 >= data.size()) {
         return 0;
     }
-    return static_cast<std::uint16_t>(data[offset] | (data[offset + 1] << 8U));
+    return static_cast<std::uint16_t>(static_cast<unsigned>(data[offset]) |
+                                      (static_cast<unsigned>(data[offset + 1]) << 8U));
 }
 
 } // namespace
@@ -56,6 +57,7 @@ bool SelectorTable::load(const std::vector<std::uint8_t>& vocab) {
         names_.emplace_back(vocab.begin() + static_cast<std::ptrdiff_t>(offset + 2),
                             vocab.begin() + static_cast<std::ptrdiff_t>(offset + 2 + length));
     }
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage): expands the selector list.
 #define SCI_VM_SELECTOR_FIND(field, name) cache_.field = find(name);
     SCI_VM_SELECTORS(SCI_VM_SELECTOR_FIND)
 #undef SCI_VM_SELECTOR_FIND

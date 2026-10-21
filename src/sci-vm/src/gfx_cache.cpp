@@ -75,7 +75,8 @@ void GfxView::draw(Screen& screen, const Rect& rect, const Rect& clip, const Rec
         return;
     }
     const std::uint8_t draw_mask = priority > 15 ? mask_visual : mask_visual | mask_priority;
-    const auto start = static_cast<std::size_t>(((clip.top - rect.top) * cel_width) + (clip.left - rect.left));
+    const int first = ((clip.top - rect.top) * cel_width) + (clip.left - rect.left);
+    const auto start = static_cast<std::size_t>(first);
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             const std::uint8_t color = info.pixels[start + static_cast<std::size_t>((y * cel_width) + x)];
@@ -105,8 +106,8 @@ void GfxFont::draw(Screen& screen, std::uint16_t chr, int top, int left, std::ui
             keep_parity = (greyed_top++ % 2) != 0 ? 0 : 1;
         }
         for (int x = 0; std::cmp_less(x, glyph.width); ++x) {
-            if (glyph.pixels[static_cast<std::size_t>((y * glyph.width) + x)] == 0 ||
-                (keep_parity >= 0 && (x % 2) != keep_parity)) {
+            const int at = (y * glyph.width) + x;
+            if (glyph.pixels[static_cast<std::size_t>(at)] == 0 || (keep_parity >= 0 && (x % 2) != keep_parity)) {
                 continue;
             }
             const int screen_x = left + x;

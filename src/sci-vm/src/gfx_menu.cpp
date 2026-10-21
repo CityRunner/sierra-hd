@@ -235,7 +235,9 @@ void Menu::kernel_add_entry(const std::string& title, std::string content, Reg c
                 faults.raise("tag marker at end of item");
                 return;
             }
-            item.tag = static_cast<std::uint16_t>(std::atoi(content.c_str() + tag_start));
+            // atoi, which glibc implements as strtol in base 10.
+            const std::string tag_text = content.substr(static_cast<std::size_t>(tag_start));
+            item.tag = static_cast<std::uint16_t>(static_cast<int>(std::strtol(tag_text.c_str(), nullptr, 10)));
         }
         position = end + 1;
         items_.push_back(std::move(item));
