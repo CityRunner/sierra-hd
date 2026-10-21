@@ -141,9 +141,41 @@ qemu-user. All 57 comparisons are identical.
 - All 11 fuzz targets ran for 60 s with no findings, among them the new
   parser and scene targets.
 - clang-format, clang-tidy and `scripts/check-repo-policy.py` report no
-  findings.
-- CI was not run (GitHub CI limits exceeded); all checks above ran
-  locally in the toolchain container.
+  findings over the whole tree. An earlier version of this report said so
+  after checking only the changed files: the first full run found the
+  script scanner (`scan.cpp`) over the complexity limit, now split.
+- **A CI defect, fixed:** the Linux jobs never failed on a build, lint or
+  test error from milestone 0 on. Their `... | tee build.log` steps ran
+  without `pipefail`, so they took `tee`'s status. The CI lint job had
+  passed on `scan.cpp`. Windows and macOS were not affected. Details are in
+  `docs/ASSUMPTIONS.md`, "CI cost policy".
+- All checks above ran locally in the toolchain container first
+  (`scripts/pre-push.sh`); CI confirms them at the gate (below).
+
+## CI minutes
+
+GATE_RESULT
+
+Under the CI cost policy (`docs/ASSUMPTIONS.md`, "CI cost policy"),
+introduced during this gate, measured with
+`scripts/ci-minutes.py --branch milestone-4b`:
+
+CI_TABLE
+
+- Most of these minutes came before the policy: every push ran 8 Linux
+  jobs, and 20 of the 4b push runs were cancelled part-way by the next
+  push. Under the policy a push runs nothing.
+- Two runs were cancelled by hand when the policy arrived: the push run
+  that duplicated the pull request run of the same commit, and the
+  release build on the pull request (release binaries now build for tags
+  only).
+- No macOS, Windows or native ARM64 run happened between gates.
+- What could reduce the minutes further:
+  - a self-hosted Linux runner on a machine of yours, which would make the
+    Linux jobs free;
+  - a self-hosted macOS runner, which would remove about 150 of the 236
+    included minutes of a gate;
+  - ccache, whose savings show from the second gate run on.
 
 ## Deviations from the spec
 
@@ -165,3 +197,18 @@ marked **Proposed**):
 3. **The deterministic mode's time of day** now starts at noon on
    1990-01-01 and runs. The opening and conversations need it to run;
    do you agree with the start date and time?
+4. **The CI spending limit.**
+   - Under the policy, a gate run costs about 236 included minutes (about
+     $1.40 at list prices), so the 2,000 included minutes a month cover
+     about 8 gate runs.
+   - At the pace so far, that is not enough: please set an Actions budget
+     on the account. It is under Settings, Billing and licensing, Budgets
+     and alerts, with "stop usage when budget limit is reached".
+   - Tell me the amount, and I will plan the gates within it.
+5. **macOS at every gate.** The policy puts macOS back into the gate
+   matrix, where it had been optional since milestone 0, and it is about
+   150 of the 236 included minutes of a gate. I have followed the policy.
+   Confirm, or say if macOS should stay optional.
+6. **Self-hosted runners** (proposed, not set up): a Linux runner on a
+   machine of yours that is always on, and a macOS runner if you have a
+   Mac. This session's container cannot be one, because it is ephemeral.
