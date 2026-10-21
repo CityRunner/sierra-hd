@@ -1253,6 +1253,12 @@ std::vector<Layer> build_layers(const pic::DrawTrace& trace, const PlaneView& vi
 
 } // namespace
 
+#ifdef SCI_WITHOUT_STROKE_INTEGRITY
+constexpr bool without_stroke_integrity = true;
+#else
+constexpr bool without_stroke_integrity = false;
+#endif
+
 BuiltScene build_scene(const pic::PictureMaps& maps, const pic::DrawTrace& trace, Plane plane,
                        std::span<const PictureHints* const> hints) {
     BuiltScene built;
@@ -1297,7 +1303,9 @@ BuiltScene build_scene(const pic::PictureMaps& maps, const pic::DrawTrace& trace
     scene.layers = build_layers(trace, view, plane, lines, owned, curves.strokes, built.stats);
     // Stroke integrity and occlusion (spec section 6.10) change the HD
     // picture only, so the visual plane.
-    if (plane == Plane::Visual) {
+    // The baseline of milestone 3b's report is measured without the pass
+    // (development option SCI_WITHOUT_STROKE_INTEGRITY).
+    if (plane == Plane::Visual && !without_stroke_integrity) {
         std::vector<detail::StrokeLine> stroke_lines;
         stroke_lines.reserve(lines.size());
         for (const DrawnLine& line : lines) {
