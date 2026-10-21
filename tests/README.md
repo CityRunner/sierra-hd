@@ -64,6 +64,30 @@ runs them all (`tools/vm-trace/run-scenario.sh` runs one).
   Enter or Escape.
 - `bedroom-wait.txt` (seed 0, stop tick 20000): Act I starts in the
   bedroom and runs without input; Lillian comes in and sits down.
+- `mouse-walk.txt` (seed 0, stop tick 12600): from the bedroom (44), mouse
+  clicks only (a left click walks Laura to 10 pixels above the point
+  clicked or closes a message; a right click looks): Ethel's room (45)
+  and back, the back and front upstairs hallways (43, 47), down the right
+  staircase into the front downstairs hallway (37), north into the back
+  downstairs hallway (33) and out of the French doors into the back
+  garden (4). Right clicks on the armchair, the dollhouse, the rug and the
+  grandfather clock (its close-up).
+- `grounds.txt` (seed 0, stop tick 12600): from the bedroom by mouse
+  through 43, 47 (left staircase) and 37 out of the front door onto the
+  porch (16; "It's real creepy and dark out here!"), then the southwest
+  corner by the billiard room (15), the front lawn with the statue (22),
+  the west side of the driveway (21) and the northwest corner outside the
+  Colonel's study (10), where "look" and "open the door" are typed.
+- `inventory-and-actions.txt` (seed 0, stop tick 24000): typed commands
+  on objects in the bedroom (dresser, drawer, suitcase) and Tab; by mouse
+  along the route of `mouse-walk.txt` to the back garden (4), the
+  northeast corner (12; "look in the doghouse", "inventory") and the
+  kitchen (35), where "open the icebox" puts the soup bone into the
+  inventory, "look at the bone" shows it and "give the bone to
+  beauregard" takes it out again; Tab after each.
+- `boot-and-bedroom.txt` (seed 7, stop tick 5000): the copy protection
+  with seed 7, whose fingerprint is Dr. Feels (clicked), "Yes", then
+  "look", a click and "look at the bed" in the bedroom.
 
 Every run, of the reference and of `sci-vm-trace`, gives a stop tick:
 

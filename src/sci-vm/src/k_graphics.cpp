@@ -182,7 +182,7 @@ Reg k_text_size(Machine& machine, std::span<Reg> args) {
     const std::span<Reg> dest = segments.deref_regs(args[0], 4);
     const std::string text = segments.get_string(args[1]);
     const int font = args[2].to_uint16();
-    const int max_width = args.size() > 3 ? args[3].to_uint16() : 0;
+    const int max_width = args.size() > 3 ? args[3].to_sint16() : 0; // int16 in kernelTextSize.
     if (dest.empty()) {
         return machine.acc();
     }

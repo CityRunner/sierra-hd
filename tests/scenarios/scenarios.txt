@@ -16,3 +16,7 @@ bedroom-wait.txt 20000 0
 parser-look.txt 7700 0
 parser-verbs.txt 7700 0
 parser-errors.txt 7700 0
+mouse-walk.txt 12600 0
+grounds.txt 12600 0
+inventory-and-actions.txt 24000 0
+boot-and-bedroom.txt 5000 7
