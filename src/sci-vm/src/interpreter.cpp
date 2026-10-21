@@ -50,6 +50,11 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
             }
             line += ") = ";
             append_value(line, call.result);
+            if (options.trace_callers) {
+                const Script* script = machine.segments().script_if_loaded(call.caller.segment);
+                std::format_to(std::back_inserter(line), " @{}:{:04x}", script != nullptr ? script->number() : -1,
+                               call.caller.offset);
+            }
             options.trace(line);
         }
         ++calls;

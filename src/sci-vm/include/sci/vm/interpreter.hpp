@@ -28,6 +28,9 @@ struct RunOptions {
     std::uint32_t stop_calls = std::numeric_limits<std::uint32_t>::max();
     // Receives one trace line per kernel call, without the line break.
     std::function<void(std::string_view)> trace;
+    // Appends " @<script>:<offset>" of the calling instruction to each line
+    // (for debugging; the reference does not write it).
+    bool trace_callers = false;
 };
 
 struct RunResult {

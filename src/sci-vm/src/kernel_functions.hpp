@@ -8,6 +8,7 @@
 
 #include "sci/vm/reg.hpp"
 
+#include <cstdint>
 #include <span>
 
 namespace sci::vm {
@@ -146,5 +147,8 @@ Reg k_graph_fill_box_any(Machine& machine, std::span<Reg> args);
 Reg k_graph_update_box(Machine& machine, std::span<Reg> args);
 Reg k_graph_redraw_box(Machine& machine, std::span<Reg> args);
 Reg k_graph_adjust_priority(Machine& machine, std::span<Reg> args);
+
+// kDirLoop's worker, also used by kDoAvoider.
+void dir_loop_worker(Machine& machine, Reg object, std::uint16_t angle);
 
 } // namespace sci::vm

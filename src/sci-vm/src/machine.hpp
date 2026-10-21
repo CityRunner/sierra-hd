@@ -106,6 +106,7 @@ struct KernelCall {
     const char* name = "";
     std::vector<Reg> arguments;
     Reg result;
+    Reg caller; // The instruction after the callk.
 };
 
 class Machine {
@@ -195,6 +196,16 @@ public:
     [[nodiscard]] Reg stack_value(StackIndex index) const { return stack_->entries[index]; }
 
     [[nodiscard]] Reg r_prev() const { return prev_; }
+
+    // An argument of the running kernel call, also past its argument count
+    // (kGraph FillBoxAny reads the stack beyond them, as Sierra did).
+    [[nodiscard]] Reg kernel_argument(std::size_t index) const;
+
+    // kFlushResources runs the garbage collector.
+    void collect_garbage() { run_gc(); }
+
+    // EngineState::shrinkStackToBase.
+    void shrink_stack_to_base();
 
 private:
     struct Variables {

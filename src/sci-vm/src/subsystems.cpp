@@ -31,6 +31,7 @@ void Subsystems::on_init_game(Machine& /*machine*/) {
     // random source is seeded.
     clock_->reset_wait();
     random_->set_seed(seed_);
+    parser_->reset();
 }
 
 void Subsystems::on_stop_game(Machine& /*machine*/) {
@@ -39,10 +40,13 @@ void Subsystems::on_stop_game(Machine& /*machine*/) {
 }
 
 void Subsystems::on_restart_game(Machine& /*machine*/) {
+    // SciEngine::runGame after a restart.
+    clock_->reset_throttle();
+    graphics_->on_restart_game();
 }
 
 std::vector<Reg> Subsystems::engine_hunks() const {
-    return {};
+    return graphics_->engine_hunks();
 }
 
 } // namespace sci::vm

@@ -46,6 +46,12 @@ public:
     // The seed of the random source, set at every initGame.
     void set_seed(std::uint32_t seed) { seed_ = seed; }
 
+    // EngineState::_eventCounter: kGetEvent calls since kWait or
+    // kGameIsRestarting(0).
+    void reset_event_counter() { event_counter_ = 0; }
+
+    int count_event() { return ++event_counter_; }
+
     [[nodiscard]] Clock& clock() { return *clock_; }
 
     [[nodiscard]] RandomSource& random() { return *random_; }
@@ -69,6 +75,7 @@ private:
     std::unique_ptr<Parser> parser_;
     std::unique_ptr<Files> files_;
     std::uint32_t seed_ = 0;
+    int event_counter_ = 0;
 };
 
 } // namespace sci::vm

@@ -6,7 +6,7 @@
 // compared line by line (tools/vm-trace/compare.py):
 //
 //   sci-vm-trace <game folder> <trace file> [--replay <file>] [--seed <n>]
-//                [--stop-tick <n>] [--stop-calls <n>]
+//                [--stop-tick <n>] [--stop-calls <n>] [--callers]
 
 #include "game_folder.hpp"
 #include "sci/vm/interpreter.hpp"
@@ -35,7 +35,7 @@ std::optional<std::uint32_t> parse_number(std::string_view text) {
 
 int usage() {
     std::println(stderr, "usage: sci-vm-trace <game folder> <trace file> [--replay <file>] [--seed <n>] "
-                         "[--stop-tick <n>] [--stop-calls <n>]");
+                         "[--stop-tick <n>] [--stop-calls <n>] [--callers]");
     return 2;
 }
 
@@ -51,6 +51,11 @@ int main(int argc, char** argv) {
     sci::vm::RunOptions options;
     for (std::size_t i = 3; i < args.size(); i += 2) {
         const std::string_view flag = args[i];
+        if (flag == "--callers") {
+            options.trace_callers = true;
+            --i;
+            continue;
+        }
         if (i + 1 >= args.size()) {
             return usage();
         }

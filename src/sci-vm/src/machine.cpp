@@ -659,11 +659,13 @@ void Machine::call_kernel(int kernel_number, int argc) {
             first = 1;
         }
     }
+    const Reg caller = xs_ != nullptr ? xs_->pc : null_reg;
     call_kernel_untraced(kernel_number, argc);
     kernel_log_(KernelCall{
         .name = name,
         .arguments = std::vector<Reg>(arguments.begin() + static_cast<std::ptrdiff_t>(first), arguments.end()),
-        .result = acc_});
+        .result = acc_,
+        .caller = caller});
 }
 
 void Machine::call_kernel_untraced(int kernel_number, int argc) {
@@ -749,6 +751,23 @@ void Machine::call_kernel_untraced(int kernel_number, int argc) {
     // Remove the kernel frame again, if there is still an execution stack.
     if (!stack_frames_.empty()) {
         stack_frames_.pop_back();
+    }
+}
+
+Reg Machine::kernel_argument(std::size_t index) const {
+    if (stack_frames_.empty()) {
+        return null_reg;
+    }
+    const StackIndex at = stack_frames_.back().argp + 1 + index;
+    return at < stack_->entries.size() ? stack_->entries[at] : null_reg;
+}
+
+void Machine::shrink_stack_to_base() {
+    if (!stack_frames_.empty()) {
+        const auto size = static_cast<std::size_t>(execution_stack_base_ + 1);
+        while (stack_frames_.size() > size) {
+            stack_frames_.pop_back();
+        }
     }
 }
 

@@ -30,10 +30,37 @@
 #include "timing.hpp"
 #include "trigonometry.hpp"
 
+#include <bit>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 
 namespace sci::vm {
+
+namespace {
+
+// ScummVM computes kSqrt and kGetDistance in binary32. The project uses
+// only double (spec 5.3), so results are rounded to binary32 here: rounding
+// the double result of +, * or sqrt again to 24 bits gives the binary32
+// result, as 53 >= 2 * 24 + 2. Only for values in the normal binary32
+// range, which these are.
+double to_binary32(double value) {
+    if (value == 0.0) {
+        return value;
+    }
+    constexpr std::uint64_t dropped = 29; // 52 - 23 fraction bits.
+    constexpr std::uint64_t mask = (std::uint64_t{1} << dropped) - 1;
+    constexpr std::uint64_t half = std::uint64_t{1} << (dropped - 1);
+    auto bits = std::bit_cast<std::uint64_t>(value);
+    const std::uint64_t lower = bits & mask;
+    bits &= ~mask;
+    if (lower > half || (lower == half && (bits & (mask + 1)) != 0)) {
+        bits += mask + 1; // A carry into the exponent is right.
+    }
+    return std::bit_cast<double>(bits);
+}
+
+} // namespace
 
 Reg k_random(Machine& machine, std::span<Reg> args) {
     RandomSource& random = machine.subsystems().random();
@@ -61,8 +88,8 @@ Reg k_abs(Machine& /*machine*/, std::span<Reg> args) {
 }
 
 Reg k_sqrt(Machine& /*machine*/, std::span<Reg> args) {
-    return number(
-        static_cast<std::int16_t>(std::sqrt(static_cast<float>(std::abs(static_cast<int>(args[0].to_sint16()))))));
+    const double value = std::abs(static_cast<int>(args[0].to_sint16())); // Exact in binary32.
+    return number(static_cast<std::int16_t>(to_binary32(std::sqrt(value))));
 }
 
 Reg k_get_angle(Machine& /*machine*/, std::span<Reg> args) {
@@ -97,11 +124,12 @@ Reg k_get_distance(Machine& /*machine*/, std::span<Reg> args) {
     const int x_diff = args.size() > 3 ? args[3].to_sint16() : 0;
     const int y_diff = args.size() > 2 ? args[2].to_sint16() : 0;
     const int angle = args.size() > 5 ? args[5].to_sint16() : 0;
-    const auto x_rel = static_cast<int>(
-        static_cast<double>(static_cast<float>(args[1].to_sint16()) - static_cast<float>(x_diff)) / cos_degrees(angle));
+    // The difference of two int16 values is exact in binary32.
+    const auto x_rel = static_cast<int>(static_cast<double>(args[1].to_sint16() - x_diff) / cos_degrees(angle));
     const int y_rel = args[0].to_sint16() - y_diff;
-    const float sum = (static_cast<float>(x_rel) * static_cast<float>(x_rel)) + static_cast<float>(y_rel * y_rel);
-    return number(static_cast<std::int16_t>(std::sqrt(sum)));
+    const double x_square = to_binary32(to_binary32(x_rel) * to_binary32(x_rel));
+    const double sum = to_binary32(x_square + to_binary32(y_rel * y_rel));
+    return number(static_cast<std::int16_t>(to_binary32(std::sqrt(sum))));
 }
 
 Reg k_times_sin(Machine& /*machine*/, std::span<Reg> args) {
