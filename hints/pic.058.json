@@ -1,0 +1,16 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 58,
+  "pic_sha256": "461c8ce46686f8d15bec1bb616a142040ad70bf6bf4b9aa3350d6763fb644e46",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "wooden-plank-floor", "at": [150, 115], "label": "wooden plank floor"},
+    {"id": "stained-glass-window", "at": [65, 55], "label": "stained glass window"},
+    {"id": "back-wall-windows", "at": [175, 45], "label": "back wall windows"},
+    {"id": "pews", "at": [140, 90], "label": "pews"},
+    {"id": "lectern", "at": [75, 100], "label": "lectern"},
+    {"id": "open-doorway", "at": [118, 55], "label": "open doorway", "uncertain": true},
+    {"id": "right-wall-with-door", "at": [280, 110], "label": "right wall with door"}
+  ]
+}

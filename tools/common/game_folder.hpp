@@ -14,10 +14,6 @@
 
 namespace sci::tools {
 
-// The regular files directly in the folder, sorted by name; the game does
-// not use subdirectories.
-[[nodiscard]] std::vector<resource::GameFile> read_game_folder(const std::filesystem::path& folder);
-
 // Opens the game in the folder; prints the reason and returns nullopt on
 // failure.
 [[nodiscard]] std::optional<resource::ResourceManager> open_game(const std::filesystem::path& folder);

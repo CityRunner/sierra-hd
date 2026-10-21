@@ -61,22 +61,34 @@ double distance_to_polyline(Vec2 p, std::span<const Vec2> line) {
     return best;
 }
 
+// Arcs flatter than this (in picture pixels) are straight lines: their
+// points cannot be computed reliably in double precision.
+constexpr double max_arc_radius = 1e5;
+
 // Appends the points of the circular arc from a to b (both on the circle,
 // less than half a turn apart), without a: halves of the arc are split at
-// their middle until their chords are short.
+// their middle until their chords are short, at most max_arc_depth times.
 void append_arc(Vec2 a, Vec2 b, Vec2 centre, double radius, std::vector<Vec2>& out) {
-    std::vector<std::pair<Vec2, Vec2>> pending{{a, b}}; // Last first.
+    constexpr int max_arc_depth = 16;
+
+    struct Part {
+        Vec2 p;
+        Vec2 q;
+        int depth = 0;
+    };
+
+    std::vector<Part> pending{{.p = a, .q = b, .depth = 0}}; // Last first.
     while (!pending.empty()) {
-        const auto [p, q] = pending.back();
+        const Part part = pending.back();
         pending.pop_back();
-        if (length(q - p) <= max_chord) {
-            out.push_back(q);
+        if (length(part.q - part.p) <= max_chord || part.depth >= max_arc_depth) {
+            out.push_back(part.q);
             continue;
         }
-        const Vec2 towards = ((p + q) * 0.5) - centre;
+        const Vec2 towards = ((part.p + part.q) * 0.5) - centre;
         const Vec2 middle = centre + (towards * (radius / length(towards)));
-        pending.emplace_back(middle, q);
-        pending.emplace_back(p, middle);
+        pending.push_back({.p = middle, .q = part.q, .depth = part.depth + 1});
+        pending.push_back({.p = part.p, .q = middle, .depth = part.depth + 1});
     }
 }
 
@@ -117,6 +129,9 @@ std::optional<FittedCurve> fit_arc(std::span<const Vec2> chain) {
     const double t = sum_ab / (2 * sum_bb);
     const Vec2 centre = m + (n * t);
     const double radius = length(a - centre);
+    if (!(radius < max_arc_radius)) {
+        return std::nullopt;
+    }
     const Vec2 middle = centre + (n * (side > 0 ? radius : -radius));
     FittedCurve curve{.kind = CurveKind::Arc, .points = {a}};
     append_arc(a, middle, centre, radius, curve.points);
@@ -456,6 +471,42 @@ FittedCurve fit_through_pins(std::span<const Vec2> chain, const std::vector<bool
     return curve;
 }
 
+// One section between pins fitted by the requested kind (not an ellipse),
+// or nothing if that does not stay within the tolerance. A section of one
+// edge stays straight.
+std::optional<FittedCurve> fit_section_as(std::span<const Vec2> chain, std::size_t start, std::size_t end,
+                                          CurveKind kind, double tolerance) {
+    const std::span<const Vec2> section = chain.subspan(start, end - start + 1);
+    if (section.size() == 2) {
+        return fit_line(section);
+    }
+    std::optional<FittedCurve> curve;
+    switch (kind) {
+    case CurveKind::Line:
+        curve = fit_line(section);
+        break;
+    case CurveKind::Arc:
+        // A section too flat for an arc is straight.
+        curve = fit_arc(section);
+        if (!curve) {
+            curve = fit_line(section);
+        }
+        break;
+    case CurveKind::Spline:
+        curve = fit_tangent_cubic(section, tangent_at(chain, start), tangent_at(chain, end));
+        if (!within(curve, section, tolerance)) {
+            curve = fit_open(section, tolerance);
+        }
+        break;
+    case CurveKind::Ellipse:
+        break;
+    }
+    if (!within(curve, section, tolerance)) {
+        return std::nullopt;
+    }
+    return curve;
+}
+
 } // namespace
 
 double polyline_distance(std::span<const Vec2> a, std::span<const Vec2> b) {
@@ -499,6 +550,51 @@ std::optional<FittedCurve> fit_curve(std::span<const Vec2> chain, const std::vec
         curve = fit_open(chain, tolerance);
     }
     // A fit made only of the chain's own edges replaces nothing.
+    if (curve.points.size() == chain.size() && std::ranges::equal(curve.points, chain)) {
+        return std::nullopt;
+    }
+    return curve;
+}
+
+std::optional<FittedCurve> fit_curve_as(std::span<const Vec2> chain, const std::vector<bool>& pinned, CurveKind kind,
+                                        double tolerance) {
+    if (chain.size() < 3) {
+        return std::nullopt;
+    }
+    const bool closed = chain.front() == chain.back();
+    bool any_pinned = false;
+    for (std::size_t i = 1; i + 1 < pinned.size(); ++i) {
+        any_pinned = any_pinned || pinned[i];
+    }
+    if (kind == CurveKind::Ellipse) {
+        if (!closed || any_pinned || pinned.front()) {
+            return std::nullopt;
+        }
+        auto ellipse = fit_ellipse(chain);
+        if (!within(ellipse, chain, tolerance)) {
+            return std::nullopt;
+        }
+        return ellipse;
+    }
+    // Sections between the pins; an unpinned loop is cut in two halves.
+    std::vector<std::size_t> cuts{0};
+    for (std::size_t i = 1; i + 1 < chain.size(); ++i) {
+        if (pinned[i]) {
+            cuts.push_back(i);
+        }
+    }
+    if (closed && !any_pinned) {
+        cuts.push_back(chain.size() / 2);
+    }
+    cuts.push_back(chain.size() - 1);
+    FittedCurve curve{.kind = kind, .points = {chain.front()}};
+    for (std::size_t i = 0; i + 1 < cuts.size(); ++i) {
+        const auto piece = fit_section_as(chain, cuts[i], cuts[i + 1], kind, tolerance);
+        if (!piece) {
+            return std::nullopt;
+        }
+        curve.points.insert(curve.points.end(), piece->points.begin() + 1, piece->points.end());
+    }
     if (curve.points.size() == chain.size() && std::ranges::equal(curve.points, chain)) {
         return std::nullopt;
     }

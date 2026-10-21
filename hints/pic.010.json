@@ -1,0 +1,46 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 10,
+  "pic_sha256": "7082ab29057f8db20e672fb00017a032d2cc8ded7d44eb3caa7b8f81c36df068",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "house-front-wall", "at": [160, 30], "label": "house front wall"},
+    {"id": "open-doorway", "at": [150, 100], "label": "open doorway"},
+    {"id": "stone-patio", "at": [100, 150], "label": "stone patio"},
+    {"id": "front-lawn", "at": [40, 120], "label": "front lawn"},
+    {"id": "tree", "at": [50, 10], "label": "tree"},
+    {"id": "pond", "at": [20, 180], "label": "pond"},
+    {"id": "front-steps", "at": [140, 125], "label": "front steps"}
+  ],
+  "chains": [
+    {"id": "left-window-arch", "lines": [1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290], "primitive": "spline", "label": "left window arch"},
+    {"id": "doorway-arch", "lines": [1275, 1276, 1277, 1278, 1279, 1280, 1281, 1282], "primitive": "arc", "label": "doorway arch"},
+    {"id": "right-window-arch", "lines": [1255, 1256, 1257, 1258, 1259, 1260, 1261], "primitive": "spline", "label": "right window arch"},
+    {"id": "curtain-behind-glass", "lines": [1402, 1403, 1404], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-2", "lines": [1420, 1421, 1422], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-3", "lines": [1355, 1356, 1357, 1358, 1359], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-4", "lines": [1360, 1361, 1362, 1363, 1364], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-5", "lines": [1373, 1374, 1375, 1376], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-6", "lines": [1377, 1378, 1379, 1380], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-7", "lines": [511, 512, 513, 514], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-8", "lines": [523, 524, 525], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-9", "lines": [526, 527, 528, 529, 530], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-10", "lines": [531, 532, 533], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-11", "lines": [549, 550, 551, 552], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-12", "lines": [553, 554, 555, 556, 557, 558], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-13", "lines": [561, 562, 563, 564], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-14", "lines": [570, 571, 572, 573, 574], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "curtain-behind-glass-15", "lines": [575, 576, 577, 578, 579, 580], "primitive": "spline", "label": "curtain behind glass", "uncertain": true},
+    {"id": "plant-leaf-edge", "lines": [763, 765, 766, 767], "primitive": "spline", "label": "plant leaf edge", "uncertain": true},
+    {"id": "plant-stalk", "lines": [1085, 1086, 1087, 1088], "primitive": "spline", "label": "plant stalk", "uncertain": true},
+    {"id": "flower-bush", "lines": [1082, 1083, 1084], "primitive": "spline", "label": "flower bush", "uncertain": true},
+    {"id": "flower-bed-edge", "lines": [635, 636, 637], "primitive": "spline", "label": "flower bed edge", "uncertain": true},
+    {"id": "flower-bed-edge-2", "lines": [1067, 1068, 1069, 1070, 1071, 1072, 1073, 1074], "primitive": "spline", "label": "flower bed edge", "uncertain": true},
+    {"id": "pond-edge", "lines": [36, 37, 38], "primitive": "spline", "label": "pond edge", "uncertain": true},
+    {"id": "lawn-edge", "lines": [1964, 1965, 1966], "primitive": "spline", "label": "lawn edge", "uncertain": true}
+  ],
+  "symmetry": [
+    {"kind": "repeat", "chains": ["left-window-arch", "right-window-arch"], "note": "the two arched window tops"}
+  ]
+}

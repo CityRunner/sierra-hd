@@ -1,8 +1,9 @@
 # Architecture
 
 How the program is organised, how data flows through it, and the trade-offs
-behind it. Updated at every milestone (spec section 5.1). State: milestone 3,
-the HD picture pipeline.
+behind it. Updated at every milestone (spec section 5.1). State: milestone
+3a, hints and the room viewer of release v0.1 (released after milestone 3b,
+addendum A1).
 
 ## Modules
 
@@ -11,16 +12,17 @@ purpose and invariants:
 
 | Library | Purpose | Depends on |
 |---|---|---|
-| sci-core | Error type, assertions, bounds-checked reading, floating-point profile, logging, exact rationals and rounding, SHA-256, the executor interface | none |
+| sci-core | Error type, assertions, bounds-checked reading, floating-point profile, logging, exact rationals and rounding, SHA-256, MD5 (release detection only), a strict JSON reader, the executor interface | none |
 | sci-resource | RESOURCE.MAP, volumes, patch files, LZW and Huffman decompression (done, milestone 1) | sci-core |
 | sci-pic | PIC parsing and the exact 1x rasteriser (path 1) (done, milestone 2) | sci-core, sci-resource |
-| sci-vector | Vector analysis of PIC (path 2): planar graph, gap closing, faces, fallbacks, curve fitting (done, milestone 3; hints at 3a) | sci-core, sci-pic |
+| sci-vector | Vector analysis of PIC (path 2): planar graph, gap closing, faces, fallbacks, curve fitting (done, milestone 3), hints (done, milestone 3a) | sci-core, sci-pic |
 | sci-view | View, loop and cel decoding (done, milestone 2) | sci-core, sci-resource |
 | sci-text | Fonts (done, milestone 2), messages, vocabulary, Said | sci-core, sci-resource |
 | sci-audio | Sound playback, silent driver, AdLib, MT-32, mixer | sci-core, sci-resource |
 | sci-render | HD rasteriser (done, milestone 3), original mode, acceptance check; compositor later | sci-core, sci-pic, sci-vector, sci-view |
 | sci-vm | Bytecode interpreter, objects, kernel, animation | sci-core, sci-resource, sci-text |
-| app (`sierra-hd`) | Window, input, presentation, configuration, saves, cache | all libraries |
+| sci-platform (in `src/app/platform`) | The parts of app without a window, shared with the tools: thread executor, game-folder reading, release identification, configuration file, hint loading (done, milestone 3a) | sci-core, sci-resource, sci-vector |
+| app (`sierra-hd`) | Window, input, presentation (the room viewer at release v0.1), saves, cache | all libraries |
 
 `tests/` holds the unit tests (`tests/unit`), the fuzz targets
 (`tests/fuzz`) and the golden tests (`tests/golden`: synthetic scenes in
@@ -32,17 +34,19 @@ program:
 - `scummvm-patches`: the reference's dump and trace patches.
 - `resource-dump`: dumps all resources through sci-resource.
 - `resource-compare`: the milestone 1 comparison with ScummVM.
-- `common`: game-folder loading, logging and assertions to stderr, a PNG
-  writer, picture drawing with the trace, and a thread executor, shared by
-  the tools.
+- `common`: opening a game, logging and assertions to stderr, a PNG
+  writer and picture drawing with the trace, shared by the tools (which
+  also link `sci-platform`).
 - `graphics-dump`: dumps every picture variant, view and font through
   sci-pic, sci-view and sci-text.
 - `graphics-compare`: the milestone 2 comparison with ScummVM.
 - `room-viewer`: renders pictures (1x maps, or HD frames and priority maps
-  with `--hd`), views and fonts to PNG files (a window follows at milestone
-  3a).
+  with `--hd`), views and fonts to PNG files; the window version is the
+  program itself from release v0.1.
 - `hd-report`: the milestone 3 replacement report and acceptance check.
 - `golden-hashes`: writes or checks the golden hashes of every picture.
+- `hint-tool`: proposes hint candidates for review, checks hint files
+  against the game, and turns review decisions into hint files.
 
 ### Dependency rules and how they are enforced
 
@@ -150,8 +154,8 @@ libFuzzer targets (`fuzz-pic`, `fuzz-view-font`).
    the lines (int64 rationals in doubled pixel coordinates), closes the gaps
    that path 1's pixels close, colours every face from the path-1 map
    (falling back to 1x blocks where the pixels disagree), fits curves to
-   chains of short lines, and lists strokes, brushes and textured blocks as
-   layers in drawing order;
+   chains of short lines and to the chains the hint files name, and lists
+   strokes, brushes and textured blocks as layers in drawing order;
 3. `sci::render::render_hd` samples the scene on a 16 x 16 grid per pixel,
    rows in parallel through the executor; `render_priority` gives the HD
    priority map; `render_original` the original mode;
@@ -159,8 +163,21 @@ libFuzzer targets (`fuzz-pic`, `fuzz-view-font`).
 
 A scene is plain data (`sci/vector/scene.hpp`): faces with values, scan
 edges with the face after them, and layers. sci-render needs nothing else,
-so the scene can later be cached (spec section 10.2) and the hints of
-milestone 3a only change how it is built.
+so the scene can later be cached (spec section 10.2), and the hints only
+change how it is built.
+
+## The program (release v0.1)
+
+`src/app/src/main.cpp` does the following:
+1. reads `sierra-hd.ini`;
+2. identifies the game folder (`sci-platform`);
+3. opens an SDL3 window and drives `Viewer`.
+
+`Viewer` composes the 320N x 200N frame on the CPU: the status line, the
+background (cached per picture, mode, map and N) and a view cel or a font
+sheet. It records the changed rectangles, and the window uploads only
+those to a streaming texture. The texture is drawn 1:1 into an integer
+viewport in the middle of the window; the rest is letterbox.
 
 ## Logging
 

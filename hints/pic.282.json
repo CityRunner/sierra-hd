@@ -1,0 +1,22 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 282,
+  "pic_sha256": "21c7be875d00fdac7ff633cfcab3b1cc3a8bf11a903dbbc00a7d3864ad4c4867",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "window-pane-left", "at": [140, 50], "label": "window pane, left"},
+    {"id": "window-pane-right", "at": [225, 50], "label": "window pane, right"},
+    {"id": "head-silhouette", "at": [175, 170], "label": "head silhouette"},
+    {"id": "dark-wall", "at": [40, 100], "label": "dark wall"}
+  ],
+  "chains": [
+    {"id": "head-silhouette-left", "lines": [7, 8, 9, 10, 11, 12], "primitive": "spline", "label": "head silhouette, left"},
+    {"id": "head-silhouette-right", "lines": [14, 15, 16, 17, 18, 19, 20], "primitive": "spline", "label": "head silhouette, right"},
+    {"id": "treetop-outline", "lines": [122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132], "primitive": "spline", "label": "treetop outline"},
+    {"id": "treetop-outline-top", "lines": [133, 134, 135, 136], "primitive": "spline", "label": "treetop outline, top", "uncertain": true}
+  ],
+  "symmetry": [
+    {"kind": "mirror", "chains": ["head-silhouette-left", "head-silhouette-right"], "note": "left and right sides of the head silhouette"}
+  ]
+}

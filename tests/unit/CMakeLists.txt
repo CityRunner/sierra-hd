@@ -5,7 +5,9 @@ sci_add_unit_test(NAME sci-core-tests
         core/error_test.cpp
         core/exact_test.cpp
         core/fp_profile_test.cpp
+        core/json_test.cpp
         core/log_test.cpp
+        core/md5_test.cpp
         core/sha256_test.cpp
     DEPENDS sci-core)
 
@@ -38,6 +40,8 @@ sci_add_unit_test(NAME sci-vector-tests
         vector/build_scene_test.cpp
         vector/differential_test.cpp
         vector/fitting_test.cpp
+        vector/hint_scene_test.cpp
+        vector/hints_test.cpp
     DEPENDS sci-vector sci-render)
 # The fitting tests reach into sci-vector's internals.
 target_include_directories(sci-vector-tests PRIVATE pic ${PROJECT_SOURCE_DIR}/src/sci-vector/src)
@@ -45,3 +49,7 @@ target_include_directories(sci-vector-tests PRIVATE pic ${PROJECT_SOURCE_DIR}/sr
 sci_add_unit_test(NAME sci-render-tests
     SOURCES render/render_test.cpp
     DEPENDS sci-render)
+
+sci_add_unit_test(NAME sci-platform-tests
+    SOURCES platform/platform_test.cpp
+    DEPENDS sci-platform)

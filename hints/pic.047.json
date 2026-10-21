@@ -1,0 +1,36 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 47,
+  "pic_sha256": "e5848d181fc81c91fbdadb8c0cb25ed0604bc3419ea3c5b9d2d2a91d5a0b4aac",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "patterned-rug", "at": [160, 90], "label": "patterned rug"},
+    {"id": "tiled-floor", "at": [110, 110], "label": "tiled floor"},
+    {"id": "gallery-railing", "at": [160, 145], "label": "gallery railing"},
+    {"id": "staircase-right", "at": [260, 110], "label": "staircase, right"},
+    {"id": "vaulted-ceiling", "at": [160, 25], "label": "vaulted ceiling"},
+    {"id": "lower-hall-carpet", "at": [160, 170], "label": "lower hall carpet"}
+  ],
+  "chains": [
+    {"id": "vaulted-ceiling-arch-edge", "lines": [896, 897, 898], "primitive": "arc", "label": "vaulted ceiling arch edge"},
+    {"id": "ceiling-vault-rib-left", "lines": [1427, 1428, 1429], "primitive": "spline", "label": "ceiling vault rib, left"},
+    {"id": "ceiling-vault-rib-right", "lines": [1423, 1424, 1425, 1426], "primitive": "spline", "label": "ceiling vault rib, right"},
+    {"id": "ceiling-vault-curve-right", "lines": [1420, 1421, 1422], "primitive": "spline", "label": "ceiling vault curve, right", "uncertain": true},
+    {"id": "ceiling-vault-curve-right-2", "lines": [1470, 1471, 1472], "primitive": "spline", "label": "ceiling vault curve, right", "uncertain": true},
+    {"id": "ceiling-vault-curve-far-righ", "lines": [1476, 1477, 1478], "primitive": "spline", "label": "ceiling vault curve, far right", "uncertain": true},
+    {"id": "rug-scroll-motif-left-outer", "lines": [312, 313, 314, 315, 316], "primitive": "spline", "label": "rug scroll motif, left outer", "uncertain": true},
+    {"id": "rug-scroll-motif-right-outer", "lines": [324, 325, 326, 327, 328], "primitive": "spline", "label": "rug scroll motif, right outer", "uncertain": true},
+    {"id": "rug-scroll-motif-left-inner", "lines": [401, 402, 403, 404, 405], "primitive": "spline", "label": "rug scroll motif, left inner", "uncertain": true},
+    {"id": "rug-scroll-motif-right-inner", "lines": [406, 407, 408, 409, 410], "primitive": "spline", "label": "rug scroll motif, right inner", "uncertain": true},
+    {"id": "rug-medallion", "lines": [357, 358, 359, 360, 361, 362], "primitive": "spline", "label": "rug medallion", "uncertain": true}
+  ],
+  "gaps": [
+    {"id": "outline-gap-1", "from": 159, "end": "end", "to": 499, "label": "accidental gap in an outline", "uncertain": true}
+  ],
+  "symmetry": [
+    {"kind": "mirror", "chains": ["rug-scroll-motif-left-outer", "rug-scroll-motif-right-outer"], "note": "outer rug scroll motifs"},
+    {"kind": "mirror", "chains": ["rug-scroll-motif-left-inner", "rug-scroll-motif-right-inner"], "note": "inner rug scroll motifs"},
+    {"kind": "mirror", "chains": ["ceiling-vault-rib-right", "ceiling-vault-rib-left"], "note": "ceiling vault ribs"}
+  ]
+}

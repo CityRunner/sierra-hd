@@ -1,0 +1,42 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 128,
+  "pic_sha256": "6f8f420a94b891cecd549e323123c308d1581da526eb0f4bf3a9c0a39e284d73",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "night-sky", "at": [250, 20], "label": "night sky"},
+    {"id": "mansion", "at": [160, 110], "label": "mansion"},
+    {"id": "cloud-bank", "at": [80, 60], "label": "cloud bank"},
+    {"id": "front-drive", "at": [160, 165], "label": "front drive"},
+    {"id": "iron-fence", "at": [60, 170], "label": "iron fence"},
+    {"id": "oak-tree-right", "at": [290, 70], "label": "oak tree, right"}
+  ],
+  "chains": [
+    {"id": "bush-outline-right", "lines": [41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52], "primitive": "spline", "label": "bush outline, right"},
+    {"id": "bush-outline-right-2", "lines": [66, 67, 68, 69, 70], "primitive": "spline", "label": "bush outline, right"},
+    {"id": "tree-canopy-right", "lines": [111, 112, 113, 114], "primitive": "spline", "label": "tree canopy, right"},
+    {"id": "tree-canopy-right-2", "lines": [122, 123, 124, 125, 126], "primitive": "spline", "label": "tree canopy, right"},
+    {"id": "tree-canopy-right-3", "lines": [127, 128, 129], "primitive": "spline", "label": "tree canopy, right"},
+    {"id": "tree-outline-by-house", "lines": [179, 180, 181, 182, 183], "primitive": "spline", "label": "tree outline by house"},
+    {"id": "tree-outline-by-house-2", "lines": [1705, 1706, 1707], "primitive": "spline", "label": "tree outline by house"},
+    {"id": "bush-outline-left", "lines": [220, 221, 222], "primitive": "spline", "label": "bush outline, left"},
+    {"id": "tree-outline-left", "lines": [239, 240, 241, 242], "primitive": "spline", "label": "tree outline, left"},
+    {"id": "tree-outline-left-2", "lines": [254, 255, 256, 257, 258], "primitive": "spline", "label": "tree outline, left"},
+    {"id": "tree-outline-left-3", "lines": [266, 267, 268, 269], "primitive": "spline", "label": "tree outline, left"},
+    {"id": "bush-outline-right-3", "lines": [1638, 1639, 1640, 1641], "primitive": "spline", "label": "bush outline, right"},
+    {"id": "bush-outline-right-4", "lines": [1651, 1652, 1653, 1654], "primitive": "spline", "label": "bush outline, right"},
+    {"id": "bush-outline-right-5", "lines": [1657, 1658, 1659, 1660], "primitive": "spline", "label": "bush outline, right"},
+    {"id": "cloud-outline", "lines": [1727, 1728, 1729, 1730, 1731, 1733], "primitive": "spline", "label": "cloud outline"},
+    {"id": "cloud-outline-2", "lines": [1749, 1750, 1751, 1752], "primitive": "spline", "label": "cloud outline"},
+    {"id": "cloud-outline-3", "lines": [1753, 1754, 1755, 1756, 1757], "primitive": "spline", "label": "cloud outline"},
+    {"id": "cloud-outline-4", "lines": [1762, 1763, 1764, 1765, 1766], "primitive": "spline", "label": "cloud outline"},
+    {"id": "cloud-outline-5", "lines": [1767, 1768, 1769, 1770, 1771], "primitive": "spline", "label": "cloud outline"},
+    {"id": "cloud-outline-6", "lines": [2100, 2101, 2102, 2103], "primitive": "spline", "label": "cloud outline"},
+    {"id": "cloud-outline-7", "lines": [2104, 2105, 2106, 2107], "primitive": "spline", "label": "cloud outline"},
+    {"id": "cloud-outline-8", "lines": [2108, 2109, 2110, 2111, 2112, 2113, 2114], "primitive": "spline", "label": "cloud outline"},
+    {"id": "cloud-outline-9", "lines": [2127, 2128, 2129], "primitive": "spline", "label": "cloud outline", "uncertain": true},
+    {"id": "cloud-outline-10", "lines": [2144, 2145, 2146], "primitive": "spline", "label": "cloud outline", "uncertain": true},
+    {"id": "cloud-outline-11", "lines": [2154, 2155, 2156, 2157], "primitive": "spline", "label": "cloud outline", "uncertain": true}
+  ]
+}

@@ -1,0 +1,144 @@
+name: Release
+
+# Release binaries (spec section 10.4): Linux and Windows, x64 and ARM64,
+# built and tested with the release presets and packaged with the hint
+# files. macOS only when selected on a manual run. Pull requests build the
+# packages as workflow artifacts for review; a pushed version tag (v*)
+# publishes them as a GitHub release.
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      macos:
+        description: Also build macOS
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: linux-${{ matrix.arch }}
+    runs-on: ${{ matrix.arch == 'x64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/toolchain-image
+      - name: Build and test
+        run: docker/run.sh cmake --workflow --preset release 2>&1 | tee build.log
+      - name: Package
+        run: scripts/package-release.sh build/release linux-${{ matrix.arch }} dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sierra-hd-linux-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+      - if: failure()
+        uses: ./.github/actions/report-failure
+        with:
+          log: build.log
+
+  windows:
+    name: windows-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x64, runner: windows-2025, msvc: x64,
+              llvm: clang+llvm-23.1.4-x86_64-pc-windows-msvc.tar.xz,
+              llvm-sha256: 854bffcfc84528e0ee92490ff5c178920abd358a79c3e98f053e41e3e8e4c6d2,
+              ninja: ninja-win.zip, ninja-sha256: 07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65 }
+          - { arch: arm64, runner: windows-11-arm, msvc: arm64,
+              llvm: clang+llvm-23.1.4-aarch64-pc-windows-msvc.tar.xz,
+              llvm-sha256: f0d2e32424850ffb9b6aef190587a8298353d858a8a7260f490c173fe98d6811,
+              ninja: ninja-winarm64.zip, ninja-sha256: e52f0bdef9dfb1003229dbd6508a508c4073fd017247002adc66e5e806cb0391 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/native-toolchain
+        with:
+          llvm-archive: ${{ matrix.llvm }}
+          llvm-sha256: ${{ matrix.llvm-sha256 }}
+          ninja-version: v1.13.2
+          ninja-archive: ${{ matrix.ninja }}
+          ninja-sha256: ${{ matrix.ninja-sha256 }}
+          msvc-arch: ${{ matrix.msvc }}
+      - name: Build and test
+        shell: bash
+        run: cmake --workflow --preset windows-release 2>&1 | tee build.log
+      - name: Package
+        shell: bash
+        run: scripts/package-release.sh build/windows-release windows-${{ matrix.arch }} dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sierra-hd-windows-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+      - if: failure()
+        uses: ./.github/actions/report-failure
+        with:
+          log: build.log
+
+  macos:
+    name: macos-arm64
+    if: github.event_name == 'workflow_dispatch' && inputs.macos
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/native-toolchain
+        with:
+          llvm-archive: LLVM-23.1.4-macOS-ARM64.tar.xz
+          llvm-sha256: 5d3179db39adeca5b17a34d82708fe976bc60e055b05fe557878fb3fb64d39ef
+          ninja-version: v1.13.2
+          ninja-archive: ninja-mac.zip
+          ninja-sha256: c99048673aa765960a99cf10c6ddb9f1fad506099ff0a0e137ad8960a88f321b
+      - name: Build and test
+        shell: bash
+        run: cmake --workflow --preset release 2>&1 | tee build.log
+      - name: Package
+        shell: bash
+        run: scripts/package-release.sh build/release macos-arm64 dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sierra-hd-macos-arm64
+          path: dist/*
+          if-no-files-found: error
+      - if: failure()
+        uses: ./.github/actions/report-failure
+        with:
+          log: build.log
+
+  publish:
+    name: publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd dist && sha256sum * > SHA256SUMS)
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "sierra-hd ${GITHUB_REF_NAME#v}" \
+            --notes-file "docs/release-notes/$GITHUB_REF_NAME.md" \
+            --prerelease

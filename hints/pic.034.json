@@ -1,0 +1,19 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 34,
+  "pic_sha256": "fd2da8c398b7e244f78bd95ec2cc0a93f7e53bfc45571a74c970540a3944c67e",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "dining-table", "at": [150, 110], "label": "dining table"},
+    {"id": "rug", "at": [150, 130], "label": "rug"},
+    {"id": "back-wall", "at": [120, 50], "label": "back wall"},
+    {"id": "fireplace", "at": [125, 70], "label": "fireplace"},
+    {"id": "side-wall", "at": [300, 80], "label": "side wall"},
+    {"id": "floor", "at": [60, 160], "label": "floor"}
+  ],
+  "chains": [
+    {"id": "rounded-wardrobe-panel-top", "lines": [99, 100, 101, 102, 103], "primitive": "spline", "label": "rounded wardrobe panel top"},
+    {"id": "curtain-edge-right-window", "lines": [1164, 1165, 1166], "primitive": "spline", "label": "curtain edge, right window"}
+  ]
+}

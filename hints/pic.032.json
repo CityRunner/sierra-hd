@@ -1,0 +1,18 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 32,
+  "pic_sha256": "d6a7b29aa09cdae5038898af6b07de00ef5876c2900345e45c955d6a4d71369f",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "rug", "at": [160, 100], "label": "rug"},
+    {"id": "coffee-table", "at": [150, 120], "label": "coffee table"},
+    {"id": "bookcase", "at": [25, 90], "label": "bookcase"},
+    {"id": "fireplace", "at": [190, 40], "label": "fireplace"},
+    {"id": "doorway", "at": [300, 120], "label": "doorway", "uncertain": true},
+    {"id": "floor", "at": [260, 150], "label": "floor"}
+  ],
+  "chains": [
+    {"id": "curtain-edge-left-window", "lines": [924, 925, 926], "primitive": "spline", "label": "curtain edge, left window"}
+  ]
+}

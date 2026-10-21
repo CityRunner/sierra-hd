@@ -1,0 +1,30 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 71,
+  "pic_sha256": "64308b72746b01cf44e4b15e2753ddf40ac6452bcb5a76cc6cce9a6c340f9a6a",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "clawfoot-bathtub", "at": [160, 140], "label": "clawfoot bathtub"},
+    {"id": "shower-curtain", "at": [190, 80], "label": "shower curtain"},
+    {"id": "shower-pipe", "at": [235, 100], "label": "shower pipe"},
+    {"id": "empty-background", "at": [60, 80], "label": "empty background", "uncertain": true}
+  ],
+  "chains": [
+    {"id": "tub-end-left", "lines": [16, 17, 18, 19, 20], "primitive": "spline", "label": "tub end, left"},
+    {"id": "tub-end-right", "lines": [381, 382, 383], "primitive": "spline", "label": "tub end, right"},
+    {"id": "tub-inner-basin-curve", "lines": [458, 459, 460, 461], "primitive": "spline", "label": "tub inner basin curve"},
+    {"id": "tub-inner-rim-left", "lines": [373, 374, 375, 376, 377], "primitive": "spline", "label": "tub inner rim, left", "uncertain": true},
+    {"id": "tub-inner-rim-right", "lines": [384, 385, 386, 387, 388], "primitive": "spline", "label": "tub inner rim, right", "uncertain": true},
+    {"id": "shower-pipe-bend", "lines": [96, 97, 98], "primitive": "arc", "label": "shower pipe bend"},
+    {"id": "shower-curtain-edge", "lines": [271, 272, 273, 274, 275, 276], "primitive": "spline", "label": "shower curtain edge"},
+    {"id": "shower-curtain-fold", "lines": [280, 281, 282, 283], "primitive": "spline", "label": "shower curtain fold"},
+    {"id": "shower-curtain-fold-2", "lines": [312, 313, 314, 315], "primitive": "spline", "label": "shower curtain fold"},
+    {"id": "shower-curtain-fold-3", "lines": [317, 318, 319], "primitive": "spline", "label": "shower curtain fold", "uncertain": true},
+    {"id": "shower-curtain-fold-right", "lines": [295, 296, 297], "primitive": "spline", "label": "shower curtain fold, right", "uncertain": true}
+  ],
+  "symmetry": [
+    {"kind": "mirror", "chains": ["tub-end-left", "tub-end-right"], "note": "the two tub ends"},
+    {"kind": "mirror", "chains": ["tub-inner-rim-left", "tub-inner-rim-right"], "note": "inner rim halves"}
+  ]
+}

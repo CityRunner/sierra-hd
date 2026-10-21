@@ -1,0 +1,43 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 28,
+  "pic_sha256": "e6935bf5817e8c52d1418c6f8db95d37a658161a2501fe8c7a930363919e487c",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "mansion", "at": [160, 60], "label": "mansion"},
+    {"id": "night-sky", "at": [200, 10], "label": "night sky"},
+    {"id": "iron-gate", "at": [150, 130], "label": "iron gate"},
+    {"id": "iron-fence", "at": [60, 120], "label": "iron fence"},
+    {"id": "front-drive", "at": [160, 105], "label": "front drive"},
+    {"id": "wooden-bridge", "at": [160, 180], "label": "wooden bridge", "uncertain": true},
+    {"id": "lawn", "at": [100, 88], "label": "lawn"}
+  ],
+  "chains": [
+    {"id": "oak-branch-right", "lines": [41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52], "primitive": "spline", "label": "oak branch, right"},
+    {"id": "foliage-edge-right", "lines": [66, 67, 68, 69, 70], "primitive": "spline", "label": "foliage edge, right", "uncertain": true},
+    {"id": "shrub-outline-right", "lines": [2043, 2044, 2045, 2046], "primitive": "spline", "label": "shrub outline, right", "uncertain": true},
+    {"id": "shrub-outline-right-2", "lines": [2056, 2057, 2058, 2059], "primitive": "spline", "label": "shrub outline, right", "uncertain": true},
+    {"id": "small-shrub-tip", "lines": [2062, 2063, 2064, 2065], "primitive": "spline", "label": "small shrub tip", "uncertain": true},
+    {"id": "branch-top-right", "lines": [111, 112, 113, 114], "primitive": "spline", "label": "branch, top right"},
+    {"id": "canopy-edge-top-left", "lines": [129, 130, 131], "primitive": "spline", "label": "canopy edge, top left"},
+    {"id": "branch-left", "lines": [152, 153, 154, 155, 156], "primitive": "spline", "label": "branch, left"},
+    {"id": "branch-tip-left", "lines": [2110, 2111, 2112], "primitive": "spline", "label": "branch tip, left", "uncertain": true},
+    {"id": "foliage-outline-left", "lines": [212, 213, 214, 215], "primitive": "spline", "label": "foliage outline, left"},
+    {"id": "foliage-outline-left-2", "lines": [227, 228, 229, 230, 231], "primitive": "spline", "label": "foliage outline, left"},
+    {"id": "foliage-outline-left-3", "lines": [239, 240, 241, 242], "primitive": "spline", "label": "foliage outline, left", "uncertain": true},
+    {"id": "bush-outline-left", "lines": [193, 194, 195], "primitive": "spline", "label": "bush outline, left", "uncertain": true},
+    {"id": "bare-tree-branch", "lines": [2132, 2133, 2134, 2135, 2136, 2138], "primitive": "spline", "label": "bare tree branch"},
+    {"id": "bare-tree-branch-2", "lines": [2154, 2155, 2156, 2157], "primitive": "spline", "label": "bare tree branch"},
+    {"id": "bare-tree-branch-3", "lines": [2162, 2163, 2164, 2165, 2166], "primitive": "spline", "label": "bare tree branch", "uncertain": true},
+    {"id": "bare-tree-twig", "lines": [2501, 2502, 2503, 2504], "primitive": "spline", "label": "bare tree twig", "uncertain": true},
+    {"id": "bare-tree-twig-2", "lines": [2505, 2506, 2507, 2508], "primitive": "spline", "label": "bare tree twig", "uncertain": true},
+    {"id": "bare-tree-twig-3", "lines": [2512, 2513, 2514], "primitive": "spline", "label": "bare tree twig", "uncertain": true},
+    {"id": "bare-tree-twig-4", "lines": [2529, 2530, 2531], "primitive": "spline", "label": "bare tree twig", "uncertain": true},
+    {"id": "bare-tree-twig-5", "lines": [2539, 2540, 2541, 2542], "primitive": "spline", "label": "bare tree twig", "uncertain": true},
+    {"id": "bank-edge-bottom-left", "lines": [1825, 1826, 1827], "primitive": "spline", "label": "bank edge, bottom left", "uncertain": true},
+    {"id": "bank-edge-bottom-left-2", "lines": [1836, 1837, 1838], "primitive": "spline", "label": "bank edge, bottom left", "uncertain": true},
+    {"id": "bank-edge-bottom", "lines": [2775, 2776, 2777, 2778, 2780], "primitive": "spline", "label": "bank edge, bottom", "uncertain": true},
+    {"id": "bank-edge-bottom-right", "lines": [1885, 1886, 1887, 1888, 1889], "primitive": "spline", "label": "bank edge, bottom right", "uncertain": true}
+  ]
+}

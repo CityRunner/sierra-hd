@@ -1,0 +1,26 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 11,
+  "pic_sha256": "c11e8005ee3bff5f47dfadb7dd1bfae259b82f0279124d9ee495d2d952397d9f",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "wall", "at": [160, 10], "label": "wall"},
+    {"id": "center-window", "at": [160, 80], "label": "center window"},
+    {"id": "left-window", "at": [20, 80], "label": "left window"},
+    {"id": "right-window", "at": [300, 80], "label": "right window"},
+    {"id": "center-fanlight", "at": [160, 30], "label": "center fanlight"}
+  ],
+  "chains": [
+    {"id": "left-fanlight-pane-curve", "lines": [414, 415, 416], "primitive": "arc", "label": "left fanlight pane curve", "uncertain": true},
+    {"id": "left-fanlight-pane-curve-2", "lines": [418, 419, 420, 421], "primitive": "arc", "label": "left fanlight pane curve", "uncertain": true},
+    {"id": "left-fanlight-pane-curve-3", "lines": [422, 423, 424], "primitive": "arc", "label": "left fanlight pane curve", "uncertain": true},
+    {"id": "left-fanlight-pane-curve-4", "lines": [425, 426, 427], "primitive": "spline", "label": "left fanlight pane curve", "uncertain": true},
+    {"id": "right-fanlight-pane-curve", "lines": [406, 407, 408, 409], "primitive": "arc", "label": "right fanlight pane curve", "uncertain": true},
+    {"id": "lower-fanlight-arch", "lines": [1131, 1132, 1133, 1134], "primitive": "spline", "label": "lower fanlight arch", "uncertain": true},
+    {"id": "statue-arm-outside-window", "lines": [507, 508, 509], "primitive": "spline", "label": "statue arm outside window", "uncertain": true}
+  ],
+  "symmetry": [
+    {"kind": "mirror", "chains": ["left-fanlight-pane-curve-3", "right-fanlight-pane-curve"], "note": "matching fanlight panes of the side windows"}
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 31,
+  "pic_sha256": "d823ddbd4a97871369621651e984b1d253b7ae04de2b96ae91451c1ce84b6cfc",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "rug", "at": [200, 120], "label": "rug"},
+    {"id": "desk", "at": [170, 130], "label": "desk"},
+    {"id": "floor", "at": [120, 90], "label": "floor"},
+    {"id": "back-wall", "at": [200, 40], "label": "back wall"},
+    {"id": "fireplace", "at": [210, 70], "label": "fireplace"},
+    {"id": "side-wall", "at": [40, 60], "label": "side wall"}
+  ],
+  "chains": [
+    {"id": "left-window-arch", "lines": [442, 443, 444, 445, 446, 447, 448], "primitive": "arc", "label": "left window arch"},
+    {"id": "right-window-arch", "lines": [452, 453, 454, 455, 456, 457, 458, 459], "primitive": "arc", "label": "right window arch"},
+    {"id": "curtain-edge-left-window", "lines": [228, 229, 230], "primitive": "spline", "label": "curtain edge, left window"},
+    {"id": "curtain-edge-side-wall", "lines": [997, 998, 999, 1000], "primitive": "spline", "label": "curtain edge, side wall"},
+    {"id": "fireplace-opening-left", "lines": [1483, 1484, 1485], "primitive": "spline", "label": "fireplace opening, left"},
+    {"id": "fireplace-opening-right", "lines": [1486, 1487, 1488], "primitive": "spline", "label": "fireplace opening, right"},
+    {"id": "dark-patch-on-rug", "lines": [22, 23, 24, 25], "primitive": "spline", "label": "dark patch on rug", "uncertain": true}
+  ],
+  "symmetry": [
+    {"kind": "repeat", "chains": ["left-window-arch", "right-window-arch"], "note": "the two back window arches"},
+    {"kind": "mirror", "chains": ["fireplace-opening-left", "fireplace-opening-right"], "note": "two sides of the fireplace opening"}
+  ]
+}

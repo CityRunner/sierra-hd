@@ -5,8 +5,10 @@
 // the original-mode frame (palette indices) at N = 1. They catch changes,
 // not quality, and must be the same on every machine.
 //
-//   sci-golden-hashes <game> <file>           writes the hashes
-//   sci-golden-hashes <game> <file> --check   compares with the file
+//   sci-golden-hashes <game> <file> [--hints <directory>]           writes the hashes
+//   sci-golden-hashes <game> <file> --check [--hints <directory>]   compares with the file
+//
+// The recorded hashes are made with the repository's hints (hints/).
 //
 // One line per picture: "pic <n> <kind> <hash>" for each kind. Overlays
 // are added once the scripts tell which rooms draw them (milestone 4).
@@ -14,10 +16,11 @@
 #include "game_folder.hpp"
 #include "picture.hpp"
 #include "sci/core/sha256.hpp"
+#include "sci/platform/picture_hints.hpp"
+#include "sci/platform/thread_executor.hpp"
 #include "sci/render/original.hpp"
 #include "sci/render/rasterize.hpp"
 #include "sci/vector/build_scene.hpp"
-#include "thread_executor.hpp"
 
 #include <array>
 #include <cstdint>
@@ -25,6 +28,7 @@
 #include <format>
 #include <fstream>
 #include <iterator>
+#include <optional>
 #include <print>
 #include <span>
 #include <sstream>
@@ -40,13 +44,15 @@ std::string hash(std::span<const std::uint8_t> bytes) {
 }
 
 std::string picture_hashes(const sci::resource::ResourceManager& manager, std::uint16_t number,
-                           sci::core::Executor& executor) {
+                           const std::optional<std::filesystem::path>& hint_directory, sci::core::Executor& executor) {
     const std::array numbers{number};
     const auto drawn = sci::tools::draw_pictures(manager, numbers);
     if (!drawn) {
         return std::format("pic {} error\n", number);
     }
-    const auto visual = sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual);
+    const sci::platform::PictureHintSet hints(hint_directory, manager, numbers);
+    const auto visual =
+        sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual, hints.pointers());
     std::string lines;
     for (const int scale : hd_scales) {
         const auto frame = sci::render::render_hd(visual.scene, scale, executor);
@@ -60,9 +66,21 @@ std::string picture_hashes(const sci::resource::ResourceManager& manager, std::u
 
 int main(int argc, char** argv) {
     const std::span<char*> args(argv, static_cast<std::size_t>(argc));
-    const bool check = args.size() == 4 && std::string_view(args[3]) == "--check";
-    if (args.size() != 3 && !check) {
-        std::println(stderr, "usage: sci-golden-hashes <game> <file> [--check]");
+    bool check = false;
+    bool usage = args.size() < 3;
+    std::optional<std::filesystem::path> hint_directory;
+    for (std::size_t i = 3; i < args.size(); ++i) {
+        const std::string_view arg = args[i];
+        if (arg == "--check") {
+            check = true;
+        } else if (arg == "--hints" && i + 1 < args.size()) {
+            hint_directory = std::filesystem::path(args[++i]);
+        } else {
+            usage = true;
+        }
+    }
+    if (usage) {
+        std::println(stderr, "usage: sci-golden-hashes <game> <file> [--check] [--hints <directory>]");
         return 2;
     }
     sci::tools::install_stderr_log();
@@ -70,10 +88,10 @@ int main(int argc, char** argv) {
     if (!manager) {
         return 1;
     }
-    sci::tools::ThreadExecutor executor;
+    sci::platform::ThreadExecutor executor;
     std::string hashes;
     for (const std::uint16_t number : sci::tools::numbers_of(*manager, sci::resource::ResourceType::Pic)) {
-        hashes += picture_hashes(*manager, number, executor);
+        hashes += picture_hashes(*manager, number, hint_directory, executor);
     }
     const std::filesystem::path path = args[2];
     if (!check) {

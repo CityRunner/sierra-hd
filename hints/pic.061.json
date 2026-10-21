@@ -1,0 +1,22 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 61,
+  "pic_sha256": "5adf0a463f842062a6b7b62fc75393001fee7c41f6338980b89e5a44456ef8ae",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "attic-floor", "at": [190, 145], "label": "attic floor"},
+    {"id": "red-settee", "at": [190, 95], "label": "red settee"},
+    {"id": "window-wall", "at": [85, 75], "label": "window wall"},
+    {"id": "wooden-chest", "at": [280, 115], "label": "wooden chest", "uncertain": true},
+    {"id": "roof", "at": [100, 30], "label": "roof"},
+    {"id": "box-left", "at": [40, 140], "label": "box, left", "uncertain": true},
+    {"id": "round-gable-window", "at": [163, 22], "label": "round gable window"}
+  ],
+  "chains": [
+    {"id": "left-round-window-rim", "lines": [407, 408, 409], "primitive": "arc", "label": "left round window rim"},
+    {"id": "round-window-lower-edge", "lines": [371, 372, 373], "primitive": "spline", "label": "round window lower edge", "uncertain": true},
+    {"id": "settee-back-top", "lines": [798, 799, 800, 801], "primitive": "spline", "label": "settee back top"},
+    {"id": "small-round-pane", "lines": [1072, 1073, 1074, 1075], "primitive": "arc", "label": "small round pane", "uncertain": true}
+  ]
+}

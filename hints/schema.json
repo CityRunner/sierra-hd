@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/CityRunner/sierra-hd/hints/schema.json",
+  "title": "sierra-hd scene-analysis hints, version 1",
+  "description": "One file per picture, hints/pic.NNN.json. See hints/README.md. Checked by scripts/check-hints.py; the program's own reader (sci-vector, parse_hints) applies the same rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "version", "picture", "pic_sha256", "analyser"],
+  "properties": {
+    "format": {"const": "sierra-hd-hints"},
+    "version": {"const": 1},
+    "picture": {"type": "integer", "minimum": 0, "maximum": 999},
+    "pic_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "analyser": {"$ref": "#/$defs/text"},
+    "regions": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "at", "label"],
+        "properties": {
+          "id": {"$ref": "#/$defs/id"},
+          "at": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "prefixItems": [
+              {"type": "integer", "minimum": 0, "maximum": 319},
+              {"type": "integer", "minimum": 0, "maximum": 189}
+            ]
+          },
+          "label": {"$ref": "#/$defs/text"},
+          "uncertain": {"type": "boolean"}
+        }
+      }
+    },
+    "chains": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "lines", "primitive"],
+        "properties": {
+          "id": {"$ref": "#/$defs/id"},
+          "lines": {"type": "array", "minItems": 2, "maxItems": 512, "items": {"$ref": "#/$defs/line"}},
+          "primitive": {"enum": ["line", "arc", "spline", "ellipse"]},
+          "label": {"$ref": "#/$defs/text"},
+          "uncertain": {"type": "boolean"}
+        }
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "from", "end", "to"],
+        "properties": {
+          "id": {"$ref": "#/$defs/id"},
+          "from": {"$ref": "#/$defs/line"},
+          "end": {"enum": ["start", "end"]},
+          "to": {"$ref": "#/$defs/line"},
+          "label": {"$ref": "#/$defs/text"},
+          "uncertain": {"type": "boolean"}
+        }
+      }
+    },
+    "relations": {
+      "description": "Depth and containment between regions and chains (spec section 6.10, docs/SPEC_ADDENDA.md A1): a is in front of, behind, or contains b. Used by the vector path from milestone 3b.",
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "a", "b"],
+        "properties": {
+          "kind": {"enum": ["in-front-of", "behind", "contains"]},
+          "a": {"$ref": "#/$defs/id"},
+          "b": {"$ref": "#/$defs/id"},
+          "note": {"$ref": "#/$defs/text"},
+          "uncertain": {"type": "boolean"}
+        }
+      }
+    },
+    "symmetry": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "chains"],
+        "properties": {
+          "kind": {"enum": ["mirror", "repeat"]},
+          "chains": {"type": "array", "minItems": 2, "maxItems": 4096, "items": {"$ref": "#/$defs/id"}},
+          "note": {"$ref": "#/$defs/text"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z0-9-]{1,32}$"},
+    "text": {"type": "string", "maxLength": 200, "pattern": "^[ -~]*$"},
+    "line": {"type": "integer", "minimum": 0, "maximum": 1000000}
+  }
+}

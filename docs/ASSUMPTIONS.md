@@ -5,6 +5,12 @@ Every assumption and decision made while implementing the task spec
 change section 2 of the spec ("Fixed decisions") are only made with the
 customer's approval and say so.
 
+Changes the customer made to the spec itself are recorded in
+`docs/SPEC_ADDENDA.md`. **A1** (2026-10-21) adds milestone 3b and section
+6.10 (drawing order, occlusion and stroke integrity), amends sections 6.4,
+6.7 and 12, and moves release v0.1 to after milestone 3b; see "Addendum A1"
+below.
+
 Status markers: **decided** (final unless the customer objects),
 **assumed** (to be confirmed), **pending** (waiting for input).
 
@@ -538,8 +544,8 @@ decisions.
   launch's analysis of all rooms under 15 seconds. **Decided** (confirmed
   at the milestone 3 gate).
 - **Threads in the tools.** `tools/common` implements the executor with
-  `std::jthread`; app gets its own implementation with the window layer
-  (milestone 3a). **Decided.**
+  `std::jthread` at milestone 3. At milestone 3a it moves to app's
+  `sci-platform` library, which the tools link too. **Decided.**
 
 ## Milestone 3 approval (2026-10-20)
 
@@ -557,6 +563,145 @@ The customer decided:
   room entry under 1 second at N = 10; the first launch's analysis of all
   rooms under 15 seconds. **Decided.**
 - The manual side-by-side review continues with further rooms. **Open.**
+
+## Milestone 3a: hints and release v0.1 (2026-10-21)
+
+- **SDL 3.4.18** (tag `release-3.4.18`, commit
+  `829a65d769d935c4852f8159e964312c0957260a`, 2026-10-02) is vendored in
+  `third_party/SDL3`: the library sources only (`VENDORED.md` lists what was
+  left out). It is built as a static library. On Linux it is built with X11
+  and Wayland, both loaded at run time. **Decided.**
+- **`sci-platform`.** The parts of app without a window go into a library
+  under `src/app/platform`, which the development tools link too:
+  - the thread executor;
+  - reading the game folder;
+  - the configuration file;
+  - identification of the release;
+  - loading the hint files.
+
+  Threads and OS files stay in app, as spec section 4.2 asks. **Decided.**
+- **Hint format, version 1** (`hints/README.md`, `hints/schema.json`). It
+  is JSON: integers only, printable ASCII, strict, with unknown members
+  rejected.
+  - Lines are named by their command index in the command stream as
+    sci-pic parses it (one line per command). Chains and gaps carry no
+    coordinates, so mirrored drawings need nothing extra.
+  - Region labels carry one 1x pixel in stored, unmirrored coordinates.
+    Spec section 6.7 allows both command indices and 1x coordinates.
+
+  **Decided.**
+- **Hint rules.**
+  - A chain hint is fitted by the requested kind within 1 original pixel
+    (the upper end of spec section 6.3's range), through every vertex
+    where other lines meet.
+  - The fit is kept only if it keeps the faces and every pixel the lines
+    own at 1x stays touched by the stroke (the line check of section 6.4).
+  - A gap hint closes at most 8 pixels and is kept only if mixed faces and
+    1x-block pixels do not increase (the gap rule).
+  - Hints the program does not use are listed with the reason in the
+    replacement report; so are the ones it uses.
+
+  **Decided.**
+- **How the hints were made (the AI step of spec section 6.7).**
+  - `sci-hint-tool candidates` proposes the chains that may be curves the
+    automatic fitting missed: runs of three or more connected visible lines
+    that turn, by at most 75 degrees at a joint, and are not all fitted
+    already. It tries each candidate as an arc, a spline and a line under
+    the hint rules.
+  - The agent (Claude, reading the images) judged each candidate with an
+    accepted kind on the picture: a curve of the drawn object, or a shape
+    meant to be angular. It chose the kind, a label, region labels and
+    symmetry, and marked doubtful decisions uncertain.
+  - `make_hints.py` turned the decisions into the hint files.
+  - 1709 chains (783 uncertain) and 508 region labels in 86 files.
+    Pictures 55 and 992 have none.
+  - No model runs in the program or in CI. The hint files are frozen at
+    the milestone 3b gate, not at 3a (addendum A1).
+
+  **Assumed until the customer's spot check.**
+- **Gap hints only at mixed faces.** The automatic gap closing already
+  closes every gap where the 1x line pixels touch. The other gaps are
+  leaks the player saw, and closing one changes nothing visible unless the
+  faces on its sides differ. So gap hints were looked for only at the 5
+  mixed faces of the visual plane.
+  - Every line end near each face was tried with every line within 8
+    pixels, under the gap rule.
+  - Of the gaps that improved the face most, the shortest was taken.
+  - The 5 gap hints (pictures 5, 15 twice, 47 and 78; 2 to 4 pixels long)
+    are marked uncertain.
+  - They leave one mixed face (picture 47, 8 pixels; 648 pixels before).
+
+  **Assumed until the customer's spot check.**
+- **Priority plane.** The same hints apply to the priority plane. Where a
+  chain's priority pixels differ from its visual pixels, the line check
+  can fail there; then that plane keeps the automatic result. **Decided.**
+- **Game identification** (spec section 10.2).
+  - The tested release is recognised by the SHA-256 of `RESOURCE.MAP` and
+    `RESOURCE.001` to `.004`. The interpreter files (`SCIV.EXE`, the
+    drivers) are not needed and not checked.
+  - A missing or different patch file (`SCRIPT.052`, `TEXT.052`) gives a
+    warning.
+  - The 5.25" release is recognised by ScummVM's MD5 of the first 5000
+    bytes of `RESOURCE.MAP` and its size, with a warning. Its hints are
+    skipped by their PIC hashes.
+  - Anything else stops with a message.
+  - MD5 is implemented in sci-core for this alone.
+
+  **Decided.**
+- **Configuration.** The file is `sierra-hd.ini` next to the executable,
+  section `[sierra-hd]`, `format = 1`, with these keys:
+  - `game_folder`;
+  - `mode` (hd or original);
+  - `scale` (auto, or 1 to 16);
+  - `mt32_rom`, which is unused until milestone 7.
+
+  Unknown keys give a warning; a different format stops. The program
+  writes the file on exit. **Decided.**
+- **Release v0.1** (spec section 12; moved to after milestone 3b by
+  addendum A1). The program and its release workflow are built at 3a;
+  the `v0.1.0` tag that publishes them follows the 3b gate.
+  - The program `sierra-hd` is the room viewer in an SDL3 window:
+    - pictures in HD or original mode, with the visual or priority map;
+    - views with their animation, and fonts;
+    - N automatic (the largest that fits in physical pixels) or chosen;
+    - fullscreen, and the status line in the game's first font.
+  - There are no debug overlays: `SCI_DEBUG_HIGHLIGHT` stays a
+    development option.
+  - Only the changed rectangles are uploaded to the texture.
+  - The release workflow builds Linux and Windows on x64 and ARM64, and
+    macOS on a manual run.
+  - The Linux program links its C++ runtime statically and needs glibc
+    2.38 or newer, the version of the toolchain image (Ubuntu 24.04).
+    **Decided.**
+- **The analysis cache is deferred** (spec section 10.2). Without the VM
+  the viewer analyses a picture when it is shown (at most about 0.5 s at
+  N = 10, within the room-entry budget) and keeps the last four. The
+  cache on disk, with the first-launch analysis of all rooms, comes with
+  the VM at milestone 4, where rooms are entered by the game. **Assumed;
+  a deviation for the customer to confirm.**
+- **`--version`** prints only the version. The milestone 0 component list
+  is gone, since every library linked by the program now has content
+  except sci-audio and sci-vm. **Decided.**
+
+## Addendum A1 (2026-10-21)
+
+The customer added milestone 3b (`docs/SPEC_ADDENDA.md`, A1). It does not
+change spec section 2. Its effect on the plan:
+
+- **Milestone 3a** stays as built, with two changes:
+  - the hint format gains `relations` ("in-front-of", "behind",
+    "contains" between regions and chains). They are read and validated
+    now, and used by the vector path from 3b;
+  - the hint files are not frozen at the 3a gate.
+- **Milestone 3b**, the next gate after 3a: section 6.10.
+  - Clipping at contours, depth order and shared boundaries.
+  - No stray fragments and no breaks.
+  - The A1 checks, and depth and containment relations added by a rerun
+    of the AI step.
+  - The hints are frozen and the golden hashes regenerated at its gate.
+- **Release v0.1** is tagged after the 3b gate.
+
+**Decided** (the customer's addendum).
 
 ## Spec items carried forward
 

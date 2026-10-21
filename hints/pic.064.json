@@ -1,0 +1,31 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 64,
+  "pic_sha256": "656ff576877b977f5de3e80e775d0bf55121673aa753e48b3dff88e5d38241ae",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "curtain", "at": [150, 70], "label": "curtain"},
+    {"id": "curtain-valance", "at": [150, 40], "label": "curtain valance", "uncertain": true},
+    {"id": "wooden-floor", "at": [150, 165], "label": "wooden floor"},
+    {"id": "heap-of-clothes", "at": [200, 145], "label": "heap of clothes", "uncertain": true},
+    {"id": "left-door-frame", "at": [95, 100], "label": "left door frame"},
+    {"id": "darkness", "at": [30, 100], "label": "darkness"}
+  ],
+  "chains": [
+    {"id": "curtain-fold-left", "lines": [306, 307, 308, 309], "primitive": "spline", "label": "curtain fold, left"},
+    {"id": "curtain-edge-left", "lines": [310, 311, 312], "primitive": "spline", "label": "curtain edge, left"},
+    {"id": "curtain-fold", "lines": [328, 329, 330], "primitive": "spline", "label": "curtain fold"},
+    {"id": "curtain-fold-right", "lines": [365, 366, 367, 368], "primitive": "spline", "label": "curtain fold, right"},
+    {"id": "curtain-fold-2", "lines": [383, 384, 385], "primitive": "spline", "label": "curtain fold"},
+    {"id": "curtain-fold-3", "lines": [388, 389, 390], "primitive": "spline", "label": "curtain fold"},
+    {"id": "curtain-fold-4", "lines": [391, 392, 393, 394], "primitive": "spline", "label": "curtain fold"},
+    {"id": "curtain-fold-5", "lines": [401, 402, 403, 404], "primitive": "spline", "label": "curtain fold"},
+    {"id": "curtain-hem-right", "lines": [212, 213, 214, 215, 216, 217], "primitive": "spline", "label": "curtain hem, right"},
+    {"id": "curtain-hem-left", "lines": [218, 219, 220], "primitive": "spline", "label": "curtain hem, left"},
+    {"id": "valance-gather", "lines": [273, 274, 275], "primitive": "spline", "label": "valance gather", "uncertain": true},
+    {"id": "valance-gather-2", "lines": [276, 277, 278], "primitive": "spline", "label": "valance gather", "uncertain": true},
+    {"id": "valance-gather-3", "lines": [282, 283, 284, 285], "primitive": "spline", "label": "valance gather", "uncertain": true},
+    {"id": "valance-gather-4", "lines": [350, 351, 352], "primitive": "spline", "label": "valance gather", "uncertain": true}
+  ]
+}

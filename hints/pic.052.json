@@ -1,0 +1,24 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 52,
+  "pic_sha256": "d7720ac0f0fd55120e4cb1989be7463ebfb993ac0dbd2e60001a27b1bb4824bf",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "attic-floor", "at": [130, 120], "label": "attic floor"},
+    {"id": "hanging-clothes", "at": [140, 20], "label": "hanging clothes", "uncertain": true},
+    {"id": "roof-beam", "at": [140, 45], "label": "roof beam"},
+    {"id": "rug", "at": [300, 120], "label": "rug"},
+    {"id": "roof-rafters", "at": [280, 50], "label": "roof rafters"},
+    {"id": "stair-railing", "at": [210, 120], "label": "stair railing", "uncertain": true}
+  ],
+  "chains": [
+    {"id": "hanging-item-top", "lines": [202, 203, 204], "primitive": "spline", "label": "hanging item top", "uncertain": true},
+    {"id": "hanging-item-top-2", "lines": [213, 214, 215], "primitive": "spline", "label": "hanging item top", "uncertain": true},
+    {"id": "hanging-item-top-3", "lines": [223, 224, 225, 226, 227, 228], "primitive": "spline", "label": "hanging item top"},
+    {"id": "hanging-item-top-4", "lines": [237, 238, 239, 240], "primitive": "spline", "label": "hanging item top", "uncertain": true},
+    {"id": "hanging-item-fold", "lines": [259, 260, 261, 262], "primitive": "spline", "label": "hanging item fold", "uncertain": true},
+    {"id": "hanging-item-fold-2", "lines": [832, 833, 834], "primitive": "spline", "label": "hanging item fold", "uncertain": true},
+    {"id": "rug-edge", "lines": [1200, 1201, 1202, 1203], "primitive": "spline", "label": "rug edge", "uncertain": true}
+  ]
+}

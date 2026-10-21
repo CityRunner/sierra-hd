@@ -35,3 +35,4 @@ sierra-hd.ini
 sierra-hd.toml
 analysis-cache/
 build.log
+__pycache__/

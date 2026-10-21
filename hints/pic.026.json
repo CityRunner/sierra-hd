@@ -1,0 +1,38 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 26,
+  "pic_sha256": "910dceb37417e3c58728faf3bddcd8bf7f20e6edb0da6067589199467a8d6336",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "brick-house", "at": [100, 80], "label": "brick house", "uncertain": true},
+    {"id": "iron-gate", "at": [140, 120], "label": "iron gate"},
+    {"id": "iron-fence", "at": [60, 130], "label": "iron fence"},
+    {"id": "oak-tree", "at": [160, 80], "label": "oak tree", "uncertain": true},
+    {"id": "path", "at": [140, 175], "label": "path", "uncertain": true},
+    {"id": "dark-foreground", "at": [5, 5], "label": "dark foreground"}
+  ],
+  "chains": [
+    {"id": "foreground-trunk-right", "lines": [232, 233, 234, 235, 236, 237, 238, 239, 240, 241], "primitive": "spline", "label": "foreground trunk, right"},
+    {"id": "foreground-trunk-left", "lines": [301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312], "primitive": "spline", "label": "foreground trunk, left"},
+    {"id": "foreground-foliage-edge", "lines": [376, 377, 378, 379, 380, 381, 382, 383, 384, 385, 386, 387], "primitive": "spline", "label": "foreground foliage edge"},
+    {"id": "far-right-trunk-edge", "lines": [434, 435, 436, 437, 438, 439], "primitive": "spline", "label": "far right trunk edge"},
+    {"id": "far-left-trunk-edge", "lines": [492, 493, 494, 495, 496, 497, 498], "primitive": "spline", "label": "far left trunk edge"},
+    {"id": "canopy-outline", "lines": [249, 250, 251], "primitive": "spline", "label": "canopy outline"},
+    {"id": "canopy-outline-2", "lines": [252, 253, 254, 255, 256], "primitive": "spline", "label": "canopy outline"},
+    {"id": "canopy-outline-3", "lines": [271, 272, 273, 274, 275, 276, 277, 278], "primitive": "spline", "label": "canopy outline"},
+    {"id": "canopy-outline-bit", "lines": [530, 531, 532], "primitive": "spline", "label": "canopy outline bit", "uncertain": true},
+    {"id": "foliage-edge-right", "lines": [449, 450, 451], "primitive": "spline", "label": "foliage edge, right", "uncertain": true},
+    {"id": "oak-canopy-underside", "lines": [2148, 2149, 2150], "primitive": "spline", "label": "oak canopy underside", "uncertain": true},
+    {"id": "oak-canopy-underside-2", "lines": [2160, 2161, 2162, 2163], "primitive": "spline", "label": "oak canopy underside", "uncertain": true},
+    {"id": "foreground-ground-edge", "lines": [337, 338, 339, 340, 341, 342], "primitive": "spline", "label": "foreground ground edge"},
+    {"id": "bush-by-gate-pillar", "lines": [902, 903, 904, 905, 906, 907], "primitive": "spline", "label": "bush by gate pillar"},
+    {"id": "oak-branch", "lines": [992, 993, 994], "primitive": "spline", "label": "oak branch", "uncertain": true},
+    {"id": "oak-branch-2", "lines": [811, 812, 813], "primitive": "spline", "label": "oak branch", "uncertain": true},
+    {"id": "shrub-top", "lines": [630, 631, 632], "primitive": "spline", "label": "shrub top", "uncertain": true},
+    {"id": "shrub-tops-right", "lines": [1077, 1078, 1079], "primitive": "spline", "label": "shrub tops, right", "uncertain": true},
+    {"id": "shrub-tip-left", "lines": [617, 618, 619], "primitive": "spline", "label": "shrub tip, left", "uncertain": true},
+    {"id": "shrub-tip-left-2", "lines": [620, 621, 622], "primitive": "spline", "label": "shrub tip, left", "uncertain": true},
+    {"id": "lawn-edge-behind-gate", "lines": [1276, 1277, 1278], "primitive": "spline", "label": "lawn edge behind gate", "uncertain": true}
+  ]
+}

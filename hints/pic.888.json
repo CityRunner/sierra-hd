@@ -1,0 +1,22 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 888,
+  "pic_sha256": "a923cbe4efe57277777a301b194af4a6982fac7e46bcb9a4be6bb9ad41fdac96",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "floor", "at": [160, 50], "label": "floor"},
+    {"id": "far-wall", "at": [160, 4], "label": "far wall"},
+    {"id": "green-pillar", "at": [5, 40], "label": "green pillar"},
+    {"id": "dark-lower-area", "at": [160, 140], "label": "dark lower area"},
+    {"id": "light-patch", "at": [155, 50], "label": "light patch"}
+  ],
+  "chains": [
+    {"id": "upper-edge-curve", "lines": [132, 133, 134, 135, 136], "primitive": "spline", "label": "upper edge curve"},
+    {"id": "light-patch-outline", "lines": [141, 142, 143, 144, 145], "primitive": "spline", "label": "light patch outline"},
+    {"id": "light-patch-outline-2", "lines": [165, 166, 167, 168, 169, 170, 171, 172], "primitive": "spline", "label": "light patch outline"},
+    {"id": "light-patch-outline-3", "lines": [177, 178, 179, 180, 181, 182, 183, 184, 185], "primitive": "spline", "label": "light patch outline"},
+    {"id": "floor-edge-left", "lines": [16, 17, 18, 19], "primitive": "spline", "label": "floor edge, left", "uncertain": true},
+    {"id": "niche-arch-left", "lines": [377, 378, 379], "primitive": "spline", "label": "niche arch, left", "uncertain": true}
+  ]
+}

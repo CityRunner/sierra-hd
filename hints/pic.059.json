@@ -1,0 +1,19 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 59,
+  "pic_sha256": "e81d3b2246727c3af0675bd4e94e7dd182c021540567ded2f33649ba25603569",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "bed-with-quilt", "at": [130, 110], "label": "bed with quilt"},
+    {"id": "round-table", "at": [215, 135], "label": "round table"},
+    {"id": "floor-rug", "at": [130, 152], "label": "floor rug"},
+    {"id": "wooden-floor", "at": [80, 155], "label": "wooden floor"},
+    {"id": "wall-shelves", "at": [255, 75], "label": "wall shelves"},
+    {"id": "curtained-window", "at": [170, 55], "label": "curtained window"},
+    {"id": "sloped-ceiling", "at": [200, 30], "label": "sloped ceiling"}
+  ],
+  "chains": [
+    {"id": "round-object-on-floor", "lines": [169, 170, 171, 172, 173, 174, 175], "primitive": "spline", "label": "round object on floor", "uncertain": true}
+  ]
+}

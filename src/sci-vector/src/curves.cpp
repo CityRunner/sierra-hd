@@ -74,7 +74,7 @@ class ChainFinder {
 public:
     ChainFinder(const Arrangement& arrangement, std::span<const ChainLine> lines)
         : arrangement_(&arrangement), incident_(arrangement.vertices.size()),
-          qualifies_(arrangement.sources.size(), false) {
+          qualifies_(arrangement.sources.size(), false), hint_(arrangement.sources.size(), -1) {
         for (std::size_t edge = 0; edge < arrangement.sources.size(); ++edge) {
             incident_[static_cast<std::size_t>(origin(static_cast<std::int32_t>(2 * edge)))].push_back(
                 static_cast<std::int32_t>(edge));
@@ -83,7 +83,8 @@ public:
             const std::int32_t source = arrangement.sources[edge];
             if (source >= 0 && static_cast<std::size_t>(source) < lines.size()) {
                 const ChainLine& line = lines[static_cast<std::size_t>(source)];
-                qualifies_[edge] = line.usable;
+                qualifies_[edge] = line.usable || line.hint >= 0;
+                hint_[edge] = line.hint;
             }
         }
     }
@@ -107,6 +108,8 @@ public:
 
     [[nodiscard]] bool qualifies(std::size_t edge) const { return qualifies_[edge]; }
 
+    [[nodiscard]] std::int32_t hint(std::size_t edge) const { return hint_[edge]; }
+
     // Whether other edges than the chain's two meet the vertex.
     [[nodiscard]] bool pinned(std::int32_t vertex) const {
         return incident_[static_cast<std::size_t>(vertex)].size() > 2;
@@ -122,14 +125,16 @@ public:
 
 private:
     // The half-edge continuing the chain after h: the only other
-    // qualifying edge at h's end vertex, if the chain does not turn sharply
-    // there. Other edges may meet the vertex; it is then pinned.
+    // qualifying edge of the same hint (or none) at h's end vertex, if the
+    // chain does not turn sharply there (hint chains may). Other edges may
+    // meet the vertex; it is then pinned.
     [[nodiscard]] std::optional<std::int32_t> continuation(std::int32_t h) const {
         const auto vertex = static_cast<std::size_t>(origin(twin(h)));
         const std::int32_t edge = h / 2;
         std::optional<std::int32_t> found;
         for (const std::int32_t candidate : incident_[vertex]) {
-            if (candidate == edge || !qualifies_[static_cast<std::size_t>(candidate)]) {
+            if (candidate == edge || !qualifies_[static_cast<std::size_t>(candidate)] ||
+                hint_[static_cast<std::size_t>(candidate)] != hint_[static_cast<std::size_t>(edge)]) {
                 continue;
             }
             if (found) {
@@ -148,7 +153,7 @@ private:
                            (static_cast<double>(d1.y) * static_cast<double>(d2.y));
         const double lengths = std::sqrt(static_cast<double>((d1.x * d1.x) + (d1.y * d1.y)) *
                                          static_cast<double>((d2.x * d2.x) + (d2.y * d2.y)));
-        if (dot < min_turn_cosine * lengths) {
+        if (hint_[static_cast<std::size_t>(edge)] < 0 && dot < min_turn_cosine * lengths) {
             return std::nullopt;
         }
         return out;
@@ -170,6 +175,7 @@ private:
     const Arrangement* arrangement_;
     std::vector<std::vector<std::int32_t>> incident_;
     std::vector<bool> qualifies_;
+    std::vector<std::int32_t> hint_;
 };
 
 // Splits the curve at the points nearest to the chain's inner vertices, in
@@ -315,7 +321,7 @@ Vec2 to_picture(const core::RationalPoint& p) {
 }
 
 std::vector<FittedChain> fit_chains(const Arrangement& arrangement, std::span<const ChainLine> lines, double tolerance,
-                                    CurveStats& stats) {
+                                    std::span<const CurveKind> hint_kinds, double hint_tolerance, CurveStats& stats) {
     const ChainFinder finder(arrangement, lines);
     Geometry geometry(arrangement);
     std::vector<bool> used(arrangement.sources.size(), false);
@@ -348,12 +354,21 @@ std::vector<FittedChain> fit_chains(const Arrangement& arrangement, std::span<co
             pinned.front() = start_pinned;
             pinned.back() = start_pinned;
         }
-        auto curve = fit_curve(points, pinned, tolerance);
+        const std::int32_t hint = finder.hint(edge);
+        auto curve = hint < 0
+                         ? fit_curve(points, pinned, tolerance)
+                         : fit_curve_as(points, pinned, hint_kinds[static_cast<std::size_t>(hint)], hint_tolerance);
         if (!curve) {
+            if (hint >= 0) {
+                stats.failed_hints.push_back(hint);
+            }
             continue;
         }
         if (!geometry.allows(edges, points, curve->points)) {
             ++stats.rejected;
+            if (hint >= 0) {
+                stats.failed_hints.push_back(hint);
+            }
             continue;
         }
         geometry.replace(edges, curve->points);
@@ -364,6 +379,7 @@ std::vector<FittedChain> fit_chains(const Arrangement& arrangement, std::span<co
             .edges = std::move(edges),
             .pieces = split_curve(curve->points, points),
             .half_edges = half_edges,
+            .hint = hint,
         });
     }
     return fitted;

@@ -34,6 +34,16 @@ sci_add_fuzz_target(NAME fuzz-vector
     DEPENDS sci-pic sci-vector sci-render
     CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/pic)
 
+sci_add_fuzz_target(NAME fuzz-json
+    SOURCE fuzz_json.cpp
+    DEPENDS sci-core
+    CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/json)
+
+sci_add_fuzz_target(NAME fuzz-hints
+    SOURCE fuzz_hints.cpp
+    DEPENDS sci-vector
+    CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/hints)
+
 # The list of fuzz targets and their seed corpora, for scripts/run-fuzzers.sh.
 if(SCI_FUZZ)
     get_property(targets GLOBAL PROPERTY SCI_FUZZ_TARGETS)

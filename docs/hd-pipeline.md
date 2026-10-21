@@ -113,7 +113,29 @@ Chains of short lines that imitate curves are fitted
   curve replaces the chain's edges for both faces and carries the strokes of
   the chain's lines.
 - **Arithmetic**: only +, -, *, / and sqrt (spec section 5.3). Curves are
-  flattened into chords of at most 0.25 original pixels.
+  flattened into chords of at most 0.25 original pixels. Arcs flatter than
+  a radius of 1e5 pixels count as straight.
+
+### Hints (milestone 3a)
+
+`build_scene` takes the hint files of the pictures in the trace
+(`sci/vector/hints.hpp`; the format is in `hints/README.md`). Hints name
+lines by their command index.
+
+- **Chain hints**: the lines of a hint chain only with each other, at any
+  turn and any length. `fit_curve_as` fits each section between pinned
+  vertices with the requested kind (an ellipse only for an unpinned closed
+  chain) within 1 original pixel. The geometric acceptance above applies.
+  After the strokes are built, every pixel the hinted lines own at 1x must
+  still be touched by the stroke (the line check). A hint that fails is
+  dropped, and the curves are fitted again without it, so its lines fall
+  back to the automatic fitting.
+- **Gap hints**: a connector from a line's end to the nearest point of
+  another line, at most 8 pixels away. The faces are built with all gap
+  hints; if that adds mixed faces or 1x-block pixels, the hints are tried
+  one at a time and only those that do not are kept.
+- Every hint used or left out is listed in `SceneStats` (`applied_hints`,
+  `rejected_hints`) and in the replacement report.
 
 ## 7. Rasterisation
 

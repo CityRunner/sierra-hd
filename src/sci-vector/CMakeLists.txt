@@ -4,6 +4,7 @@ sci_add_library(NAME sci-vector
         src/build_scene.cpp
         src/curves.cpp
         src/fitting.cpp
+        src/hints.cpp
         src/topology.cpp
     DEPENDS sci-core sci-pic)
 if(SCI_DEBUG_HIGHLIGHT)

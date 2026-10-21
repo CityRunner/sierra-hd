@@ -6,7 +6,10 @@
 // the acceptance check against path 1, and the room-entry time (path 1,
 // both scenes and the HD frame and priority map at the chosen scale).
 //
-//   sci-hd-report <game> <report.md> [--scale <N>] [--images <directory>]
+//   sci-hd-report <game> <report.md> [--scale <N>] [--images <directory>] [--hints <directory>]
+//
+// --hints applies the hint files of a directory (spec section 6.7; the
+// repository's are in hints/) and reports what each did.
 //
 // The report holds numbers only. --images also writes, per picture, the
 // original and the HD frame side by side at scale 3; those images are
@@ -15,11 +18,12 @@
 #include "game_folder.hpp"
 #include "picture.hpp"
 #include "png.hpp"
+#include "sci/platform/picture_hints.hpp"
+#include "sci/platform/thread_executor.hpp"
 #include "sci/render/acceptance.hpp"
 #include "sci/render/original.hpp"
 #include "sci/render/rasterize.hpp"
 #include "sci/vector/build_scene.hpp"
-#include "thread_executor.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -44,6 +48,7 @@ struct Options {
     fs::path report;
     int scale = 10;
     std::optional<fs::path> images;
+    std::optional<fs::path> hints;
 };
 
 struct Row {
@@ -58,7 +63,7 @@ std::optional<Options> parse_options(std::span<char*> args) {
     if (args.size() < 3) {
         return std::nullopt;
     }
-    Options options{.game = args[1], .report = args[2], .scale = 10, .images = std::nullopt};
+    Options options{.game = args[1], .report = args[2], .scale = 10, .images = std::nullopt, .hints = std::nullopt};
     for (std::size_t i = 3; i + 1 < args.size(); i += 2) {
         const std::string_view name = args[i];
         const std::string_view value = args[i + 1];
@@ -67,6 +72,8 @@ std::optional<Options> parse_options(std::span<char*> args) {
             options.scale = std::stoi(std::string(value));
         } else if (name == "--images") {
             options.images = fs::path(value);
+        } else if (name == "--hints") {
+            options.hints = fs::path(value);
         } else {
             return std::nullopt;
         }
@@ -106,8 +113,11 @@ std::optional<Row> analyse(const sci::resource::ResourceManager& manager, std::u
     if (!drawn) {
         return std::nullopt;
     }
-    const auto visual = sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual);
-    const auto priority = sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Priority);
+    const sci::platform::PictureHintSet hints(options.hints, manager, numbers);
+    const auto visual =
+        sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual, hints.pointers());
+    const auto priority =
+        sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Priority, hints.pointers());
     const auto frame = sci::render::render_hd(visual.scene, options.scale, executor);
     const auto priority_map = sci::render::render_priority(priority.scene, options.scale, executor);
     const auto end = std::chrono::steady_clock::now();
@@ -132,12 +142,13 @@ std::optional<Row> analyse(const sci::resource::ResourceManager& manager, std::u
 std::string table_row(const Row& row) {
     const SceneStats& v = row.visual;
     const auto& a = row.acceptance;
-    return std::format("| {} | {} / {} | {} / {} / {} | {} | {} / {} | {} | {} / {} / {} / {} ({}) | {} / {} | {:.3f}% "
-                       "| {} | {} / {} | {} | {:.0f} |\n",
-                       row.number, v.strokes, v.lines, v.extensions, v.joins, v.perpendiculars, v.faces, v.thin_faces,
-                       v.mixed_faces, v.fallback_pixels, v.straightened, v.arcs, v.splines, v.ellipses, v.fitted_lines,
-                       v.brushes, v.textured, 100 * a.agreement(), a.swaps, a.untouched_line_pixels,
-                       a.overlapped_line_pixels, row.priority.mixed_faces, row.entry_ms);
+    return std::format(
+        "| {} | {} / {} | {} / {} / {} | {} | {} / {} | {} | {} / {} / {} / {} ({}) | {} / {} | {} / {} / {} "
+        "| {:.3f}% | {} | {} / {} | {} | {:.0f} |\n",
+        row.number, v.strokes, v.lines, v.extensions, v.joins, v.perpendiculars, v.faces, v.thin_faces, v.mixed_faces,
+        v.fallback_pixels, v.straightened, v.arcs, v.splines, v.ellipses, v.fitted_lines, v.brushes, v.textured,
+        v.hint_chains, v.hint_gaps, v.rejected_hints.size(), 100 * a.agreement(), a.swaps, a.untouched_line_pixels,
+        a.overlapped_line_pixels, row.priority.mixed_faces, row.entry_ms);
 }
 
 std::string fallback_list(const std::vector<Row>& rows) {
@@ -151,21 +162,39 @@ std::string fallback_list(const std::vector<Row>& rows) {
     return text.empty() ? "None.\n" : text;
 }
 
+// Hints used or left out, per plane (a hint of lines in both planes may
+// be listed for each).
+std::string hint_list(const std::vector<Row>& rows, bool applied) {
+    std::string text;
+    for (const Row& row : rows) {
+        for (const auto& [plane, stats] : {std::pair{"visual", &row.visual}, std::pair{"priority", &row.priority}}) {
+            for (const auto& hint : applied ? stats->applied_hints : stats->rejected_hints) {
+                text += std::format("- pic {}, {} plane, `{}`: {}\n", row.number, plane, hint.id, hint.detail);
+            }
+        }
+    }
+    return text.empty() ? "None.\n" : text;
+}
+
 std::string report(const std::vector<Row>& rows, int scale) {
     std::string text = "# HD picture pipeline report\n\n";
     text += "Generated by `tools/hd-report`. Columns: strokes / PIC lines; gap closures (extensions / joins / "
             "perpendicular connectors); faces with a pixel centre; fallback faces (thin / mixed); region pixels "
             "drawn from 1x blocks; fitted chains (straight / arcs / splines / ellipses, and the lines they "
-            "replace); brushes (solid / textured); acceptance (agreement outside the edge band, swaps, line "
+            "replace); brushes (solid / textured); hints of the visual plane (chains fitted / gaps closed / left out); "
+            "acceptance (agreement outside the edge band, swaps, line "
             "pixels untouched / overlapped); mixed faces of the priority plane; room entry in ms";
     text += std::format(" (N = {}).\n\n", scale);
-    text += "| Pic | Strokes | Gaps | Faces | Fallback | Fallback px | Fits | Brushes | Agreement | Swaps | Lines | "
+    text += "| Pic | Strokes | Gaps | Faces | Fallback | Fallback px | Fits | Brushes | Hints | Agreement | Swaps | "
+            "Lines | "
             "Priority mixed | Entry ms |\n";
-    text += "|---|---|---|---|---|---|---|---|---|---|---|---|---|\n";
+    text += "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n";
     for (const Row& row : rows) {
         text += table_row(row);
     }
     text += "\n## Fallbacks (mixed faces of the visual plane)\n\n" + fallback_list(rows);
+    text += "\n## Hints used\n\n" + hint_list(rows, true);
+    text += "\n## Hints left out\n\n" + hint_list(rows, false);
     return text;
 }
 
@@ -193,7 +222,8 @@ int main(int argc, char** argv) {
     const std::span<char*> args(argv, static_cast<std::size_t>(argc));
     const auto options = parse_options(args);
     if (!options) {
-        std::println(stderr, "usage: sci-hd-report <game> <report.md> [--scale <N>] [--images <directory>]");
+        std::println(stderr, "usage: sci-hd-report <game> <report.md> [--scale <N>] [--images <directory>] "
+                             "[--hints <directory>]");
         return 2;
     }
     sci::tools::install_stderr_log();
@@ -205,7 +235,7 @@ int main(int argc, char** argv) {
         std::error_code error;
         fs::create_directories(*options->images, error);
     }
-    sci::tools::ThreadExecutor executor;
+    sci::platform::ThreadExecutor executor;
     std::vector<Row> rows;
     bool ok = true;
     for (const std::uint16_t number : sci::tools::numbers_of(*manager, sci::resource::ResourceType::Pic)) {

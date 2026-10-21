@@ -1,0 +1,32 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 44,
+  "pic_sha256": "745a7dec953b8deb7cef18f3a3a1f3fc7a04750b439837b34a3dc506861978d8",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "tiled-floor", "at": [160, 150], "label": "tiled floor"},
+    {"id": "fireplace", "at": [128, 70], "label": "fireplace"},
+    {"id": "left-wall-panel", "at": [25, 50], "label": "left wall panel"},
+    {"id": "back-wall", "at": [115, 20], "label": "back wall"},
+    {"id": "right-wall", "at": [300, 100], "label": "right wall"},
+    {"id": "right-window", "at": [175, 50], "label": "right window"}
+  ],
+  "chains": [
+    {"id": "right-window-arch", "lines": [374, 375, 376, 377, 378, 379, 380, 381, 382], "primitive": "arc", "label": "right window arch"},
+    {"id": "left-window-arch", "lines": [384, 385, 386, 387, 388, 389, 390, 391, 392, 393, 394], "primitive": "spline", "label": "left window arch"},
+    {"id": "left-window-fanlight", "lines": [357, 358, 359, 360], "primitive": "arc", "label": "left window fanlight", "uncertain": true},
+    {"id": "left-window-valance", "lines": [125, 126, 127, 128, 129], "primitive": "spline", "label": "left window valance"},
+    {"id": "right-window-valance", "lines": [135, 136, 137, 138, 139, 140], "primitive": "spline", "label": "right window valance"},
+    {"id": "doorway-arch", "lines": [345, 346, 347, 348, 349, 350], "primitive": "spline", "label": "doorway arch"},
+    {"id": "curtain-hem-right-wall", "lines": [17, 18, 19, 20, 21, 22], "primitive": "spline", "label": "curtain hem, right wall"},
+    {"id": "curtain-edge-right-wall", "lines": [25, 26, 27, 28, 29, 30], "primitive": "spline", "label": "curtain edge, right wall"},
+    {"id": "curtain-edge-right-wall-2", "lines": [34, 35, 36], "primitive": "spline", "label": "curtain edge, right wall"},
+    {"id": "curtain-tie-right-wall", "lines": [978, 979, 980, 981], "primitive": "spline", "label": "curtain tie, right wall"},
+    {"id": "curtain-fold-right-wall", "lines": [1013, 1014, 1015], "primitive": "spline", "label": "curtain fold, right wall"}
+  ],
+  "symmetry": [
+    {"kind": "mirror", "chains": ["right-window-arch", "left-window-arch"], "note": "the two window arches"},
+    {"kind": "repeat", "chains": ["left-window-valance", "right-window-valance"], "note": "the two window valances"}
+  ]
+}

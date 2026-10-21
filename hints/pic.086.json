@@ -1,0 +1,17 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 86,
+  "pic_sha256": "5b0056b6b7f9291afdd472849931c5704508d71ba6acf44f8f24cc07acb82bbb",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "dark-wall-panel", "at": [90, 90], "label": "dark wall panel"},
+    {"id": "window", "at": [255, 95], "label": "window"},
+    {"id": "lit-floor", "at": [255, 175], "label": "lit floor"},
+    {"id": "dark-room", "at": [200, 40], "label": "dark room"}
+  ],
+  "chains": [
+    {"id": "shadow-figure-outline", "lines": [82, 83, 84, 85], "primitive": "spline", "label": "shadow figure outline", "uncertain": true},
+    {"id": "shadow-figure-limb", "lines": [30, 31, 32, 33, 34, 35, 36], "primitive": "spline", "label": "shadow figure limb", "uncertain": true}
+  ]
+}

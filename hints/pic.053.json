@@ -1,0 +1,15 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 53,
+  "pic_sha256": "c1cbffe88ed852545a403875ae5c1ae07a81337c5e0c1ae2ca18be1c88cf04a1",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "braided-rug", "at": [170, 125], "label": "braided rug"},
+    {"id": "wooden-floor", "at": [250, 145], "label": "wooden floor"},
+    {"id": "back-room", "at": [230, 60], "label": "back room"},
+    {"id": "staircase-railing", "at": [170, 70], "label": "staircase railing"},
+    {"id": "left-wall", "at": [35, 125], "label": "left wall"},
+    {"id": "chimney-wall", "at": [80, 75], "label": "chimney wall", "uncertain": true}
+  ]
+}

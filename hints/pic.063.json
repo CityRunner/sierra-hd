@@ -1,0 +1,22 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 63,
+  "pic_sha256": "f1a5c20a0df7f4b467b08acebfb99e8f5def740ffd8eedddacd1fc3ea06ee411",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "floor", "at": [160, 150], "label": "floor"},
+    {"id": "sloped-roof", "at": [170, 40], "label": "sloped roof"},
+    {"id": "left-wall", "at": [110, 90], "label": "left wall"},
+    {"id": "round-window", "at": [188, 92], "label": "round window"},
+    {"id": "animal-figure", "at": [150, 95], "label": "animal figure", "uncertain": true},
+    {"id": "back-wall", "at": [200, 120], "label": "back wall"}
+  ],
+  "chains": [
+    {"id": "animal-back-and-rump", "lines": [604, 605, 606, 607, 608], "primitive": "spline", "label": "animal back and rump", "uncertain": true},
+    {"id": "animal-neck-outline", "lines": [610, 611, 612, 613], "primitive": "spline", "label": "animal neck outline", "uncertain": true},
+    {"id": "floor-patch-edge", "lines": [445, 446, 447, 448, 449, 450, 451, 452], "primitive": "spline", "label": "floor patch edge", "uncertain": true},
+    {"id": "branch-shadow-on-roof", "lines": [388, 389, 390, 391, 392, 393], "primitive": "spline", "label": "branch shadow on roof", "uncertain": true},
+    {"id": "branch-shadow-on-roof-2", "lines": [430, 431, 432], "primitive": "spline", "label": "branch shadow on roof", "uncertain": true}
+  ]
+}

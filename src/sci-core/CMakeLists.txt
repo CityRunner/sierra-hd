@@ -5,5 +5,7 @@ sci_add_library(NAME sci-core
         src/byte_reader.cpp
         src/error.cpp
         src/fp_profile.cpp
+        src/json.cpp
         src/log.cpp
+        src/md5.cpp
         src/sha256.cpp)

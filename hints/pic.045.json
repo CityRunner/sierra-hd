@@ -1,0 +1,25 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 45,
+  "pic_sha256": "7421550ddae3b74401326bce82e3b207facac063678824a868a8699997979300",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "wooden-floor", "at": [150, 130], "label": "wooden floor"},
+    {"id": "back-wall", "at": [100, 30], "label": "back wall"},
+    {"id": "left-back-window", "at": [60, 50], "label": "left back window"},
+    {"id": "side-wall", "at": [270, 70], "label": "side wall"},
+    {"id": "wainscot-panelling", "at": [150, 70], "label": "wainscot panelling"}
+  ],
+  "chains": [
+    {"id": "left-back-window-arch", "lines": [292, 293, 294, 295, 296, 297, 298, 299], "primitive": "arc", "label": "left back window arch"},
+    {"id": "right-back-window-arch", "lines": [282, 283, 284, 285, 286, 287, 288], "primitive": "arc", "label": "right back window arch"},
+    {"id": "side-window-arch", "lines": [363, 364, 365, 366, 367, 368, 369, 370], "primitive": "spline", "label": "side window arch"},
+    {"id": "far-side-window-arch", "lines": [316, 317, 318, 319, 320], "primitive": "spline", "label": "far side window arch"},
+    {"id": "floor-shadow-edge", "lines": [101, 102, 103, 104], "primitive": "spline", "label": "floor shadow edge", "uncertain": true}
+  ],
+  "symmetry": [
+    {"kind": "repeat", "chains": ["right-back-window-arch", "left-back-window-arch"], "note": "the two back window arches"},
+    {"kind": "repeat", "chains": ["far-side-window-arch", "side-window-arch"], "note": "the side window arches"}
+  ]
+}

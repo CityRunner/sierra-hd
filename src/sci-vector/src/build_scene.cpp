@@ -10,9 +10,12 @@
 #include <array>
 #include <cstddef>
 #include <cstdlib>
+#include <format>
 #include <numeric>
 #include <optional>
 #include <span>
+#include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -38,6 +41,14 @@ constexpr double fit_tolerance = 0.5;
 // Gaps up to this far (in doubled coordinates: 2 original pixels) are
 // closed when the 1x line pixels touch (spec section 6.3).
 constexpr std::int64_t gap_limit = 4;
+
+// Curves a hint asks for may lie this far from their chain (the upper end
+// of the spec's range); the line check decides whether the fit is kept.
+constexpr double hint_tolerance = 1.0;
+
+// Gap hints close gaps up to this far (doubled coordinates: 8 original
+// pixels).
+constexpr std::int64_t hint_gap_limit = 16;
 
 [[nodiscard]] std::size_t picture_index(int x, int y) {
     return (static_cast<std::size_t>(y) * picture_width) + static_cast<std::size_t>(x);
@@ -125,11 +136,11 @@ bool on_screen(int x, int y) {
     return x >= 0 && x < pic::screen_width && y >= 0 && y < pic::screen_height;
 }
 
-// Whether p lies within gap_limit of the integer point e in both axes.
-bool near(IntPoint e, const RationalPoint& p) {
+// Whether p lies within `limit` of the integer point e in both axes.
+bool near(IntPoint e, const RationalPoint& p, std::int64_t limit_units = gap_limit) {
     const std::int64_t dx = core::checked_sub(p.x_num(), core::checked_mul(e.x, p.den()));
     const std::int64_t dy = core::checked_sub(p.y_num(), core::checked_mul(e.y, p.den()));
-    const std::int64_t limit = core::checked_mul(gap_limit, p.den());
+    const std::int64_t limit = core::checked_mul(limit_units, p.den());
     return dx >= -limit && dx <= limit && dy >= -limit && dy <= limit;
 }
 
@@ -140,6 +151,22 @@ core::Rational beyond(IntPoint other, IntPoint e, const RationalPoint& p) {
     const std::int64_t dx = core::checked_sub(p.x_num(), core::checked_mul(e.x, p.den()));
     const std::int64_t dy = core::checked_sub(p.y_num(), core::checked_mul(e.y, p.den()));
     return {core::checked_add(core::checked_mul(dx, v.x), core::checked_mul(dy, v.y)), p.den()};
+}
+
+// A connector from e perpendicular to the target line, ending on it, if the
+// foot lies on the target, within `limit` of e and not at e.
+std::optional<TopoSegment> perpendicular_connector(IntPoint e, const TopoSegment& target, std::int64_t limit) {
+    const auto foot = detail::perpendicular_foot(e, target);
+    if (!foot || !near(e, *foot, limit) || *foot == RationalPoint(e)) {
+        return std::nullopt;
+    }
+    const IntPoint d = target.b - target.a;
+    const std::int64_t divisor = std::gcd(d.x, d.y);
+    const IntPoint b{.x = e.x - (d.y / divisor), .y = e.y + (d.x / divisor)};
+    if (std::abs(b.x) > detail::max_coordinate || std::abs(b.y) > detail::max_coordinate) {
+        return std::nullopt;
+    }
+    return TopoSegment{.a = e, .b = b, .from = RationalPoint(e), .to = *foot};
 }
 
 // Closes the gaps where path 1's line pixels touch but the lines do not
@@ -314,18 +341,10 @@ private:
     }
 
     void perpendicular(IntPoint e, const TopoSegment& target) {
-        const auto foot = detail::perpendicular_foot(e, target);
-        if (!foot || !near(e, *foot) || *foot == RationalPoint(e)) {
-            return;
+        if (auto connector = perpendicular_connector(e, target, gap_limit)) {
+            connectors_.push_back(*connector);
+            ++stats_->perpendiculars;
         }
-        const IntPoint d = target.b - target.a;
-        const std::int64_t divisor = std::gcd(d.x, d.y);
-        const IntPoint b{.x = e.x - (d.y / divisor), .y = e.y + (d.x / divisor)};
-        if (std::abs(b.x) > detail::max_coordinate || std::abs(b.y) > detail::max_coordinate) {
-            return;
-        }
-        connectors_.push_back(TopoSegment{.a = e, .b = b, .from = RationalPoint(e), .to = *foot});
-        ++stats_->perpendiculars;
     }
 
 public:
@@ -630,10 +649,306 @@ std::vector<int> owned_pixels(const pic::DrawTrace& trace, const PlaneView& view
     return owned;
 }
 
+// The hints that refer to lines of this plane, with their lines as line
+// indices.
+struct HintChain {
+    int picture = 0;
+    const ChainHint* hint = nullptr;
+    std::vector<std::size_t> lines;
+};
+
+struct HintGap {
+    int picture = 0;
+    const GapHint* hint = nullptr;
+    std::size_t from = 0;
+    std::size_t to = 0;
+};
+
+struct PlaneHints {
+    std::vector<HintChain> chains;
+    std::vector<HintGap> gaps;
+};
+
+std::string_view kind_name(HintPrimitive primitive) {
+    switch (primitive) {
+    case HintPrimitive::Line:
+        return "a line";
+    case HintPrimitive::Arc:
+        return "arcs";
+    case HintPrimitive::Spline:
+        return "a spline";
+    case HintPrimitive::Ellipse:
+        return "an ellipse";
+    }
+    return "a spline";
+}
+
+detail::CurveKind curve_kind(HintPrimitive primitive) {
+    switch (primitive) {
+    case HintPrimitive::Line:
+        return detail::CurveKind::Line;
+    case HintPrimitive::Arc:
+        return detail::CurveKind::Arc;
+    case HintPrimitive::Spline:
+        return detail::CurveKind::Spline;
+    case HintPrimitive::Ellipse:
+        return detail::CurveKind::Ellipse;
+    }
+    return detail::CurveKind::Spline;
+}
+
+// Finds the lines that hints refer to by picture and command.
+class HintLines {
+public:
+    HintLines(const pic::DrawTrace& trace, const std::vector<DrawnLine>& lines) {
+        for (std::size_t i = 0; i < lines.size(); ++i) {
+            const auto& primitive = trace.primitives[lines[i].primitive];
+            in_plane_.emplace_back(key(primitive.picture, primitive.command), i);
+        }
+        for (const auto& primitive : trace.primitives) {
+            if (std::holds_alternative<pic::Line>(primitive.shape)) {
+                drawn_.push_back(key(primitive.picture, primitive.command));
+            }
+        }
+        std::ranges::stable_sort(in_plane_);
+        std::ranges::stable_sort(drawn_);
+    }
+
+    // The index of the line in this plane.
+    [[nodiscard]] std::optional<std::size_t> line(std::size_t picture, LineRef command) const {
+        const std::uint64_t k = key(picture, command);
+        const auto it = std::ranges::lower_bound(in_plane_, std::pair{k, std::size_t{0}});
+        if (it == in_plane_.end() || it->first != k) {
+            return std::nullopt;
+        }
+        return it->second;
+    }
+
+    // Whether the command draws a line, in any plane.
+    [[nodiscard]] bool drawn(std::size_t picture, LineRef command) const {
+        return std::ranges::binary_search(drawn_, key(picture, command));
+    }
+
+private:
+    static std::uint64_t key(std::size_t picture, LineRef command) {
+        return (static_cast<std::uint64_t>(picture) << 32U) | command;
+    }
+
+    std::vector<std::pair<std::uint64_t, std::size_t>> in_plane_;
+    std::vector<std::uint64_t> drawn_;
+};
+
+void reject_hint(SceneStats& stats, int picture, const std::string& id, std::string reason) {
+    stats.rejected_hints.push_back(HintOutcome{.picture = picture, .id = id, .detail = std::move(reason)});
+}
+
+// A chain hint's lines in this plane; nothing if it has fewer than two
+// here, or a command that draws no line at all.
+std::optional<HintChain> resolve_chain(const HintLines& find, std::size_t p, const PictureHints& picture,
+                                       const ChainHint& chain, SceneStats& stats) {
+    const auto missing = std::ranges::find_if(chain.lines, [&](LineRef ref) { return !find.drawn(p, ref); });
+    if (missing != chain.lines.end()) {
+        reject_hint(stats, picture.picture, chain.id, std::format("command {} draws no line", *missing));
+        return std::nullopt;
+    }
+    HintChain found{.picture = picture.picture, .hint = &chain, .lines = {}};
+    for (const LineRef ref : chain.lines) {
+        if (const auto line = find.line(p, ref)) {
+            found.lines.push_back(*line);
+        }
+    }
+    if (found.lines.size() < 2) {
+        return std::nullopt;
+    }
+    return found;
+}
+
+std::optional<HintGap> resolve_gap(const HintLines& find, std::size_t p, const PictureHints& picture,
+                                   const GapHint& gap, SceneStats& stats) {
+    for (const LineRef ref : {gap.from, gap.to}) {
+        if (!find.drawn(p, ref)) {
+            reject_hint(stats, picture.picture, gap.id, std::format("command {} draws no line", ref));
+            return std::nullopt;
+        }
+    }
+    const auto from = find.line(p, gap.from);
+    const auto to = find.line(p, gap.to);
+    if (!from || !to) {
+        return std::nullopt;
+    }
+    return HintGap{.picture = picture.picture, .hint = &gap, .from = *from, .to = *to};
+}
+
+PlaneHints resolve_hints(const pic::DrawTrace& trace, const std::vector<DrawnLine>& lines,
+                         std::span<const PictureHints* const> hints, SceneStats& stats) {
+    const HintLines find(trace, lines);
+    PlaneHints resolved;
+    for (std::size_t p = 0; p < hints.size() && p < trace.pictures; ++p) {
+        if (hints[p] == nullptr) {
+            continue;
+        }
+        for (const ChainHint& chain : hints[p]->chains) {
+            if (auto found = resolve_chain(find, p, *hints[p], chain, stats)) {
+                resolved.chains.push_back(std::move(*found));
+            }
+        }
+        for (const GapHint& gap : hints[p]->gaps) {
+            if (auto found = resolve_gap(find, p, *hints[p], gap, stats)) {
+                resolved.gaps.push_back(*found);
+            }
+        }
+    }
+    return resolved;
+}
+
+// The connector a gap hint asks for: from the line's end to the nearest
+// point of the other line, if that is within hint_gap_limit and not
+// already touching.
+std::optional<TopoSegment> gap_connector(const HintGap& gap, const std::vector<DrawnLine>& lines) {
+    const DrawnLine& from = lines[gap.from];
+    const DrawnLine& to = lines[gap.to];
+    const IntPoint e = doubled(gap.hint->end == LineEnd::Start ? from.from : from.to);
+    const auto chebyshev = [&](IntPoint p) { return std::max(std::abs(p.x - e.x), std::abs(p.y - e.y)); };
+    if (!to.is_dot()) {
+        const TopoSegment target = detail::make_segment(doubled(to.from), doubled(to.to));
+        if (detail::perpendicular_foot(e, target) == RationalPoint(e)) {
+            return std::nullopt;
+        }
+        if (auto connector = perpendicular_connector(e, target, hint_gap_limit)) {
+            return connector;
+        }
+    }
+    const IntPoint a = doubled(to.from);
+    const IntPoint b = doubled(to.to);
+    const IntPoint nearest = chebyshev(a) <= chebyshev(b) ? a : b;
+    if (nearest == e || chebyshev(nearest) > hint_gap_limit) {
+        return std::nullopt;
+    }
+    return detail::make_segment(e, nearest);
+}
+
+// The faces of a topology, coloured, with the face counts of the stats.
+struct Partition {
+    detail::Arrangement arrangement;
+    std::vector<Face> faces;
+    SceneStats stats;
+};
+
+Partition partition(std::span<const TopoSegment> topology, const PlaneView& view, const pic::DrawTrace& trace) {
+    Partition result{.arrangement = detail::build_arrangement(topology), .faces = {}, .stats = {}};
+    result.faces.resize(static_cast<std::size_t>(result.arrangement.face_count));
+    const std::vector<std::int32_t> labels =
+        detail::label_pixel_centres(result.arrangement, picture_width, picture_height);
+    colour_faces(labels, view, trace, result.faces, result.stats);
+    return result;
+}
+
+// Whether a partition has no more mixed faces and 1x blocks than another
+// (the rule gap hints must keep).
+bool no_worse(const Partition& candidate, const Partition& base) {
+    return candidate.stats.mixed_faces <= base.stats.mixed_faces &&
+           candidate.stats.fallback_pixels <= base.stats.fallback_pixels;
+}
+
+// Partitions the topology, closing the gaps that hints ask for where that
+// keeps the rule: all at once if they keep it together, else one by one.
+Partition close_hinted_gaps(std::vector<TopoSegment> topology, const PlaneHints& hints,
+                            const std::vector<DrawnLine>& lines, const PlaneView& view, const pic::DrawTrace& trace,
+                            SceneStats& stats) {
+    Partition base = partition(topology, view, trace);
+    std::vector<std::pair<const HintGap*, TopoSegment>> candidates;
+    for (const HintGap& gap : hints.gaps) {
+        if (auto connector = gap_connector(gap, lines)) {
+            candidates.emplace_back(&gap, *connector);
+        } else {
+            reject_hint(stats, gap.picture, gap.hint->id, "the lines already touch, or are too far apart");
+        }
+    }
+    if (candidates.empty()) {
+        return base;
+    }
+    std::vector<TopoSegment> all = topology;
+    for (const auto& candidate : candidates) {
+        all.push_back(candidate.second);
+    }
+    if (Partition closed = partition(all, view, trace); no_worse(closed, base)) {
+        stats.hint_gaps += static_cast<int>(candidates.size());
+        for (const auto& candidate : candidates) {
+            stats.applied_hints.push_back(HintOutcome{
+                .picture = candidate.first->picture,
+                .id = candidate.first->hint->id,
+                .detail = "gap closed",
+            });
+        }
+        return closed;
+    }
+    for (const auto& [gap, connector] : candidates) {
+        topology.push_back(connector);
+        if (Partition closed = partition(topology, view, trace); no_worse(closed, base)) {
+            base = std::move(closed);
+            ++stats.hint_gaps;
+            stats.applied_hints.push_back(
+                HintOutcome{.picture = gap->picture, .id = gap->hint->id, .detail = "gap closed"});
+        } else {
+            topology.pop_back();
+            reject_hint(stats, gap->picture, gap->hint->id, "closing it adds mixed faces or 1x blocks");
+        }
+    }
+    return base;
+}
+
+void copy_face_stats(const SceneStats& from, SceneStats& to) {
+    to.faces = from.faces;
+    to.uniform_faces = from.uniform_faces;
+    to.thin_faces = from.thin_faces;
+    to.mixed_faces = from.mixed_faces;
+    to.fallback_pixels = from.fallback_pixels;
+    to.fallbacks = from.fallbacks;
+}
+
+// Whether a stroke along the points, 1 pixel wide, covers one of the
+// pixel's 16 x 16 samples (the acceptance check's line rule, spec section
+// 6.4).
+bool stroke_touches(const std::vector<Vec2>& points, int x, int y) {
+    constexpr int samples = 16;
+    constexpr double radius = 0.5;
+    const auto within = [&](Vec2 p) {
+        for (std::size_t i = 0; i + 1 < points.size(); ++i) {
+            const Vec2 a = points[i];
+            const Vec2 d{.x = points[i + 1].x - a.x, .y = points[i + 1].y - a.y};
+            const double length_squared = (d.x * d.x) + (d.y * d.y);
+            const double t = length_squared == 0
+                                 ? 0
+                                 : std::clamp((((p.x - a.x) * d.x) + ((p.y - a.y) * d.y)) / length_squared, 0.0, 1.0);
+            const double ex = p.x - a.x - (t * d.x);
+            const double ey = p.y - a.y - (t * d.y);
+            if ((ex * ex) + (ey * ey) <= radius * radius) {
+                return true;
+            }
+        }
+        return false;
+    };
+    if (within({.x = x + 0.5, .y = y + 0.5})) {
+        return true;
+    }
+    for (int sy = 0; sy < samples; ++sy) {
+        for (int sx = 0; sx < samples; ++sx) {
+            if (within({.x = x + ((sx + 0.5) / samples), .y = y + ((sy + 0.5) / samples)})) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 // Replaces the chains of short visible lines that imitate curves.
+// Lines of a chain hint (hint_of_line, the hint's index, or -1) take part
+// whether short or not; failed_hints lists the hints whose fit failed.
 std::vector<detail::FittedChain> fit_curves(const detail::Arrangement& arrangement, const std::vector<DrawnLine>& lines,
                                             const std::vector<std::optional<TopoSegment>>& segments,
-                                            const std::vector<int>& owned, SceneStats& stats) {
+                                            const std::vector<int>& owned, std::span<const std::int32_t> hint_of_line,
+                                            std::span<const detail::CurveKind> hint_kinds,
+                                            std::vector<std::int32_t>& failed_hints, SceneStats& stats) {
     std::vector<detail::ChainLine> chain_lines(lines.size());
     for (std::size_t i = 0; i < lines.size(); ++i) {
         const DrawnLine& line = lines[i];
@@ -646,11 +961,15 @@ std::vector<detail::FittedChain> fit_curves(const detail::Arrangement& arrangeme
             !segment.has_value() || segment->from != RationalPoint(a) || segment->to != RationalPoint(b);
         const bool short_line =
             std::abs(line.from.x - line.to.x) <= max_curve_line && std::abs(line.from.y - line.to.y) <= max_curve_line;
-        chain_lines[i] =
-            detail::ChainLine{.usable = !line.is_dot() && owned[lines[i].primitive] > 0 && !extended && short_line};
+        const bool visible = !line.is_dot() && owned[lines[i].primitive] > 0;
+        chain_lines[i] = detail::ChainLine{
+            .usable = visible && !extended && short_line,
+            .hint = visible ? hint_of_line[i] : -1,
+        };
     }
     detail::CurveStats curve_stats;
-    auto fitted = detail::fit_chains(arrangement, chain_lines, fit_tolerance, curve_stats);
+    auto fitted = detail::fit_chains(arrangement, chain_lines, fit_tolerance, hint_kinds, hint_tolerance, curve_stats);
+    failed_hints = std::move(curve_stats.failed_hints);
     stats.straightened = curve_stats.lines;
     stats.arcs = curve_stats.arcs;
     stats.splines = curve_stats.splines;
@@ -752,6 +1071,135 @@ std::vector<std::vector<Vec2>> stroke_curves(const detail::Arrangement& arrangem
     return curves;
 }
 
+// Fits the curves, with the chain hints that keep the line check: every
+// pixel a hinted line owns at 1x stays touched by its stroke. A hint that
+// fails is dropped, and its lines are fitted automatically.
+struct Curves {
+    std::vector<detail::FittedChain> fitted;
+    std::vector<std::vector<Vec2>> strokes; // Per line, as stroke_curves.
+};
+
+// The pixels each line of a chain hint owns at 1x, per line.
+std::vector<std::vector<std::size_t>> hinted_line_pixels(const std::vector<DrawnLine>& lines,
+                                                         const std::vector<std::int32_t>& hint_of_line,
+                                                         const PlaneView& view) {
+    std::vector<std::vector<std::size_t>> pixels(lines.size());
+    std::vector<std::int32_t> line_of_primitive;
+    for (std::size_t i = 0; i < lines.size(); ++i) {
+        if (hint_of_line[i] < 0) {
+            continue;
+        }
+        if (lines[i].primitive >= line_of_primitive.size()) {
+            line_of_primitive.resize(lines[i].primitive + 1, -1);
+        }
+        line_of_primitive[lines[i].primitive] = static_cast<std::int32_t>(i);
+    }
+    for (std::size_t i = 0; i < picture_pixels && !line_of_primitive.empty(); ++i) {
+        const std::int32_t owner = view.owners[i];
+        if (owner < 0 || std::cmp_greater_equal(owner, line_of_primitive.size())) {
+            continue;
+        }
+        if (const std::int32_t line = line_of_primitive[static_cast<std::size_t>(owner)]; line >= 0) {
+            pixels[static_cast<std::size_t>(line)].push_back(i);
+        }
+    }
+    return pixels;
+}
+
+// Whether every pixel a line owns is touched by its stroke (lines without
+// a fitted stroke keep their own).
+bool keeps_line_pixels(const std::vector<std::size_t>& pixels, const std::vector<Vec2>& stroke) {
+    return stroke.empty() || std::ranges::all_of(pixels, [&](std::size_t i) {
+               return stroke_touches(stroke, static_cast<int>(i % picture_width), static_cast<int>(i / picture_width));
+           });
+}
+
+// Why each chain hint fails after a fitting round (empty where it holds),
+// and whether it was fitted at all.
+struct HintCheck {
+    std::vector<std::string> reasons;
+    std::vector<bool> fitted;
+};
+
+HintCheck check_hint_chains(const PlaneHints& hints, const Curves& curves, const std::vector<std::int32_t>& failed,
+                            const std::vector<std::vector<std::size_t>>& pixels) {
+    HintCheck check{
+        .reasons = std::vector<std::string>(hints.chains.size()),
+        .fitted = std::vector<bool>(hints.chains.size(), false),
+    };
+    for (const std::int32_t h : failed) {
+        check.reasons[static_cast<std::size_t>(h)] = "no such curve within 1 pixel that keeps the faces";
+    }
+    for (const detail::FittedChain& chain : curves.fitted) {
+        if (chain.hint >= 0) {
+            check.fitted[static_cast<std::size_t>(chain.hint)] = true;
+        }
+    }
+    for (std::size_t h = 0; h < hints.chains.size(); ++h) {
+        if (check.reasons[h].empty() && check.fitted[h] &&
+            !std::ranges::all_of(hints.chains[h].lines, [&](std::size_t line) {
+                return keeps_line_pixels(pixels[line], curves.strokes[line]);
+            })) {
+            check.reasons[h] = "the curve misses pixels of its lines";
+        }
+    }
+    return check;
+}
+
+Curves fit_with_hints(const detail::Arrangement& arrangement, const std::vector<DrawnLine>& lines,
+                      const std::vector<std::optional<TopoSegment>>& segments, const std::vector<int>& owned,
+                      const PlaneView& view, const PlaneHints& hints, SceneStats& stats) {
+    std::vector<std::int32_t> hint_of_line(lines.size(), -1);
+    std::vector<detail::CurveKind> kinds;
+    for (std::size_t h = 0; h < hints.chains.size(); ++h) {
+        for (const std::size_t line : hints.chains[h].lines) {
+            hint_of_line[line] = static_cast<std::int32_t>(h);
+        }
+        kinds.push_back(curve_kind(hints.chains[h].hint->primitive));
+    }
+    const std::vector<std::vector<std::size_t>> pixels = hinted_line_pixels(lines, hint_of_line, view);
+    std::vector<bool> enabled(hints.chains.size(), true);
+    const auto drop = [&](std::size_t h, std::string reason) {
+        enabled[h] = false;
+        for (const std::size_t line : hints.chains[h].lines) {
+            hint_of_line[line] = -1;
+        }
+        reject_hint(stats, hints.chains[h].picture, hints.chains[h].hint->id, std::move(reason));
+    };
+    // Each round drops at least one hint, or ends.
+    while (true) {
+        std::vector<std::int32_t> failed;
+        Curves curves;
+        curves.fitted = fit_curves(arrangement, lines, segments, owned, hint_of_line, kinds, failed, stats);
+        curves.strokes = stroke_curves(arrangement, curves.fitted, lines);
+        const HintCheck check = check_hint_chains(hints, curves, failed, pixels);
+        bool dropped = false;
+        for (std::size_t h = 0; h < hints.chains.size(); ++h) {
+            if (enabled[h] && !check.reasons[h].empty()) {
+                drop(h, check.reasons[h]);
+                dropped = true;
+            }
+        }
+        if (dropped) {
+            continue;
+        }
+        for (std::size_t h = 0; h < hints.chains.size(); ++h) {
+            if (enabled[h] && check.fitted[h]) {
+                ++stats.hint_chains;
+                stats.applied_hints.push_back(HintOutcome{
+                    .picture = hints.chains[h].picture,
+                    .id = hints.chains[h].hint->id,
+                    .detail = std::format("{} lines fitted as {}", hints.chains[h].lines.size(),
+                                          kind_name(hints.chains[h].hint->primitive)),
+                });
+            } else if (enabled[h]) {
+                drop(h, "its lines form no chain");
+            }
+        }
+        return curves;
+    }
+}
+
 // The layers over the faces, in drawing order: visible lines as strokes,
 // solid brushes as shapes, textured brushes as blocks.
 std::vector<Layer> build_layers(const pic::DrawTrace& trace, const PlaneView& view, Plane plane,
@@ -798,7 +1246,8 @@ std::vector<Layer> build_layers(const pic::DrawTrace& trace, const PlaneView& vi
 
 } // namespace
 
-BuiltScene build_scene(const pic::PictureMaps& maps, const pic::DrawTrace& trace, Plane plane) {
+BuiltScene build_scene(const pic::PictureMaps& maps, const pic::DrawTrace& trace, Plane plane,
+                       std::span<const PictureHints* const> hints) {
     BuiltScene built;
     Scene& scene = built.scene;
     scene.plane = plane;
@@ -829,17 +1278,16 @@ BuiltScene build_scene(const pic::PictureMaps& maps, const pic::DrawTrace& trace
     const std::vector<TopoSegment> frame = picture_frame();
     topology.insert(topology.end(), frame.begin(), frame.end());
 
-    const detail::Arrangement arrangement = detail::build_arrangement(topology);
-    scene.faces.resize(static_cast<std::size_t>(arrangement.face_count));
-    const std::vector<std::int32_t> labels = detail::label_pixel_centres(arrangement, picture_width, picture_height);
-    colour_faces(labels, view, trace, scene.faces, built.stats);
+    const PlaneHints plane_hints = resolve_hints(trace, lines, hints, built.stats);
+    Partition parts = close_hinted_gaps(std::move(topology), plane_hints, lines, view, trace, built.stats);
+    copy_face_stats(parts.stats, built.stats);
+    scene.faces = std::move(parts.faces);
     scene.block_values = block_values(view, trace);
 
     const std::vector<int> owned = owned_pixels(trace, view);
-    const auto fitted = fit_curves(arrangement, lines, segments, owned, built.stats);
-    scene.edges = scan_edges(arrangement, fitted);
-    scene.layers =
-        build_layers(trace, view, plane, lines, owned, stroke_curves(arrangement, fitted, lines), built.stats);
+    const Curves curves = fit_with_hints(parts.arrangement, lines, segments, owned, view, plane_hints, built.stats);
+    scene.edges = scan_edges(parts.arrangement, curves.fitted);
+    scene.layers = build_layers(trace, view, plane, lines, owned, curves.strokes, built.stats);
     return built;
 }
 

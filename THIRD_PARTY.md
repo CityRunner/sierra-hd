@@ -6,12 +6,15 @@ together with its licence file.
 
 ## Vendored
 
-None at milestone 0. Planned, with the pin recorded when each is added
-(docs/ASSUMPTIONS.md, "Third-party components"):
+| Component | Version | Licence | Directory | Used by |
+|---|---|---|---|---|
+| SDL3 | 3.4.18 (`release-3.4.18`, commit `829a65d769d935c4852f8159e964312c0957260a`) | zlib | `third_party/SDL3` | app: window, input, presentation |
+
+Planned, with the pin recorded when each is added (docs/ASSUMPTIONS.md,
+"Third-party components"):
 
 | Component | Licence | Needed from |
 |---|---|---|
-| SDL3 | zlib | milestone 3a (window layer) |
 | Nuked OPL3 | LGPL 2.1 or later | milestone 7 |
 | mt32emu (Munt) | LGPL 2.1 or later | milestone 7 |
 

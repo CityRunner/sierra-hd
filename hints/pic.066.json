@@ -1,0 +1,21 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 66,
+  "pic_sha256": "f9cd29f9b41c3e588e6fb9a18635d68495f5cc4ef3fe2e220820689e49d93189",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "lever-box", "at": [80, 140], "label": "lever box"},
+    {"id": "lever-handle", "at": [85, 35], "label": "lever handle"},
+    {"id": "wooden-wall", "at": [30, 40], "label": "wooden wall"},
+    {"id": "window-frame", "at": [195, 100], "label": "window frame", "uncertain": true},
+    {"id": "dark-exterior", "at": [270, 60], "label": "dark exterior", "uncertain": true},
+    {"id": "metal-brace", "at": [265, 150], "label": "metal brace", "uncertain": true}
+  ],
+  "chains": [
+    {"id": "dome-face-of-lever-box", "lines": [67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79], "primitive": "arc", "label": "dome face of lever box"},
+    {"id": "lever-handle-underside", "lines": [923, 924, 925], "primitive": "spline", "label": "lever handle underside", "uncertain": true},
+    {"id": "lever-handle-end", "lines": [883, 884, 885], "primitive": "spline", "label": "lever handle end", "uncertain": true},
+    {"id": "keyhole-top", "lines": [29, 30, 31], "primitive": "arc", "label": "keyhole top", "uncertain": true}
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 33,
+  "pic_sha256": "d219341079419c7db516260b639e08243124d8059e8843a81ed000910a5fad13",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "runner-rug", "at": [160, 160], "label": "runner rug"},
+    {"id": "wooden-floor", "at": [100, 115], "label": "wooden floor"},
+    {"id": "left-wardrobe", "at": [90, 70], "label": "left wardrobe"},
+    {"id": "right-wardrobe", "at": [225, 70], "label": "right wardrobe"},
+    {"id": "end-window", "at": [160, 55], "label": "end window"},
+    {"id": "left-wall", "at": [30, 60], "label": "left wall"}
+  ],
+  "chains": [
+    {"id": "end-window-arch", "lines": [402, 403, 404, 405, 406, 407], "primitive": "arc", "label": "end window arch"},
+    {"id": "vaulted-ceiling-edge", "lines": [261, 262, 263, 264, 265], "primitive": "spline", "label": "vaulted ceiling edge", "uncertain": true},
+    {"id": "side-doorway-top", "lines": [311, 312, 313], "primitive": "spline", "label": "side doorway top", "uncertain": true}
+  ]
+}

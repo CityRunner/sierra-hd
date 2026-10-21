@@ -1,0 +1,21 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 35,
+  "pic_sha256": "7faa04151b91df9f43203b4c405fd46ef5a84017319b2a045bce399eda7a3641",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "table", "at": [145, 120], "label": "table"},
+    {"id": "wooden-floor", "at": [80, 140], "label": "wooden floor"},
+    {"id": "stove", "at": [110, 60], "label": "stove"},
+    {"id": "brick-chimney-wall", "at": [160, 25], "label": "brick chimney wall", "uncertain": true},
+    {"id": "side-wall", "at": [240, 40], "label": "side wall"},
+    {"id": "kitchen-counter", "at": [190, 70], "label": "kitchen counter"}
+  ],
+  "chains": [
+    {"id": "left-window-arch", "lines": [402, 403, 404, 405, 406, 407, 408, 409, 410, 411], "primitive": "spline", "label": "left window arch"},
+    {"id": "stove-chimney-top", "lines": [53, 54, 55, 56, 57, 58, 59, 60], "primitive": "spline", "label": "stove chimney top", "uncertain": true},
+    {"id": "oval-panel-on-wall", "lines": [506, 507, 508, 509, 510, 511, 512, 513], "primitive": "spline", "label": "oval panel on wall"},
+    {"id": "round-topped-wall-panel", "lines": [499, 500, 501, 502, 503], "primitive": "spline", "label": "round-topped wall panel", "uncertain": true}
+  ]
+}

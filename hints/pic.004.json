@@ -1,0 +1,43 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 4,
+  "pic_sha256": "5fb7e74c382f0e9b1389149a6db5592938564db20b9669b35fdf5bb1beb8f504",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "night-sky", "at": [160, 10], "label": "night sky"},
+    {"id": "garden-path", "at": [160, 100], "label": "garden path"},
+    {"id": "round-plaza", "at": [160, 155], "label": "round plaza"},
+    {"id": "left-column", "at": [55, 100], "label": "left column"},
+    {"id": "right-column", "at": [262, 100], "label": "right column"},
+    {"id": "vineyard-rows", "at": [240, 80], "label": "vineyard rows"},
+    {"id": "rose-arbor", "at": [120, 30], "label": "rose arbor"}
+  ],
+  "chains": [
+    {"id": "rose-arbor-arch-outer-left", "lines": [2221, 2222, 2223, 2224, 2225], "primitive": "spline", "label": "rose arbor arch, outer left"},
+    {"id": "rose-arbor-arch-left-side", "lines": [180, 181, 182], "primitive": "spline", "label": "rose arbor arch, left side"},
+    {"id": "rose-arbor-arch-inner-left", "lines": [1774, 1775, 1776, 1777, 1778], "primitive": "spline", "label": "rose arbor arch, inner left"},
+    {"id": "rose-arbor-inner-arch-top", "lines": [1806, 1807, 1808, 1810, 1811], "primitive": "spline", "label": "rose arbor inner arch top"},
+    {"id": "rose-arbor-arch-top", "lines": [88, 89, 90], "primitive": "spline", "label": "rose arbor arch top"},
+    {"id": "rose-arbor-arch-right-side", "lines": [1745, 1746, 1747, 1748], "primitive": "spline", "label": "rose arbor arch, right side"},
+    {"id": "rose-arbor-arch-right-side-2", "lines": [1793, 1794, 1795], "primitive": "spline", "label": "rose arbor arch, right side"},
+    {"id": "rose-arbor-arch-outer-right", "lines": [1958, 1959, 1960, 1961, 1962], "primitive": "spline", "label": "rose arbor arch, outer right"},
+    {"id": "rose-arbor-arch-right-side-3", "lines": [72, 73, 74], "primitive": "spline", "label": "rose arbor arch, right side"},
+    {"id": "rose-arbor-arch-left-side-2", "lines": [103, 104, 105], "primitive": "spline", "label": "rose arbor arch, left side"},
+    {"id": "rose-arbor-arch-left-side-3", "lines": [2235, 2236, 2237, 2238], "primitive": "spline", "label": "rose arbor arch, left side"},
+    {"id": "distant-willow-tree", "lines": [1570, 1571, 1572], "primitive": "spline", "label": "distant willow tree", "uncertain": true},
+    {"id": "distant-tree", "lines": [2060, 2061, 2062, 2063], "primitive": "spline", "label": "distant tree", "uncertain": true},
+    {"id": "left-shrub-outline", "lines": [1423, 1424, 1425, 1426], "primitive": "spline", "label": "left shrub outline", "uncertain": true},
+    {"id": "right-shrub-outline", "lines": [1618, 1619, 1620], "primitive": "spline", "label": "right shrub outline", "uncertain": true},
+    {"id": "right-shrub-outline-2", "lines": [874, 875, 876, 877], "primitive": "spline", "label": "right shrub outline", "uncertain": true},
+    {"id": "right-shrub-outline-3", "lines": [878, 879, 880, 881], "primitive": "spline", "label": "right shrub outline", "uncertain": true},
+    {"id": "right-shrub-outline-4", "lines": [882, 883, 884], "primitive": "spline", "label": "right shrub outline", "uncertain": true},
+    {"id": "right-shrub-outline-5", "lines": [918, 919, 920, 921, 922], "primitive": "spline", "label": "right shrub outline", "uncertain": true},
+    {"id": "right-shrub-outline-6", "lines": [1165, 1166, 1167, 1168], "primitive": "spline", "label": "right shrub outline", "uncertain": true},
+    {"id": "column-base-curve", "lines": [357, 358, 359, 360, 361], "primitive": "arc", "label": "column base curve", "uncertain": true},
+    {"id": "round-plaza-edge", "lines": [655, 656, 657], "primitive": "arc", "label": "round plaza edge"},
+    {"id": "round-plaza-edge-2", "lines": [658, 659, 660], "primitive": "spline", "label": "round plaza edge"},
+    {"id": "round-plaza-edge-3", "lines": [664, 665, 666], "primitive": "spline", "label": "round plaza edge"},
+    {"id": "round-plaza-edge-4", "lines": [673, 674, 675], "primitive": "arc", "label": "round plaza edge"}
+  ]
+}

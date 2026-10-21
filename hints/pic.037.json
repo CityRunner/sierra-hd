@@ -1,0 +1,20 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 37,
+  "pic_sha256": "cea013c1454d689c91b4aadb170c70562cca2992a67dccbb42f98ef1a04a3842",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "hall-runner-rug", "at": [160, 90], "label": "hall runner rug"},
+    {"id": "wooden-floor", "at": [160, 170], "label": "wooden floor"},
+    {"id": "left-staircase", "at": [40, 80], "label": "left staircase"},
+    {"id": "right-staircase", "at": [280, 80], "label": "right staircase"},
+    {"id": "upper-landing-railing", "at": [160, 10], "label": "upper landing railing"},
+    {"id": "armchair", "at": [240, 105], "label": "armchair", "uncertain": true}
+  ],
+  "chains": [
+    {"id": "lamp-shade-right", "lines": [217, 218, 219, 220, 221], "primitive": "spline", "label": "lamp shade, right"},
+    {"id": "oval-wall-ornament", "lines": [175, 176, 177, 178], "primitive": "spline", "label": "oval wall ornament", "uncertain": true},
+    {"id": "newel-post-cap", "lines": [1057, 1058, 1059], "primitive": "spline", "label": "newel post cap", "uncertain": true}
+  ]
+}

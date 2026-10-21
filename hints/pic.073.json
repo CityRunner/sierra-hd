@@ -1,0 +1,17 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 73,
+  "pic_sha256": "ddfa4ecbf4b11ede69c4c84434f3523c81dc8ae4b32e2ee6567663c2b37749be",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "tiled-floor", "at": [160, 160], "label": "tiled floor"},
+    {"id": "window-bay", "at": [160, 60], "label": "window bay"},
+    {"id": "right-wall", "at": [290, 80], "label": "right wall"},
+    {"id": "glass-cabinet", "at": [50, 140], "label": "glass cabinet"},
+    {"id": "ceiling", "at": [140, 10], "label": "ceiling"}
+  ],
+  "chains": [
+    {"id": "curved-ceiling-edge-left", "lines": [112, 113, 114, 115], "primitive": "spline", "label": "curved ceiling edge, left"}
+  ]
+}

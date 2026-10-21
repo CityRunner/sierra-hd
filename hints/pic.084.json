@@ -1,0 +1,13 @@
+{
+  "format": "sierra-hd-hints",
+  "version": 1,
+  "picture": 84,
+  "pic_sha256": "d3151276152e681381a2bcc51fd81794133334c55d4df113925673e439af9f02",
+  "analyser": "Claude (AI-assisted review of sci-hint-tool candidates), 2026-10-21",
+  "regions": [
+    {"id": "sky", "at": [200, 30], "label": "sky"},
+    {"id": "deck-railing", "at": [150, 130], "label": "deck railing"},
+    {"id": "upper-deck", "at": [50, 30], "label": "upper deck"},
+    {"id": "smokestack-pillar", "at": [275, 80], "label": "smokestack pillar"}
+  ]
+}
