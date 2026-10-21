@@ -1,6 +1,7 @@
 # Milestone 4b: kernel coverage
 
-Status: **for review**.
+Status: **for review**, but the gate's CI run is blocked: the account's
+Actions minutes are used up (see "CI minutes").
 
 Exit criteria (spec section 12): every kernel function the game's scripts
 reference is implemented, and scenario recordings covering the main areas
@@ -134,10 +135,16 @@ qemu-user. All 57 comparisons are identical.
 
 ## Tests and style
 
-- All 22 test suites pass in the debug and ASan builds; the sci-vm and
-  parser tests also pass on ARM64. New: files, the path matcher, the
-  clock's busy-wait rule, the event queue, the parser (vocabulary,
-  grammar, Said), key translation and cursors, the analysis cache.
+- All 23 test suites pass in the release, ASan+UBSan and TSan builds and
+  on ARM64 under qemu-user (`scripts/pre-push.sh`). New tests cover:
+  - files and the path matcher;
+  - the clock's busy-wait rule and the event queue;
+  - the parser (vocabulary, grammar, Said);
+  - key translation and cursors;
+  - the analysis cache;
+  - the code on worker threads (`tests/threads`, label `threads`). Until
+    now no test ran on more than one thread, so TSan had nothing threaded
+    to check.
 - All 11 fuzz targets ran for 60 s with no findings, among them the new
   parser and scene targets.
 - clang-format, clang-tidy and `scripts/check-repo-policy.py` report no
@@ -154,13 +161,31 @@ qemu-user. All 57 comparisons are identical.
 
 ## CI minutes
 
-GATE_RESULT
+**The gate's full matrix has not run yet: the account's Actions minutes
+are used up.**
+- On the policy's first gate run (commit `ea2f1a4`), GitHub started no
+  job. It reported "recent account payments have failed or your spending
+  limit needs to be increased".
+- The last full run before the policy (commit `d84e97c`) was green on
+  Linux x86-64 and ARM64 in all presets, Windows x64 and ARM64, the
+  fuzzers and the lint.
+- Its Linux results do not count, though: the steps hid failures (see
+  "Tests and style"), and its lint passed a real clang-tidy finding.
+- Under the policy, the milestone needs a green full matrix before
+  approval. It will run once the budget allows.
 
 Under the CI cost policy (`docs/ASSUMPTIONS.md`, "CI cost policy"),
 introduced during this gate, measured with
 `scripts/ci-minutes.py --branch milestone-4b`:
 
-CI_TABLE
+| Platform | Jobs | Minutes | Included minutes | List price |
+|---|---|---|---|---|
+| Linux x86-64 | 97 | 516 | 516 | $3.10 |
+| Linux ARM64 | 58 | 208 | 208 | $1.04 |
+| Windows x64 | 3 | 17 | 34 | $0.17 |
+| Windows ARM64 | 2 | 9 | 18 | $0.09 |
+| macOS | 0 | 0 | 0 | $0 |
+| **Total** (24 runs) | | **750** | **776** | **$4.40** |
 
 - Most of these minutes came before the policy: every push ran 8 Linux
   jobs, and 20 of the 4b push runs were cancelled part-way by the next
