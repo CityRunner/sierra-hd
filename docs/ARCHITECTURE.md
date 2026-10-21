@@ -213,6 +213,23 @@ sheet. It records the changed rectangles, and the window uploads only
 those to a streaming texture. The texture is drawn 1:1 into an integer
 viewport in the middle of the window; the rest is letterbox.
 
+## The analysis cache (milestone 4b)
+
+The vector scenes are kept in files (spec section 10.2;
+`docs/formats/analysis-cache.md`):
+- `sci-vector` writes and reads a scene as bytes (`scene_io.hpp`), so it
+  stays free of I/O.
+- `sci-platform`'s `AnalysisCache` names, keys, reads and writes the
+  entries in `cache/` next to `sierra-hd.ini`.
+- On launch, `main.cpp` has the cache analyse the missing entries on the
+  executor, behind a progress bar.
+- `Viewer`, and later the game mode, asks `AnalysisCache::scene` for a
+  scene. The scene comes from memory or from its file, or it is analysed
+  then and there.
+
+The key covers the game data, the analyser version, the hint file and the
+variant, so a stale entry is never used.
+
 ## Logging
 
 `sci/core/log.hpp` is the only logging facility. Messages have a level and a

@@ -2,13 +2,13 @@
 //
 // HD pictures for the game screen: the vector path's rendering of a picture
 // as kDrawPic drew it (mirrored, EGA palette), at N, keeping the last few.
+// The scenes come from the analysis cache.
 #pragma once
 
 #include "sci/core/executor.hpp"
+#include "sci/platform/analysis_cache.hpp"
 #include "sci/render/rasterize.hpp"
-#include "sci/resource/resource_manager.hpp"
 
-#include <filesystem>
 #include <list>
 #include <optional>
 
@@ -16,9 +16,8 @@ namespace sci::app {
 
 class HdPictures {
 public:
-    HdPictures(const resource::ResourceManager& manager, std::optional<std::filesystem::path> hints,
-               core::Executor& executor)
-        : manager_(&manager), hints_(std::move(hints)), executor_(&executor) {}
+    HdPictures(platform::AnalysisCache& analysis, core::Executor& executor)
+        : analysis_(&analysis), executor_(&executor) {}
 
     // The picture at 320N x 190N, or null if it cannot be drawn.
     const render::RgbaImage* get(int picture, bool mirrored, int ega_palette, int scale);
@@ -32,8 +31,7 @@ private:
         std::optional<render::RgbaImage> image;
     };
 
-    const resource::ResourceManager* manager_;
-    std::optional<std::filesystem::path> hints_;
+    platform::AnalysisCache* analysis_;
     core::Executor* executor_;
     std::list<Entry> cache_; // Most recent first.
 };

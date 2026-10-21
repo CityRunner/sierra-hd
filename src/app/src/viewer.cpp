@@ -4,10 +4,9 @@
 
 #include "sci/pic/draw_pic.hpp"
 #include "sci/pic/parse_pic.hpp"
-#include "sci/platform/picture_hints.hpp"
 #include "sci/render/colors.hpp"
 #include "sci/render/original.hpp"
-#include "sci/vector/build_scene.hpp"
+#include "sci/vector/scene.hpp"
 
 #include <algorithm>
 #include <array>
@@ -63,9 +62,9 @@ Rect unite(Rect a, Rect b) {
 
 } // namespace
 
-Viewer::Viewer(const resource::ResourceManager& manager, std::optional<std::filesystem::path> hints,
-               core::Executor& executor, GraphicsMode mode, int scale)
-    : manager_(&manager), hints_(std::move(hints)), executor_(&executor), mode_(mode), chosen_scale_(scale),
+Viewer::Viewer(const resource::ResourceManager& manager, platform::AnalysisCache& cache, core::Executor& executor,
+               GraphicsMode mode, int scale)
+    : manager_(&manager), analysis_(&cache), executor_(&executor), mode_(mode), chosen_scale_(scale),
       pictures_(numbers_of(manager, resource::ResourceType::Pic)),
       views_(numbers_of(manager, resource::ResourceType::View)),
       fonts_(numbers_of(manager, resource::ResourceType::Font)) {
@@ -305,6 +304,19 @@ void Viewer::draw_status() {
     }
 }
 
+render::RgbaImage Viewer::hd_background(std::uint16_t number, const pic::PictureMaps& maps) {
+    const int width = vector::picture_width * scale_;
+    const int height = vector::picture_height * scale_;
+    const auto plane = priority_ ? vector::Plane::Priority : vector::Plane::Visual;
+    const auto scene = analysis_->scene(platform::SceneVariant{.picture = number, .plane = plane});
+    if (!scene) {
+        message_ = std::format("Picture {}: {}", number, scene.error().message);
+        return render::indices_to_rgba(render::render_original(maps, scale_), width, height);
+    }
+    return priority_ ? render::indices_to_rgba(render::render_priority(**scene, scale_, *executor_), width, height)
+                     : render::render_hd(**scene, scale_, *executor_);
+}
+
 const render::RgbaImage& Viewer::background() {
     const std::uint16_t number = pictures_.empty() ? 0 : pictures_[picture_];
     const auto same = [&](const CachedBackground& b) {
@@ -318,12 +330,11 @@ const render::RgbaImage& Viewer::background() {
     const int width = vector::picture_width * scale_;
     const int height = vector::picture_height * scale_;
     pic::PictureMaps maps;
-    pic::DrawTrace trace;
     const pic::DrawOptions options;
     const auto resource = manager_->load(resource::ResourceId{.type = resource::ResourceType::Pic, .number = number});
     const auto commands = resource ? pic::parse_pic(resource->data)
                                    : core::Result<std::vector<pic::PicCommand>>(std::unexpected(resource.error()));
-    const auto drawn = commands ? pic::draw_picture(*commands, maps, options, &trace)
+    const auto drawn = commands ? pic::draw_picture(*commands, maps, options)
                                 : core::Result<pic::DrawResult>(std::unexpected(commands.error()));
     if (!drawn) {
         message_ = std::format("Picture {}: {}", number, drawn.error().message);
@@ -345,13 +356,7 @@ const render::RgbaImage& Viewer::background() {
             entry.image = render::indices_to_rgba(render::render_original(maps, scale_), width, height);
         }
     } else {
-        const std::array numbers{number};
-        const platform::PictureHintSet hints(hints_, *manager_, numbers);
-        const auto plane = priority_ ? vector::Plane::Priority : vector::Plane::Visual;
-        const auto scene = vector::build_scene(maps, trace, plane, hints.pointers());
-        entry.image =
-            priority_ ? render::indices_to_rgba(render::render_priority(scene.scene, scale_, *executor_), width, height)
-                      : render::render_hd(scene.scene, scale_, *executor_);
+        entry.image = hd_background(number, maps);
     }
     cache_.push_front(std::move(entry));
     if (cache_.size() > cached_backgrounds) {
