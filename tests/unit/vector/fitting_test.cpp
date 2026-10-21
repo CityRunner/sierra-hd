@@ -3,6 +3,7 @@
 #include "fitting.hpp"
 #include "sci_test.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -107,4 +108,34 @@ SCI_TEST(fits_never_leave_the_tolerance) {
     };
     const auto curve = fit_curve(chain, std::vector<bool>(chain.size(), false), 0.5);
     SCI_CHECK(!curve || polyline_distance(curve->points, chain) <= 0.5);
+}
+
+SCI_TEST(forced_kinds_follow_the_hint) {
+    using sci::vector::detail::fit_curve_as;
+    // A shallow bend, forced into each kind.
+    const std::vector<Vec2> chain{{.x = 0.5, .y = 0.5}, {.x = 20.5, .y = 1.5}, {.x = 40.5, .y = 0.5}};
+    const std::vector<bool> pinned(chain.size(), false);
+    const auto arc = fit_curve_as(chain, pinned, CurveKind::Arc, 1.0);
+    SCI_CHECK(arc.has_value() && arc->kind == CurveKind::Arc && polyline_distance(arc->points, chain) <= 1.0);
+    const auto line = fit_curve_as(chain, pinned, CurveKind::Line, 1.0);
+    SCI_CHECK(line.has_value() && line->points.size() == 2);
+    SCI_CHECK(!fit_curve_as(chain, pinned, CurveKind::Line, 0.5).has_value());
+    SCI_CHECK(!fit_curve_as(chain, pinned, CurveKind::Ellipse, 1.0).has_value());
+    // Pinned points stay on the curve.
+    const std::vector<Vec2> longer{
+        {.x = 0.5, .y = 0.5},  {.x = 10.5, .y = 1.5}, {.x = 20.5, .y = 1.5},
+        {.x = 30.5, .y = 1.5}, {.x = 40.5, .y = 0.5},
+    };
+    const std::vector<bool> middle_pinned{true, false, true, false, true};
+    const auto pinned_arc = fit_curve_as(longer, middle_pinned, CurveKind::Arc, 1.0);
+    SCI_CHECK(pinned_arc.has_value() && std::ranges::find(pinned_arc->points, longer[2]) != pinned_arc->points.end());
+}
+
+SCI_TEST(forced_arcs_on_almost_straight_chains_stay_small) {
+    // Nearly collinear: the best arc's radius is huge. Its points cannot be
+    // computed reliably; the section is straight instead.
+    const std::vector<Vec2> chain{{.x = 0.5, .y = 0.5}, {.x = 100.5, .y = 0.5 + 1e-9}, {.x = 200.5, .y = 0.5}};
+    const std::vector<bool> pinned(chain.size(), false);
+    const auto curve = sci::vector::detail::fit_curve_as(chain, pinned, CurveKind::Arc, 1.0);
+    SCI_CHECK(curve.has_value() && curve->points.size() < 10000);
 }
