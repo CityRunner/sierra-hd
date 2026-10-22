@@ -1292,6 +1292,40 @@ Scope:
   as before.
 - Addendum A2 is scheduled as milestone SU, after milestone 6.
 
+## Milestone 5: the HD composition (2026-10-22)
+
+The design is `docs/hd-composition.md`; its section "Changes from the design
+made in the implementation" lists what changed while implementing it.
+
+- **Kernel primitives "outside a window"** are those drawn while the
+  picture window is the current port. In this game every kGraph line and
+  box is drawn in the window manager's port (script 981 draws the double
+  frames of the message windows; the copy-protection screen its name
+  boxes), so they are interface; no scenario draws a primitive into the
+  picture. **Decided.**
+- **Picture overlays** (kDrawPic with add-to) are drawn by rooms 74 (picture
+  174, then 74) and 290 (282, then a picture from a local variable); no
+  scenario reaches them, so they are checked with `sci-hd-frames --stack`.
+- **Saved bits** with the priority map also carry the priority source
+  plane; their hunks are larger than ScummVM's. The scripts never read
+  saved bits, and the traces of all scenarios still match. **Decided.**
+- **Stopped and always-update views** (drawn by kAnimate before
+  `draw_cels`) are part of the background layer, drawn as 1x blocks with
+  1x occlusion, as the design says. **Decided.**
+- **Measured** (release build, 4 cores, `sci-hd-frames --timing`, room 37
+  of `grounds.txt` with Laura walking down the stairs behind the banister,
+  ticks 7180-7560; room 44 of `boot-and-bedroom.txt`, ticks 3800-4300):
+
+  | | N = 5 | N = 10 |
+  |---|---|---|
+  | frame with changes, room 37: mean / max | 0.49 / 1.4 ms | 0.73 / 1.0 ms |
+  | frame with changes, room 44: mean / max | 0.59 / 1.1 ms | 0.76 / 1.2 ms |
+  | whole frame again (mode or snap switched) | 6.6 ms | 20.7 ms |
+  | first frame of a picture, with rendering its HD images | 156 ms | 515 ms |
+
+  About 3300 to 4200 1x pixels are composed per frame. Rendering the HD
+  images of a new picture is the cost of entering a room, as before.
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with
