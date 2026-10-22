@@ -4,7 +4,8 @@
 // seeded random source, input from a replay, and every kernel call traced
 // as the reference ScummVM traces it (docs/formats/replay-and-trace.md).
 // Milestone 5 adds the cast of every kAnimate call and the 1x priority and
-// control maps, compared with the reference's as well.
+// control maps, compared with the reference's as well; milestone 6a what
+// the parser made of each typed command and each Said spec.
 
 #pragma once
 
@@ -69,6 +70,12 @@ struct RunOptions {
     // and tick of that line and the cast in drawing order (empty when the
     // call drew nothing).
     std::function<void(std::uint32_t call, std::uint32_t tick, std::span<const CastEntry>)> on_animate;
+    // Called after the trace line of every kParse and kSaid call, with the
+    // number and tick of that line and what the parser did, as a line of
+    // the parser file after its tick and call number (milestone 6a,
+    // docs/formats/replay-and-trace.md): `parse "<input>" ...` or
+    // `said <spec> ...`, without the line break.
+    std::function<void(std::uint32_t call, std::uint32_t tick, std::string_view)> on_parser;
 };
 
 struct RunResult {

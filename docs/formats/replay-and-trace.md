@@ -62,11 +62,16 @@ and compares the traces; the reference side is the patch
   `--actors <file>` (sci-vm-trace), every kAnimate call writes its cast,
   in the format below. `tools/vm-trace/compare-actors.py` compares two
   such files.
+- **Parser** (milestone 6a). With `SIERRA_HD_PARSER=<file>` (reference) or
+  `--parser <file>` (sci-vm-trace), every kParse and kSaid call writes what
+  the parser made of the input, in the format below.
+  `tools/vm-trace/compare-parser.py` compares two such files.
 
 ## Replay files
 
-Plain text (UTF-8, ASCII in practice), one event per line. The first line
-that is neither empty nor a comment (`#`) must be `sierra-hd replay 1`.
+Plain text (UTF-8, ASCII but for a few typed commands), one event per
+line. The first line that is neither empty nor a comment (`#`) must be
+`sierra-hd replay 1`.
 
     sierra-hd replay 1
     # tick  kind  data
@@ -83,7 +88,7 @@ order.
 | Kind | Data | Event |
 |---|---|---|
 | `key` | character [modifiers] | A key press with the SCI character code (decimal; for example 13 for Enter, 27 for Escape, or 18432 for the up arrow) and modifier bits (default 0). |
-| `text` | the rest of the line | One key press per character, then Enter: a typed command. |
+| `text` | the rest of the line | One key press per byte (the file is UTF-8, so a character above 127 is several keys), then Enter: a typed command. The text starts after the white space that follows `text` (so it cannot start with a space); spaces inside and at the end are typed. `text` alone is an Enter. |
 | `down`, `up` | x y [modifiers] | A mouse button press or release at (x, y), in screen coordinates (320 x 200). The modifiers say which button: 0 for the left, 3 (Shift) for the right, 4 (Ctrl) for the middle. |
 | `move` | x y | Moves the mouse without an event. |
 
@@ -129,3 +134,44 @@ sorts it), written right after that call's trace line:
   ignores actors, and so on).
 - A kAnimate call without a cast list, or one that stops before drawing,
   writes no line.
+
+## Parser files
+
+One line per kParse or kSaid call, in call order, written right after that
+call's trace line:
+
+    <tick> <call> parse "<input>" ok words=<words> tree=<tree> type=<n> claimed=<n>
+    <tick> <call> parse "<input>" syntax words=<words> type=<n> claimed=<n>
+    <tick> <call> parse "<input>" unknown word="<word>" type=<n> claimed=<n>
+    <tick> <call> parse "<input>" empty type=<n> claimed=<n>
+    <tick> <call> said <spec> <outcome> claimed=<n>
+
+    4507 36521 parse "look" ok words=800:3e8 tree=(141,(13f,((141,(13b,((141,(12f,w3e8)),-))),-))) type=4 claimed=0
+    4932 43572 parse "smell the bed" ok words=800:43a,020:001,100:83d tree=(141,(13f,((141,(13b,((141,(12f,w43a)),-))),((142,(13d,((145,(131,w1)),((141,(139,((141,(130,w83d)),-))),-)))),-)))) type=4 claimed=0
+    4606 38883 said 03e8f5f800caf6f2083dff full claimed=1
+    4551 37783 said f208feff skipped claimed=-
+
+- `tick` and `call` are those of the call's trace line. kParse calls the
+  game's `wordFail` or `syntaxFail` method, whose kernel calls come before
+  kParse's own line.
+- `input` is the string kParse got, quoted: `\"` and `\\` for a quote and
+  a backslash, `\xHH` for any other byte outside 32 to 126.
+- The outcome: `ok` (the grammar accepted the words), `syntax` (it did
+  not: `syntaxFail`), `unknown` (a word is not in the vocabulary:
+  `wordFail`; `word` is that word as the tokenizer saw it, in lower case,
+  quoted the same way) or `empty` (no words at all).
+- `words` are the words as the grammar got them, after the room's synonyms
+  (kSetSynonyms) and the pronouns (replaced by the object of the last good
+  parse): `<class>:<group>` in hex, separated by commas (a word with several
+  meanings would list them separated by `|`; SCI0 keeps one).
+- `tree` is the parse tree the Said specs are matched against (ScummVM's
+  `Vocabulary::_parserNodes`), written from node 0: a branch as
+  `(<left>,<right>)`, a leaf as its value in hex, a word as `w<group>`
+  followed by `/<right>` if it has a right child, a missing child as `-`.
+- `type` and `claimed` are the event's selectors when kParse returns.
+- `spec` is the Said spec's bytes in hex up to and including the 0xff that
+  ends it, or `-` when there is none.
+- The Said outcome: `null` (a null spec), `invalid` (a pointer that is not
+  a string), `skipped` (no parsed event, or it is already claimed; the
+  spec is not matched), `none`, `partial` or `full`; `claimed` is the
+  event's flag as the call leaves it (`-` without an event).
