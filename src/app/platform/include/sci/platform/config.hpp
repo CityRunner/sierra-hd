@@ -8,6 +8,8 @@
 //   game_folder = C:\Games\Colonel's Bequest
 //   mode = hd          ; hd or original
 //   scale = auto       ; auto, or N from 1 to 16
+//   priority_snap = off ; on: sprites are hidden behind the picture in
+//                       ; whole 1x pixels, as in the original
 //   mt32_rom =
 //
 // Lines starting with ';' or '#' are comments, and so is the rest of a
@@ -35,6 +37,8 @@ struct Config {
     std::filesystem::path game_folder;
     GraphicsMode mode = GraphicsMode::Hd;
     int scale = 0; // 0: the largest N that fits.
+    // HD occlusion edges snapped to the sprite grid (spec section 6.6).
+    bool priority_snap = false;
     std::filesystem::path mt32_rom;
 };
 

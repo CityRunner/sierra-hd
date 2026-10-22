@@ -90,6 +90,7 @@ private:
     void fill(int& old_pic_not_valid);
     void update();
     void draw_cels();
+    void draw_sprite(const AnimateEntry& it);
     void update_screen(int old_pic_not_valid);
     void restore_and_delete();
     void add_to_pic_draw_cels();

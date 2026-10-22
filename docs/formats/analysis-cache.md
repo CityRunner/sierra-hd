@@ -12,11 +12,16 @@ The cache is the directory `cache/` next to `sierra-hd.ini`. Each entry is
 one file named after its variant:
 
 ```
-pic.<number, 3 digits>.<visual|priority>[.mirrored][.palette<n>].scene
+pic.<number, 3 digits>.<visual|priority>[.mirrored][.palette<n>]{.over.<number, 3 digits>[.mirrored][.palette<n>]}.scene
 ```
 
 For example `pic.044.visual.scene`, or
-`pic.005.priority.mirrored.palette2.scene`. An entry is written to
+`pic.005.priority.mirrored.palette2.scene`. A picture stack, a picture with
+overlays drawn over it (kDrawPic with add-to, spec section 6.8), is a
+variant of its own: each overlay adds `.over.` with its number and options,
+in drawing order, for example `pic.174.visual.over.074.scene`. Its scene is
+built from one trace of the base picture and the overlays drawn over it,
+so the overlays are layers of the scene in drawing order. An entry is written to
 `<name>.tmp` and then renamed, so a write that is cut off leaves no entry.
 Deleting the directory is always safe; it is rebuilt.
 For the tested release, the 176 entries of the first launch take 83 MB
@@ -29,8 +34,9 @@ For the tested release, the 176 entries of the first launch take 83 MB
   valid entry on the executor in batches of 16 and shows a progress bar.
   Closing the window cancels the analysis and quits; the entries written so
   far are kept.
-- Any other variant, or an entry that is still missing, is analysed the
-  first time it is asked for, and then stored.
+- Any other variant (mirrored, another palette, a picture stack with
+  overlays), or an entry that is still missing, is analysed the first time
+  it is asked for, and then stored.
 - The last 8 scenes asked for are also kept in memory.
 
 ## Key and invalidation
@@ -47,6 +53,12 @@ Every entry stores a 32-byte key, the SHA-256 of the following:
 | plane | u32: 0 visual, 1 priority |
 | mirrored | u32: 0 or 1 |
 | EGA palette | u32 |
+| per overlay, in drawing order | u32 picture, u32 mirrored (0 or 1), u32 EGA palette, u32 size and the bytes of the overlay's hint file (size 0 when there is none) |
+
+Without overlays, nothing follows the EGA palette: the keys of the
+variants of the first cache format did not change when overlays were
+added (milestone 5), so their entries stay valid and neither the entry
+nor the scene format version changed.
 
 An entry is stale when its key differs from the one computed now. It is
 also refused when it has another entry version or cannot be read. Such an

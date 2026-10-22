@@ -1,60 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The game's frame (milestone 4b): what the interpreter shows, composed
-// into a 320N x 200N RGBA frame in original or HD mode, with the changed
-// rectangles for the window layer (spec sections 10.1 and 6.9). In HD mode
-// the picture comes from the vector path, and every 1x pixel that differs
-// from the picture as drawn (sprites, text, windows, the menu bar) is drawn
-// as an N x N block over it. The window layer does the cursor and input.
+// The window layer's part of the game screen: the game's cursor and the
+// translation of keys (the frame itself is composed by
+// sci/platform/game_frame.hpp).
 #pragma once
 
-#include "sci/platform/config.hpp"
-#include "sci/render/rasterize.hpp"
 #include "sci/vm/events.hpp"
 #include "sci/vm/game.hpp"
-#include "viewer.hpp"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <optional>
-#include <vector>
+#include <span>
 
 namespace sci::app {
-
-// The HD picture, 320N x 190N, or none if it cannot be drawn.
-using HdBackground = std::function<const render::RgbaImage*(int picture, bool mirrored, int ega_palette, int scale)>;
-
-class GameScreen {
-public:
-    explicit GameScreen(HdBackground background) : background_(std::move(background)) {}
-
-    // Brings the frame up to date with `shown`; the frame changes only where
-    // the shown screen, the mode or N changed.
-    void update(const vm::ShownScreen& shown, platform::GraphicsMode mode, int scale);
-
-    [[nodiscard]] const std::vector<std::uint8_t>& frame() const { return frame_; }
-
-    [[nodiscard]] int scale() const { return scale_; }
-
-    // The rectangles changed since the last call.
-    [[nodiscard]] std::vector<Rect> take_dirty();
-
-private:
-    void draw_pixel(const vm::ShownScreen& shown, const render::RgbaImage* background, int x, int y);
-
-    HdBackground background_;
-    std::vector<std::uint8_t> frame_;
-    std::vector<std::uint8_t> last_visual_;
-    std::vector<std::uint8_t> last_cover_;
-    int last_picture_ = -2;
-    bool last_mirrored_ = false;
-    int last_ega_palette_ = 0;
-    platform::GraphicsMode mode_ = platform::GraphicsMode::Original;
-    int scale_ = 0;
-    std::vector<Rect> dirty_;
-};
 
 // An SCI0 cursor resource as RGBA pixels (16 x 16) and its hotspot.
 struct CursorImage {

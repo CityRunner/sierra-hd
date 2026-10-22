@@ -49,12 +49,14 @@ sci_add_unit_test(NAME sci-vector-tests
 target_include_directories(sci-vector-tests PRIVATE pic ${PROJECT_SOURCE_DIR}/src/sci-vector/src)
 
 sci_add_unit_test(NAME sci-render-tests
-    SOURCES render/render_test.cpp
-    DEPENDS sci-render)
+    SOURCES render/compose_test.cpp render/render_test.cpp
+    DEPENDS sci-render sci-vector sci-pic)
+target_include_directories(sci-render-tests PRIVATE pic render)
 
 sci_add_unit_test(NAME sci-platform-tests
-    SOURCES platform/analysis_cache_test.cpp platform/platform_test.cpp
+    SOURCES platform/analysis_cache_test.cpp platform/game_frame_test.cpp platform/platform_test.cpp
     DEPENDS sci-platform)
+target_include_directories(sci-platform-tests PRIVATE pic render)
 
 sci_add_unit_test(NAME sci-vm-tests
     SOURCES
@@ -62,6 +64,7 @@ sci_add_unit_test(NAME sci-vm-tests
         vm/input_test.cpp
         vm/music_test.cpp
         vm/path_match_test.cpp
+        vm/screen_test.cpp
         vm/script_patcher_test.cpp
     DEPENDS sci-vm)
 # The tests reach into sci-vm's internals.

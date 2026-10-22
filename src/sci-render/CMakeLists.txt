@@ -2,6 +2,7 @@
 sci_add_library(NAME sci-render
     SOURCES
         src/acceptance.cpp
+        src/compose.cpp
         src/integrity.cpp
         src/original.cpp
         src/rasterize.cpp

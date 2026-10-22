@@ -149,6 +149,7 @@ void Animate::fill(int& old_pic_not_valid) {
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): kept close to GfxAnimate::update.
 void Animate::update() {
+    const OwnerScope owner(graphics_->screen(), Owner::Sprite);
     Machine& machine = graphics_->machine();
     const SelectorCache& s = machine.selector();
     Paint& paint = graphics_->paint();
@@ -223,11 +224,13 @@ void Animate::draw_cels() {
     Machine& machine = graphics_->machine();
     const SelectorCache& s = machine.selector();
     Paint& paint = graphics_->paint();
+    const OwnerScope owner(graphics_->screen(), Owner::Sprite);
+    graphics_->screen().begin_sprites();
     last_cast_.clear();
     for (AnimateEntry& it : list_) {
         if ((it.signal & (signal_no_update | signal_hidden | signal_always_update)) == 0) {
             machine.write_selector(it.object, s.under_bits, paint.bits_save(it.cel_rect, mask_all));
-            paint.draw_cel(graphics_->cache().view(it.view), it.loop, it.cel, it.cel_rect, it.priority);
+            draw_sprite(it);
             it.show_bits = true;
             if ((it.signal & signal_remove_view) != 0) {
                 it.signal &= static_cast<std::uint16_t>(~signal_remove_view);
@@ -298,17 +301,52 @@ void Animate::re_animate(const Rect& rect) {
         paint.bits_show(rect);
         return;
     }
-    for (AnimateEntry& it : last_cast_) {
-        it.cast_handle = paint.bits_save(it.cel_rect, mask_visual | mask_priority);
-        paint.draw_cel(graphics_->cache().view(it.view), it.loop, it.cel, it.cel_rect, it.priority);
+    Screen& screen = graphics_->screen();
+    {
+        const OwnerScope owner(screen, Owner::Sprite);
+        screen.begin_sprites();
+        for (AnimateEntry& it : last_cast_) {
+            it.cast_handle = paint.bits_save(it.cel_rect, mask_visual | mask_priority);
+            draw_sprite(it);
+        }
+        paint.bits_show(rect);
+        screen.end_sprites();
     }
-    paint.bits_show(rect);
     for (const auto& it : std::views::reverse(last_cast_)) {
         paint.bits_restore(it.cast_handle);
     }
 }
 
+void Animate::draw_sprite(const AnimateEntry& it) {
+    const GfxView& view = graphics_->cache().view(it.view);
+    graphics_->paint().draw_cel(view, it.loop, it.cel, it.cel_rect, it.priority);
+    // The sprite list of the HD composition, in screen coordinates.
+    const Ports& ports = graphics_->ports();
+    Rect rect = it.cel_rect;
+    ports.offset_rect(rect);
+    Rect clip = ports.port()->rect;
+    ports.offset_rect(clip);
+    const view::Cel& cel = view.cel(it.loop, it.cel);
+    graphics_->screen().add_sprite(ShownSprite{
+        .view = it.view,
+        .loop = it.loop,
+        .cel = it.cel,
+        .left = rect.left,
+        .top = rect.top,
+        .width = cel.width,
+        .height = cel.height,
+        .pixels = cel.pixels,
+        .clear_key = cel.clear_key,
+        .priority = it.priority,
+        .clip_left = clip.left,
+        .clip_top = clip.top,
+        .clip_right = clip.right,
+        .clip_bottom = clip.bottom,
+    });
+}
+
 void Animate::add_to_pic_draw_cels() {
+    const OwnerScope owner(graphics_->screen(), Owner::AddToPic);
     Paint& paint = graphics_->paint();
     const Ports& ports = graphics_->ports();
     for (AnimateEntry& it : list_) {
@@ -387,6 +425,7 @@ void Animate::kernel_animate(Reg list, bool cycle, std::span<Reg> /*args*/) {
         show_pic();
     }
     update_screen(old_pic_not_valid);
+    graphics_->screen().end_sprites();
     restore_and_delete();
     drawn_cast_ = list_;
     // EQ1's credits run without kGetEvent, so the screen is updated here too.
@@ -411,6 +450,7 @@ void Animate::kernel_add_to_pic_list(Reg list) {
 void Animate::kernel_add_to_pic_view(int view, int loop, int cel, int x, int y, int priority, int control) {
     Ports& ports = graphics_->ports();
     Paint& paint = graphics_->paint();
+    const OwnerScope owner(graphics_->screen(), Owner::AddToPic);
     ports.set_port(ports.pic_window());
     const GfxView& found = graphics_->cache().view(view);
     if (priority == -1) {
