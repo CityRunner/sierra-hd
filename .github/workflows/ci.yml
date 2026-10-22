@@ -356,7 +356,9 @@ jobs:
           status=0
           for preset in $PRESETS; do
             echo "::group::$preset"
-            cmake --workflow --preset "$preset" 2>&1 | tee -a build.log || status=1
+            # -k 0: every compile error shows, not only the first.
+            { cmake --preset "$preset" && cmake --build --preset "$preset" -- -k 0 \
+                && ctest --preset "$preset"; } 2>&1 | tee -a build.log || status=1
             echo "::endgroup::"
           done
           exit "$status"
@@ -394,7 +396,9 @@ jobs:
           status=0
           for preset in release asan tsan; do
             echo "::group::$preset"
-            cmake --workflow --preset "$preset" 2>&1 | tee -a build.log || status=1
+            # -k 0: every compile error shows, not only the first.
+            { cmake --preset "$preset" && cmake --build --preset "$preset" -- -k 0 \
+                && ctest --preset "$preset"; } 2>&1 | tee -a build.log || status=1
             echo "::endgroup::"
           done
           exit "$status"
