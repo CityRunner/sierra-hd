@@ -31,6 +31,7 @@
 #include "sci/vm/events.hpp"
 #include "sci/vm/files.hpp"
 #include "sci/vm/game.hpp"
+#include "sci/vm/local_time.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -290,8 +291,10 @@ public:
         }
     }
 
+    // The deterministic mode's time of day, as in sci-vm-trace and the
+    // reference: scenes timed by the time of day run as there.
     [[nodiscard]] sci::vm::LocalTime local_time() override {
-        return sci::vm::LocalTime{.year = 89, .month = 0, .day = 1, .hour = 12, .minute = 0, .second = 0};
+        return sci::vm::deterministic_local_time(virtual_ms_ * 1000);
     }
 
     [[nodiscard]] const Timing& timing() const { return timing_; }
