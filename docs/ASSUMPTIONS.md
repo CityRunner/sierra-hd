@@ -1331,9 +1331,10 @@ made in the implementation" lists what changed while implementing it.
   frames of the message windows; the copy-protection screen its name
   boxes), so they are interface; no scenario draws a primitive into the
   picture. **Decided.**
-- **Picture overlays** (kDrawPic with add-to) are drawn by rooms 74 (picture
-  174, then 74) and 290 (282, then a picture from a local variable); no
-  scenario reaches them, so they are checked with `sci-hd-frames --stack`.
+- **Picture overlays** (kDrawPic with add-to) are drawn by rooms 74, 290
+  and 353 and by `Game::replay`; the full list is in "Milestone 5: the
+  picture stacks" below. The scenario `attic.txt` reaches room 74's two;
+  all are checked with `sci-hd-frames --stack` and their golden hashes.
 - **Saved bits** with the priority map also carry the priority source
   plane; their hunks are larger than ScummVM's. The scripts never read
   saved bits, and the traces of all scenarios still match. **Decided.**
@@ -1353,6 +1354,76 @@ made in the implementation" lists what changed while implementing it.
 
   About 3300 to 4200 1x pixels are composed per frame. Rendering the HD
   images of a new picture is the cost of entering a room, as before.
+
+## Milestone 5: the picture stacks (2026-10-22)
+
+The golden hashes cover the picture stacks the scripts can draw (spec
+section 5.3: "with overlays where a room uses them";
+`tests/golden/pictures.txt`, lines `stack ...`). They were found in the
+scripts' bytecode (after the script patches), not from runs:
+
+- **Where add-to comes from.** kDrawPic adds to the picture when it has a
+  third argument and that argument is 0 (this game does not use the old
+  graphics functions). The scripts have 52 kDrawPic calls (`sci-vm-trace
+  --scan-kernel`). For each, the pushed arguments were read back from the
+  instructions before the call: 47 have fewer than three arguments or a
+  third argument of 1. The third argument is a constant in all 52, so no
+  add-to depends on a variable. Five calls have a 0 (script and offset of
+  the callk):
+  - 074 at 002d and 0125: two local procedures of room 74. Procedure A
+    (on entering from room 64, and in `doit` while Laura is in neither
+    of the two areas below): global 61 = 0, picture 174 (style 3, palette 0), then 74 over
+    it (style 3, palette 0). Procedure B (on entering from any other room,
+    and when Laura walks into the area x 0-64, y 100-200; the area x -10
+    to 58, y 0-100 draws nothing): global 61 = 1, 174
+    (style 2, palette 1), then 74 over it (style 2, palette 0). Stacks
+    `174+74` and `174.palette1+74`.
+  - 290 at 01c1: room 290's local procedure 01ab draws 282 (style 6,
+    palette global 61), then local 0 over it (style 7, palette global 61).
+    Local 0 starts at 0 and is set only by the `fight` script: 182 in
+    state 5, 382 in state 12, 182 in state 33. The procedure runs in states
+    15, 18 and 21 (directly or through procedure 01f8), which follow state
+    12, and in states 37 and 41, which follow state 5 (state 6 jumps to
+    37) or state 33; the other jumps (state 0 to 3; at state 1, an event
+    to 7 or 25) do not reach a draw before local 0 is set. Stacks
+    `282+182` and `282+382`.
+  - 353 at 005b: room 353 (`scene42c`, picture 62), local procedure 0044,
+    called in state 2 of `stoke`: 42 (one argument, so cleared and
+    palette 0), then 162 over it (style 7, three arguments, palette 0).
+    Stack `42+162`. (Not in the first list of this milestone.)
+  - 994 at 01e5: `Game::replay`, which the interpreter calls after a
+    restore, draws the room's `curPic` (style 100, palette global 61),
+    then global 57 over it when it is not -1. Global 57 is set only by
+    `Rm::drawPic` (-1), `Rm::overlay` (its picture) and room 74's init
+    (174, after `Rm::init` drew the room's picture 74, so `curPic` is 74).
+    No script sends `overlay:` (every `pushi 270` is a number, not that
+    selector), and rooms 64 and 75, the only ones room 74 leads to, draw
+    their pictures with `Rm::drawPic`. So a game restored in room 74 shows
+    74 with 174 over it, both with global 61's palette: stacks `74+174` and
+    `74.palette1+174.palette1`. Restoring comes with the save format
+    (milestone 8); the hashes are recorded now.
+- **Options.** No call sets the mirrored flag (bit 14 of the second
+  argument). The palette is a constant or global 61. Global 61 is 1 only
+  in room 74 after procedure B, in room 64 when entered from there (it
+  returns only to the previous room, 74, whose init sets global 61 again),
+  in room 778 until its `newRoom` sets 0, and in room 786 (the
+  Sleuth-o-Meter at the end of the game); room 75 sets 0 before drawing. So
+  rooms 290 and 353 draw their stacks with palette 0. With palette 1, 282,
+  182 and 382 would look different, so this matters.
+- **Line format.** `stack <stack> <kind> <hash>`, with the stack written as
+  the analysis cache names its entries (`tools/golden-hashes/README.md`).
+  The HD frames come from the cache's variant of the stack, as the program
+  draws them (`sci/platform/hd_pictures.hpp`), the original frame from the
+  same drawing of the stack (`sci::platform::draw_variant`). The single
+  pictures' lines did not change. The hashes of the stacks are the same
+  under qemu-aarch64 (cross-aarch64 preset).
+- **Scenario.** `tests/scenarios/attic.txt` walks from the bedroom to room
+  47's doorway on the right and up into room 74 (`174.palette1+74`, tick
+  5458), then into Fifi's room (`174+74`, tick 7552). Its traces, screens,
+  maps and actor positions match the reference. No scenario reaches rooms
+  290 and 353 (scenes later in the story), and a restore needs the save
+  format, so those stacks are checked through the golden hashes and
+  `sci-hd-frames --stack` only.
 
 ## Spec items carried forward
 

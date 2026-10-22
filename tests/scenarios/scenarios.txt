@@ -24,3 +24,4 @@ walls-keyboard.txt 9300 0
 mouse-obstacles.txt 8500 0
 stairs.txt 8200 0
 lillian-walk.txt 17400 0
+attic.txt 9400 0

@@ -139,10 +139,8 @@ core::Sha256Digest game_digest(const resource::ResourceManager& manager) {
     return hash.finish();
 }
 
-core::Result<vector::Scene> analyse(const resource::ResourceManager& manager, const std::optional<fs::path>& hints,
-                                    const SceneVariant& variant) {
-    pic::PictureMaps maps;
-    pic::DrawTrace trace;
+core::Result<DrawnVariant> draw_variant(const resource::ResourceManager& manager, const SceneVariant& variant) {
+    DrawnVariant drawn;
     // The base picture, then the overlays over it: one trace, so the
     // overlays become layers of the scene in drawing order.
     const auto draw = [&](std::uint16_t number, const pic::DrawOptions& options) -> core::Result<void> {
@@ -154,31 +152,42 @@ core::Result<vector::Scene> analyse(const resource::ResourceManager& manager, co
         if (!commands) {
             return std::unexpected(commands.error());
         }
-        const auto drawn = pic::draw_picture(*commands, maps, options, &trace);
-        if (!drawn) {
-            return std::unexpected(drawn.error());
+        const auto result = pic::draw_picture(*commands, drawn.maps, options, &drawn.trace);
+        if (!result) {
+            return std::unexpected(result.error());
         }
         return {};
     };
-    if (auto drawn =
+    if (auto result =
             draw(variant.picture,
                  pic::DrawOptions{.mirrored = variant.mirrored, .add_to = false, .ega_palette = variant.ega_palette});
-        !drawn) {
+        !result) {
+        return std::unexpected(result.error());
+    }
+    for (const PictureOverlay& overlay : variant.overlays) {
+        if (auto result = draw(
+                overlay.picture,
+                pic::DrawOptions{.mirrored = overlay.mirrored, .add_to = true, .ega_palette = overlay.ega_palette});
+            !result) {
+            return std::unexpected(result.error());
+        }
+    }
+    return drawn;
+}
+
+core::Result<vector::Scene> analyse(const resource::ResourceManager& manager, const std::optional<fs::path>& hints,
+                                    const SceneVariant& variant) {
+    const auto drawn = draw_variant(manager, variant);
+    if (!drawn) {
         return std::unexpected(drawn.error());
     }
     std::vector<std::uint16_t> numbers{variant.picture};
     numbers.reserve(1 + variant.overlays.size());
     for (const PictureOverlay& overlay : variant.overlays) {
-        if (auto drawn = draw(
-                overlay.picture,
-                pic::DrawOptions{.mirrored = overlay.mirrored, .add_to = true, .ega_palette = overlay.ega_palette});
-            !drawn) {
-            return std::unexpected(drawn.error());
-        }
         numbers.push_back(overlay.picture);
     }
     const PictureHintSet hint_set(hints, manager, numbers);
-    return vector::build_scene(maps, trace, variant.plane, hint_set.pointers()).scene;
+    return vector::build_scene(drawn->maps, drawn->trace, variant.plane, hint_set.pointers()).scene;
 }
 
 AnalysisCache::AnalysisCache(const resource::ResourceManager& manager, std::optional<fs::path> hints,

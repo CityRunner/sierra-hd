@@ -11,6 +11,8 @@
 #include "sci/core/error.hpp"
 #include "sci/core/executor.hpp"
 #include "sci/core/sha256.hpp"
+#include "sci/pic/draw_trace.hpp"
+#include "sci/pic/picture_maps.hpp"
 #include "sci/resource/resource_manager.hpp"
 #include "sci/vector/scene.hpp"
 
@@ -73,6 +75,16 @@ struct SceneVariant {
 // SHA-256 over every resource of the game (type, number, size, data), in
 // the manager's order: the game files' content as the resources see it.
 [[nodiscard]] core::Sha256Digest game_digest(const resource::ResourceManager& manager);
+
+// The 1x maps and the trace of a variant, drawn as kDrawPic draws the
+// stack: the base picture with its options, then each overlay over it.
+struct DrawnVariant {
+    pic::PictureMaps maps;
+    pic::DrawTrace trace;
+};
+
+[[nodiscard]] core::Result<DrawnVariant> draw_variant(const resource::ResourceManager& manager,
+                                                      const SceneVariant& variant);
 
 // Analyses one variant as path 1 draws it and the vector path builds it.
 [[nodiscard]] core::Result<vector::Scene> analyse(const resource::ResourceManager& manager,
