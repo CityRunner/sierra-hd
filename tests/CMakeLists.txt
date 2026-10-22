@@ -7,7 +7,7 @@ add_subdirectory(fuzz)
 sci_add_unit_test(NAME sci-golden-tests
     SOURCES golden/synthetic_test.cpp
     DEPENDS sci-pic sci-vector sci-render)
-target_include_directories(sci-golden-tests PRIVATE unit/pic)
+target_include_directories(sci-golden-tests PRIVATE unit/pic unit/render)
 
 # The code that runs on worker threads (label "threads": the TSan job of
 # work-in-progress CI runs only these).

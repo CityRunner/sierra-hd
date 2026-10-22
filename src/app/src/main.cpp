@@ -12,7 +12,6 @@
 
 #include "file_store.hpp"
 #include "game_screen.hpp"
-#include "hd_pictures.hpp"
 #include "sci/core/assert.hpp"
 #include "sci/core/error.hpp"
 #include "sci/core/fp_profile.hpp"
@@ -20,6 +19,8 @@
 #include "sci/platform/analysis_cache.hpp"
 #include "sci/platform/config.hpp"
 #include "sci/platform/game_files.hpp"
+#include "sci/platform/game_frame.hpp"
+#include "sci/platform/hd_pictures.hpp"
 #include "sci/platform/identify.hpp"
 #include "sci/platform/thread_executor.hpp"
 #include "sci/vm/events.hpp"
@@ -532,11 +533,10 @@ sci::app::KeyPress key_press(const SDL_KeyboardEvent& key) {
 class GameHost final : public sci::vm::GameHost {
 public:
     GameHost(SDL_Window* window, SDL_Renderer* renderer, const sci::resource::ResourceManager& manager,
-             sci::app::HdPictures& pictures, sci::platform::Config& config)
+             sci::platform::HdPictures& pictures, sci::platform::Config& config)
         : window_(window), renderer_(renderer), manager_(&manager), presenter_(renderer), config_(&config),
-          screen_([&pictures](int picture, bool mirrored, int palette, int scale) {
-              return pictures.get(picture, mirrored, palette, scale);
-          }),
+          screen_([&pictures](std::span<const sci::vm::ShownPicture> stack, std::span<const sci::vm::ShownLine> lines,
+                              int scale) { return pictures.get(stack, lines, scale); }),
           start_(SDL_GetTicks()) {}
 
     [[nodiscard]] sci::vm::LocalTime local_time() override {
@@ -665,11 +665,12 @@ private:
             update_cursor(shown, scale);
             return;
         }
-        screen_.update(shown, config_->mode, scale);
-        presenter_.present(screen_.frame(), screen_.scale(), redraw_ ? full_frame() : screen_.take_dirty());
-        if (redraw_) {
-            (void)screen_.take_dirty();
+        screen_.update(shown, config_->mode, scale, config_->priority_snap);
+        std::vector<sci::app::Rect> dirty;
+        for (const sci::render::PixelRect& rect : screen_.take_dirty()) {
+            dirty.push_back(sci::app::Rect{.x = rect.x, .y = rect.y, .width = rect.width, .height = rect.height});
         }
+        presenter_.present(screen_.frame(), screen_.scale(), redraw_ ? full_frame() : dirty);
         redraw_ = false;
         last_serial_ = shown.serial;
         update_cursor(shown, scale);
@@ -747,7 +748,7 @@ private:
     const sci::resource::ResourceManager* manager_;
     Presenter presenter_;
     sci::platform::Config* config_;
-    sci::app::GameScreen screen_;
+    sci::platform::GameFrame screen_;
     std::uint64_t start_;
     std::uint64_t virtual_ = 0;
     std::uint64_t last_serial_ = ~std::uint64_t{0};
@@ -857,7 +858,7 @@ int run(const Options& options) {
         config->mode = viewer.mode();
         config->scale = viewer.chosen_scale();
     } else {
-        sci::app::HdPictures pictures(analysis, executor);
+        sci::platform::HdPictures pictures(analysis, executor);
         sci::app::DirectoryFileStore files(base / "files", game->files);
         GameHost host(window.get(), renderer.get(), game->manager, pictures, *config);
         // A different seed every time, as ScummVM seeds its random source;

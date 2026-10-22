@@ -50,7 +50,8 @@ std::optional<std::vector<std::uint8_t>> read_file(const fs::path& path) {
 } // namespace
 
 core::Sha256Digest entry_key(const core::Sha256Digest& game, std::span<const std::uint8_t> hint_file,
-                             const SceneVariant& variant) {
+                             const SceneVariant& variant,
+                             std::span<const std::vector<std::uint8_t>> overlay_hint_files) {
     core::Sha256 hash;
     hash.update(game);
     add_u32(hash, vector::analyser_version);
@@ -61,6 +62,18 @@ core::Sha256Digest entry_key(const core::Sha256Digest& game, std::span<const std
     add_u32(hash, variant.plane == vector::Plane::Visual ? 0 : 1);
     add_u32(hash, variant.mirrored ? 1 : 0);
     add_u32(hash, variant.ega_palette);
+    // Without overlays the key is the one of the first cache format.
+    for (std::size_t i = 0; i < variant.overlays.size(); ++i) {
+        const PictureOverlay& overlay = variant.overlays[i];
+        add_u32(hash, overlay.picture);
+        add_u32(hash, overlay.mirrored ? 1 : 0);
+        add_u32(hash, overlay.ega_palette);
+        const std::span<const std::uint8_t> overlay_hints = i < overlay_hint_files.size()
+                                                                ? std::span<const std::uint8_t>(overlay_hint_files[i])
+                                                                : std::span<const std::uint8_t>{};
+        add_u32(hash, static_cast<std::uint32_t>(overlay_hints.size()));
+        hash.update(overlay_hints);
+    }
     return hash.finish();
 }
 
@@ -98,6 +111,15 @@ std::string entry_file_name(const SceneVariant& variant) {
     if (variant.ega_palette != 0) {
         name += std::format(".palette{}", variant.ega_palette);
     }
+    for (const PictureOverlay& overlay : variant.overlays) {
+        name += std::format(".over.{:03}", overlay.picture);
+        if (overlay.mirrored) {
+            name += ".mirrored";
+        }
+        if (overlay.ega_palette != 0) {
+            name += std::format(".palette{}", overlay.ega_palette);
+        }
+    }
     return name + ".scene";
 }
 
@@ -119,24 +141,42 @@ core::Sha256Digest game_digest(const resource::ResourceManager& manager) {
 
 core::Result<vector::Scene> analyse(const resource::ResourceManager& manager, const std::optional<fs::path>& hints,
                                     const SceneVariant& variant) {
-    const auto resource =
-        manager.load(resource::ResourceId{.type = resource::ResourceType::Pic, .number = variant.picture});
-    if (!resource) {
-        return std::unexpected(resource.error());
-    }
-    const auto commands = pic::parse_pic(resource->data);
-    if (!commands) {
-        return std::unexpected(commands.error());
-    }
     pic::PictureMaps maps;
     pic::DrawTrace trace;
-    const auto drawn = pic::draw_picture(
-        *commands, maps,
-        pic::DrawOptions{.mirrored = variant.mirrored, .add_to = false, .ega_palette = variant.ega_palette}, &trace);
-    if (!drawn) {
+    // The base picture, then the overlays over it: one trace, so the
+    // overlays become layers of the scene in drawing order.
+    const auto draw = [&](std::uint16_t number, const pic::DrawOptions& options) -> core::Result<void> {
+        const auto resource = manager.load(resource::ResourceId{.type = resource::ResourceType::Pic, .number = number});
+        if (!resource) {
+            return std::unexpected(resource.error());
+        }
+        const auto commands = pic::parse_pic(resource->data);
+        if (!commands) {
+            return std::unexpected(commands.error());
+        }
+        const auto drawn = pic::draw_picture(*commands, maps, options, &trace);
+        if (!drawn) {
+            return std::unexpected(drawn.error());
+        }
+        return {};
+    };
+    if (auto drawn =
+            draw(variant.picture,
+                 pic::DrawOptions{.mirrored = variant.mirrored, .add_to = false, .ega_palette = variant.ega_palette});
+        !drawn) {
         return std::unexpected(drawn.error());
     }
-    const std::array numbers{variant.picture};
+    std::vector<std::uint16_t> numbers{variant.picture};
+    numbers.reserve(1 + variant.overlays.size());
+    for (const PictureOverlay& overlay : variant.overlays) {
+        if (auto drawn = draw(
+                overlay.picture,
+                pic::DrawOptions{.mirrored = overlay.mirrored, .add_to = true, .ega_palette = overlay.ega_palette});
+            !drawn) {
+            return std::unexpected(drawn.error());
+        }
+        numbers.push_back(overlay.picture);
+    }
     const PictureHintSet hint_set(hints, manager, numbers);
     return vector::build_scene(maps, trace, variant.plane, hint_set.pointers()).scene;
 }
@@ -148,13 +188,21 @@ AnalysisCache::AnalysisCache(const resource::ResourceManager& manager, std::opti
 }
 
 core::Sha256Digest AnalysisCache::key(const SceneVariant& variant) const {
-    std::vector<std::uint8_t> hint_file;
-    if (hints_) {
-        if (auto bytes = read_file(*hints_ / vector::hint_file_name(variant.picture))) {
-            hint_file = std::move(*bytes);
+    const auto hint_file = [&](std::uint16_t picture) {
+        std::vector<std::uint8_t> bytes;
+        if (hints_) {
+            if (auto read = read_file(*hints_ / vector::hint_file_name(picture))) {
+                bytes = std::move(*read);
+            }
         }
+        return bytes;
+    };
+    std::vector<std::vector<std::uint8_t>> overlay_hint_files;
+    overlay_hint_files.reserve(variant.overlays.size());
+    for (const PictureOverlay& overlay : variant.overlays) {
+        overlay_hint_files.push_back(hint_file(overlay.picture));
     }
-    return entry_key(game_, hint_file, variant);
+    return entry_key(game_, hint_file(variant.picture), variant, overlay_hint_files);
 }
 
 std::optional<vector::Scene> AnalysisCache::load(const SceneVariant& variant) const {

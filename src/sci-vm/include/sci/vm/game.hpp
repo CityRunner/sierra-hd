@@ -12,6 +12,7 @@
 #include "sci/vm/events.hpp"
 #include "sci/vm/files.hpp"
 #include "sci/vm/local_time.hpp"
+#include "sci/vm/shown_screen.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -39,18 +40,30 @@ public:
     [[nodiscard]] virtual LocalTime local_time() = 0;
 };
 
-// What the player sees, in 1x.
+// What the player sees, in 1x, and what the HD composition needs to draw
+// it (docs/hd-composition.md). Every map is 320 x 200 bytes, row by row,
+// as last copied to the screen.
 struct ShownScreen {
-    // 320 x 200 EGA colours, as last copied to the screen.
+    // EGA colours.
     std::span<const std::uint8_t> visual;
-    // Counts the changes of `visual`.
+    // Counts the changes of everything shown.
     std::uint64_t serial = 0;
-    // The picture shown (as drawn without later additions), and the cover
-    // map: 1 where something else is drawn over it, 0 where it shows.
-    int picture = -1;
-    bool mirrored = false;
-    int ega_palette = 0;
-    std::span<const std::uint8_t> cover;
+    // Owner values (sci::vm::Owner) of `visual`.
+    std::span<const std::uint8_t> owner;
+    // The background layer, everything under the sprites: EGA colours,
+    // owners, priorities and priority sources.
+    std::span<const std::uint8_t> background_visual;
+    std::span<const std::uint8_t> background_owner;
+    std::span<const std::uint8_t> background_priority;
+    std::span<const std::uint8_t> background_source;
+    // Per pixel, the generation of the sprite list it was shown with (0:
+    // none), and the lists.
+    std::span<const std::uint32_t> sprite_layer;
+    std::span<const SpriteList> sprite_lists;
+    // The picture stack shown (base first; empty before the first picture)
+    // and the kernel lines drawn into it.
+    std::span<const ShownPicture> pictures;
+    std::span<const ShownLine> lines;
     // The mouse cursor: its resource, or -1 when hidden; the mouse in 1x.
     int cursor = -1;
     Point mouse;

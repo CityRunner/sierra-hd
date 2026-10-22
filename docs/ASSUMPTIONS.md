@@ -910,6 +910,8 @@ The customer decided:
   - `game_folder`;
   - `mode` (hd or original);
   - `scale` (auto, or 1 to 16);
+  - `priority_snap` (on or off, default off; milestone 5): on snaps the
+    HD occlusion edges to the sprite grid (spec section 6.6);
   - `mt32_rom`, which is unused until milestone 7.
 
   Unknown keys give a warning; a different format stops. The program

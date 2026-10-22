@@ -61,6 +61,11 @@ std::optional<std::string> apply(ParsedConfig& parsed, std::string_view key, std
             return std::format("scale is auto or 1 to {}", max_scale);
         }
         config.scale = *scale;
+    } else if (key == "priority_snap") {
+        if (value != "on" && value != "off") {
+            return "priority_snap is on or off";
+        }
+        config.priority_snap = value == "on";
     } else {
         parsed.warnings.push_back(std::format("configuration: unknown key {} ignored", key));
     }
@@ -126,11 +131,13 @@ std::string format_config(const Config& config) {
                        "mode = {}\n"
                        "; auto (the largest N that fits), or N from 1 to {}\n"
                        "scale = {}\n"
+                       "; on: sprites pass behind the picture in whole 1x pixels, as in the original\n"
+                       "priority_snap = {}\n"
                        "; folder of the MT-32 ROMs (used from milestone 7)\n"
                        "mt32_rom ={}\n",
                        config_format, path(config.game_folder), config.mode == GraphicsMode::Hd ? "hd" : "original",
                        max_scale, config.scale == 0 ? std::string("auto") : std::to_string(config.scale),
-                       path(config.mt32_rom));
+                       config.priority_snap ? "on" : "off", path(config.mt32_rom));
 }
 
 } // namespace sci::platform

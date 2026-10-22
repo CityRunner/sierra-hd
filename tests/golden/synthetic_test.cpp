@@ -6,6 +6,7 @@
 // architectures. A change of a hash means the output changed; update the
 // constants only for an intended change, and say why in the commit.
 
+#include "composition_fixture.hpp"
 #include "pic_builder.hpp"
 #include "sci/core/executor.hpp"
 #include "sci/core/sha256.hpp"
@@ -100,4 +101,14 @@ SCI_TEST(synthetic_scenes_render_to_their_golden_hashes) {
         SCI_CHECK(matches("priority2", hash(sci::render::render_priority(priority.scene, 2, executor)), expected[2]));
         SCI_CHECK(matches("original1", hash(sci::render::render_original(maps, 1)), expected[3]));
     }
+}
+
+// The composed game screen (docs/hd-composition.md): a sprite partly behind
+// a foreground face, an addToPic block, a window; HD and snapped.
+SCI_TEST(a_synthetic_composed_frame_has_its_golden_hashes) {
+    const sci::test::CompositionFixture fixture(3);
+    SCI_CHECK(matches("composed", hash(fixture.compose(false)),
+                      "98f5cc238eeb25327b0547428ecb032aafda69861a37b852434d2c9ce09e4616"));
+    SCI_CHECK(matches("composed-snap", hash(fixture.compose(true)),
+                      "06c6ed84f69b3087593cc5b931cc39a9f67e371cfe112c428a09377462ed162c"));
 }
