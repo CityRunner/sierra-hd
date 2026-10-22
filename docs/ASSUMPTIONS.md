@@ -1427,6 +1427,15 @@ scripts' bytecode (after the script patches), not from runs:
   format, so those stacks are checked through the golden hashes and
   `sci-hd-frames --stack` only.
 
+## Milestone 5 approval (2026-10-22)
+
+- The gate is approved as is and merged: the Linux and Windows matrix is
+  green; macOS is optional.
+- Stopped and always-update views keep 1x occlusion in HD.
+- Rooms 290 and 353, whose picture overlays no scenario reaches yet, are
+  left to the playthrough of milestone 9; their stacks are covered by
+  golden hashes.
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with

@@ -1,6 +1,6 @@
 # Milestone 5: animation, hero movement, priorities, collisions
 
-Status: **for review**.
+Status: **approved** (2026-10-22), as is.
 
 Exit criteria (spec section 12): scripted walks give the same hero
 positions as ScummVM, frame by frame. The HD handling of section 6.8 is
@@ -212,7 +212,8 @@ None from section 2.
 1. **Stopped and always-update views** are part of the background layer,
    so they are hidden with 1x occlusion, as the design says. **Answered**
    (2026-10-22): keep as is.
-2. **Rooms 290 and 353** draw picture overlays too, but no scenario
+2. **Answered** (2026-10-22): left to the playthrough of milestone 9.
+   **Rooms 290 and 353** draw picture overlays too, but no scenario
    reaches them yet. Their stacks are covered by golden hashes. Should I
    add scenarios that reach them, or leave that to the playthrough of
    milestone 9?
