@@ -207,6 +207,27 @@ SCI_TEST(parser_tokenize_lowers_and_skips_punctuation) {
     SCI_CHECK(empty && empty->empty() && error.empty());
 }
 
+// What the milestone 6a corpus showed both engines do with the game's
+// vocabulary: a word stored with a dash or an apostrophe is never found
+// (the lookup removes dashes, the tokenizer drops apostrophes), and bytes
+// above 127 are letters, with code page 437's accented capitals lowered.
+SCI_TEST(parser_stored_dashes_never_match_and_high_bytes_are_letters) {
+    std::vector<std::uint8_t> words = sample_words();
+    add_word(words, 0, "good-looking", noun, 0x40);
+    add_word(words, 0, "o'neil", noun, 0x41);
+    const Vocabulary vocabulary(words, std::nullopt, std::nullopt);
+    SCI_CHECK(vocabulary.words().size() == 8);
+    SCI_CHECK(vocabulary.lookup_word("good-looking").empty());
+    SCI_CHECK(vocabulary.lookup_word("goodlooking").empty());
+    std::string error;
+    SCI_CHECK(!vocabulary.tokenize("look o'neil", error) && error == "oneil");
+    SCI_CHECK(!vocabulary.tokenize("look Good-Looking", error) && error == "good-looking");
+    SCI_CHECK(!vocabulary.tokenize("LOOK \x8e\x80\x99 door", error) && error == "\x84\x87\x94");
+    SCI_CHECK(!vocabulary.tokenize("look caf\xc3\xa9", error) && error == "caf\xc3\xa9");
+    // A tab is neither a letter nor a separator: it is dropped.
+    SCI_CHECK(!vocabulary.tokenize("look\tdoor", error) && error == "lookdoor");
+}
+
 SCI_TEST(parser_synonyms_replace_groups) {
     const Vocabulary vocabulary = sample_vocabulary();
     auto sentence = tokenize(vocabulary, "take key");
