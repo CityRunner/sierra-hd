@@ -172,7 +172,27 @@ Release build, 4 cores, `sci-hd-frames --timing`:
 
 ## CI minutes
 
-GATE_PENDING
+**The gate is green** (run 39811487129, commit `447279f`). It ran style
+and static analysis; Linux x86-64 and ARM64 in release, ASan+UBSan and
+TSan; the fuzzers; and Windows x64 (release and ASan) and ARM64 (release).
+macOS is optional and was not run.
+
+Measured with `scripts/ci-minutes.py --branch milestone-5`:
+
+| Platform | Jobs | Minutes | Included minutes | List price |
+|---|---|---|---|---|
+| Linux x86-64 | 12 | 111 | 111 | $0.67 |
+| Linux ARM64 | 6 | 27 | 27 | $0.14 |
+| Windows x64 | 2 | 17 | 34 | $0.17 |
+| Windows ARM64 | 2 | 7 | 14 | $0.07 |
+| **Total** (2 runs) | | **162** | **186** | **$1.04** |
+
+- **Cost:** none. The repository is public, so standard runners are free.
+- **Runs:** only two ran, both gate runs on this pull request. Pushes to
+  the branch start nothing. The first run's lint job was cancelled when a
+  newer commit arrived; the rest of that run passed.
+- **Platforms:** no macOS, Windows or native ARM64 run happened outside
+  the gate.
 
 ## Deviations from the spec
 
