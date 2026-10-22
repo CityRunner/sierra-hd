@@ -48,6 +48,20 @@ and compares the traces; the reference side is the patch
   mouse cursor) whenever virtual time passes and the tick has reached the
   next multiple of `SIERRA_HD_SCREEN_EVERY` / `--screen-every` (default 60).
   `tools/vm-trace/compare-screens.py` compares the two folders.
+- **Maps** (milestone 5). At the same ticks, the 1x priority and control
+  maps are written as `<tick>.priority.pgm` and `<tick>.control.pgm`
+  (binary PGM, 320 x 200, one byte per pixel, values 0 to 15, maximum
+  value 15). They are the maps the logic reads (ScummVM's
+  `GfxScreen::_priorityScreen` and `_controlScreen`), not the shown
+  screen: the picture's priorities and control lines, the views added to
+  the picture, and the actors kAnimate leaves drawn (stopped ones, with
+  their control rectangles). Moving actors are not in them, since kAnimate
+  restores what was under them before it returns. `compare-screens.py`
+  compares them as well.
+- **Actors** (milestone 5). With `SIERRA_HD_ACTORS=<file>` (reference) or
+  `--actors <file>` (sci-vm-trace), every kAnimate call writes its cast,
+  in the format below. `tools/vm-trace/compare-actors.py` compares two
+  such files.
 
 ## Replay files
 
@@ -90,3 +104,28 @@ One line per kernel call, in the order the scripts make them:
   model, pointers match as well.
 - A call that a ScummVM workaround skips is traced with the value it leaves
   in the accumulator.
+
+## Actor files
+
+One line per cast entry of a kAnimate call, in drawing order (the cast
+sorted by y, then z, then list order, as `GfxAnimate::makeSortedList`
+sorts it), written right after that call's trace line:
+
+    <tick> <call> <object> <x> <y> <z> <priority> <view> <loop> <cel> <signal>
+
+    5004 39018 1:016c 139 141 0 10 11 1 0 2002
+
+- `tick` and `call` are those of the kAnimate call's trace line, so a
+  frame (all lines of one call) can be found in the trace.
+- `object` is the cast member, as a pointer in the trace
+  (`<segment>:<offset>`, the segment in hex).
+- `x`, `y`, `z`, `priority`, `view`, `loop` and `cel` are signed decimal
+  numbers: the values GfxAnimate drew the entry with, after `fill()` has
+  corrected loop and cel and set the priority from y (unless the signal
+  fixes it).
+- `signal` is four hex digits: the signal as `restoreAndDelete()` reads
+  it back at the end of the call (`0002` view updated, `0004` no update,
+  `0008` hidden, `0010` fixed priority, `0400` hit an obstacle, `4000`
+  ignores actors, and so on).
+- A kAnimate call without a cast list, or one that stops before drawing,
+  writes no line.

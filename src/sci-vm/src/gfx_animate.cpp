@@ -348,6 +348,7 @@ void Animate::kernel_animate(Reg list, bool cycle, std::span<Reg> /*args*/) {
     const Screen& screen = graphics_->screen();
     Ports& ports = graphics_->ports();
     int old_pic_not_valid = screen.pic_not_valid();
+    drawn_cast_.clear();
     if (list.is_null()) {
         dispose_last_cast();
         if (screen.pic_not_valid() != 0) {
@@ -387,6 +388,7 @@ void Animate::kernel_animate(Reg list, bool cycle, std::span<Reg> /*args*/) {
     }
     update_screen(old_pic_not_valid);
     restore_and_delete();
+    drawn_cast_ = list_;
     // EQ1's credits run without kGetEvent, so the screen is updated here too.
     machine.subsystems().update_screen(machine);
     ports.set_port(old_port);

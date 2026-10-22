@@ -7,9 +7,12 @@
 # (docs/formats/replay-and-trace.md), and writes every kernel call with its
 # arguments and result to the trace file. SIERRA_HD_STOP_TICK and
 # SIERRA_HD_STOP_CALLS end the game. With SIERRA_HD_SCREENS=<folder> (milestone
-# 4b) it also writes the screen the player sees there. Used by tools/vm-trace
-# to compare sci-vm with ScummVM (engines/sci/sierra_hd_trace.cpp describes
-# the details).
+# 4b) it also writes the screen the player sees there, and (milestone 5) the
+# 1x priority and control maps at the same ticks. With SIERRA_HD_ACTORS=<file>
+# (milestone 5) every kAnimate call writes its cast there: position,
+# priority, view, loop, cel and signal of each entry in drawing order. Used by
+# tools/vm-trace to compare sci-vm with ScummVM
+# (engines/sci/sierra_hd_trace.cpp describes the details).
 diff -ruN a/engines/sci/engine/kevent.cpp b/engines/sci/engine/kevent.cpp
 --- a/engines/sci/engine/kevent.cpp
 +++ b/engines/sci/engine/kevent.cpp
@@ -247,6 +250,41 @@ diff -ruN a/engines/sci/event.cpp b/engines/sci/event.cpp
  
  	// Search for matching event in queue
  	Common::List<SciEvent>::iterator iter = _events.begin();
+diff -ruN a/engines/sci/graphics/animate.cpp b/engines/sci/graphics/animate.cpp
+--- a/engines/sci/graphics/animate.cpp
++++ b/engines/sci/graphics/animate.cpp
+@@ -41,6 +41,7 @@
+ #include "sci/graphics/screen.h"
+ #include "sci/graphics/transitions.h"
+ #include "sci/graphics/animate.h"
++#include "sci/sierra_hd_trace.h"
+ 
+ namespace Sci {
+ 
+@@ -647,6 +648,10 @@
+ }
+ 
+ void GfxAnimate::kernelAnimate(reg_t listReference, bool cycle, int argc, reg_t *argv) {
++	// sierra-hd: the cast of this call, written with its trace line.
++	if (sierraHdDeterministic())
++		sierraHdCastBegin();
++
+ 	// If necessary, delay this kAnimate for a running PalVary.
+ 	// See delayForPalVaryWorkaround() for details.
+ 	if (_screen->_picNotValid)
+@@ -701,6 +706,12 @@
+ 	updateScreen(old_picNotValid);
+ 	restoreAndDelete(argc, argv);
+ 
++	// sierra-hd: the cast in drawing order, with the values drawn.
++	if (sierraHdDeterministic()) {
++		for (AnimateList::iterator it = _list.begin(); it != _list.end(); ++it)
++			sierraHdCastEntry(it->object, it->x, it->y, it->z, it->priority, it->viewId, it->loopNo, it->celNo, it->signal);
++	}
++
+ 	// We update the screen here as well, some scenes like EQ1 credits run w/o calling kGetEvent thus we wouldn't update
+ 	//  screen at all
+ 	g_sci->getEventManager()->updateScreen();
 diff -ruN a/engines/sci/graphics/controls16.cpp b/engines/sci/graphics/controls16.cpp
 --- a/engines/sci/graphics/controls16.cpp
 +++ b/engines/sci/graphics/controls16.cpp
@@ -367,7 +405,7 @@ diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
 diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 --- a/engines/sci/sierra_hd_trace.cpp
 +++ b/engines/sci/sierra_hd_trace.cpp
-@@ -0,0 +1,320 @@
+@@ -0,0 +1,403 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -402,12 +440,26 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 + *   SIERRA_HD_SCREEN_EVERY ticks (default 60), once graphics are up.
 + * - kGetTime(elapsed) right after another kGetTime(elapsed), with no other
 + *   kernel call between them, lets 1 ms of virtual time pass first.
++ *
++ * Milestone 5 adds:
++ *
++ * - With SIERRA_HD_SCREENS, the priority and control maps the logic reads
++ *   (GfxScreen's, not what is shown) are written at the same ticks as
++ *   <tick>.priority.pgm and <tick>.control.pgm (binary PGM, 320 x 200,
++ *   values 0 to 15).
++ * - With SIERRA_HD_ACTORS=<file>, every kAnimate call writes its cast, one
++ *   line per entry in drawing order, right after its trace line:
++ *     <tick> <call> <object> <x> <y> <z> <priority> <view> <loop> <cel> <signal>
++ *   with the values GfxAnimate drew with (after fill() and
++ *   restoreAndDelete()), numbers in signed decimal and the signal as four
++ *   hex digits.
 + */
 +
 +#define FORBIDDEN_SYMBOL_ALLOW_ALL
 +
 +#include "sci/sierra_hd_trace.h"
 +
++#include "common/array.h"
 +#include "common/list.h"
 +#include "common/mutex.h"
 +#include "common/str.h"
@@ -416,6 +468,7 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +#include "graphics/paletteman.h"
 +#include "graphics/surface.h"
 +#include "sci/event.h"
++#include "sci/graphics/screen.h"
 +#include "sci/sci.h"
 +#include "sci/sound/music.h"
 +
@@ -430,6 +483,14 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +struct ReplayEvent {
 +	uint32 tick;
 +	SciEvent event;
++};
++
++struct CastEntry {
++	reg_t object;
++	int16 x, y, z, priority;
++	int view;
++	int16 loop, cel;
++	uint16 signal;
 +};
 +
 +struct State {
@@ -451,6 +512,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	uint32 nextScreen = 0;
 +	bool elapsedRead = false;
 +	uint32 lastElapsedRead = 0;
++	FILE *actors = nullptr;
++	Common::Array<CastEntry> cast;
 +};
 +
 +State &state();
@@ -543,6 +606,12 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +			s.screenEvery = numberFrom("SIERRA_HD_SCREEN_EVERY", 60);
 +			if (s.screenEvery == 0)
 +				s.screenEvery = 60;
++			const char *actors = getenv("SIERRA_HD_ACTORS");
++			if (actors && *actors) {
++				s.actors = fopen(actors, "w");
++				if (!s.actors)
++					error("sierra-hd: cannot write the actors file %s", actors);
++			}
 +		}
 +	}
 +	return s;
@@ -556,6 +625,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	if (currentTick(s) >= s.stopTick || s.calls >= s.stopCalls) {
 +		if (s.trace)
 +			fflush(s.trace);
++		if (s.actors)
++			fflush(s.actors);
 +		g_sci->quitGame();
 +	}
 +	// A script that never returns to the event loop would not see the quit:
@@ -564,9 +635,29 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	if ((uint64)currentTick(s) >= (uint64)s.stopTick + 3600 || (uint64)s.calls >= (uint64)s.stopCalls + 1000000) {
 +		if (s.trace)
 +			fclose(s.trace);
++		if (s.actors)
++			fclose(s.actors);
 +		warning("sierra-hd: the game did not stop at the limit; ending the process");
 +		exit(0);
 +	}
++}
++
++// Writes a 1x map the logic reads (priority or control) as a binary PGM.
++void dumpMap(State &s, uint32 tick, const char *name, byte (GfxScreen::*get)(int16, int16)) {
++	GfxScreen *screen = g_sci->_gfxScreen;
++	const int16 width = screen->getScriptWidth();
++	const int16 height = screen->getScriptHeight();
++	char path[1024];
++	snprintf(path, sizeof(path), "%s/%06u.%s.pgm", s.screens, tick, name);
++	FILE *file = fopen(path, "wb");
++	if (!file)
++		error("sierra-hd: cannot write %s", path);
++	fprintf(file, "P5\n%d %d\n15\n", width, height);
++	for (int16 y = 0; y < height; ++y) {
++		for (int16 x = 0; x < width; ++x)
++			fputc((screen->*get)(x, y), file);
++	}
++	fclose(file);
 +}
 +
 +// Writes the screen the player sees (the backend's game surface, without
@@ -595,6 +686,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	}
 +	fclose(file);
 +	g_system->unlockScreen();
++	dumpMap(s, tick, "priority", &GfxScreen::getPriority);
++	dumpMap(s, tick, "control", &GfxScreen::getControl);
 +	s.nextScreen = tick - tick % s.screenEvery + s.screenEvery;
 +}
 +
@@ -659,6 +752,16 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	fputs(") = ", s.trace);
 +	writeValue(s.trace, result);
 +	fputc('\n', s.trace);
++	if (s.actors && strcmp(name, "Animate") == 0) {
++		for (uint i = 0; i < s.cast.size(); ++i) {
++			const CastEntry &entry = s.cast[i];
++			fprintf(s.actors, "%u %u ", currentTick(s), s.calls);
++			writeValue(s.actors, entry.object);
++			fprintf(s.actors, " %d %d %d %d %d %d %d %04x\n", entry.x, entry.y, entry.z, entry.priority, entry.view,
++			        entry.loop, entry.cel, entry.signal);
++		}
++		s.cast.clear();
++	}
 +	++s.calls;
 +	checkStop(s);
 +}
@@ -687,11 +790,29 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	state().mouse = position;
 +}
 +
++void sierraHdCastBegin() {
++	state().cast.clear();
++}
++
++void sierraHdCastEntry(reg_t object, int16 x, int16 y, int16 z, int16 priority, int view, int16 loop, int16 cel, uint16 signal) {
++	CastEntry entry;
++	entry.object = object;
++	entry.x = x;
++	entry.y = y;
++	entry.z = z;
++	entry.priority = priority;
++	entry.view = view;
++	entry.loop = loop;
++	entry.cel = cel;
++	entry.signal = signal;
++	state().cast.push_back(entry);
++}
++
 +} // End of namespace Sci
 diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 --- a/engines/sci/sierra_hd_trace.h
 +++ b/engines/sci/sierra_hd_trace.h
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,54 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -699,8 +820,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 + * the Free Software Foundation, either version 3 of the License, or
 + * (at your option) any later version.
 + *
-+ * The deterministic mode and kernel-call trace of milestone 4 (see
-+ * sierra_hd_trace.cpp).
++ * The deterministic mode and kernel-call trace of milestone 4, with the
++ * cast positions and 1x maps of milestone 5 (see sierra_hd_trace.cpp).
 + */
 +
 +#ifndef SCI_SIERRA_HD_TRACE_H
@@ -737,6 +858,11 @@ diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 +// The virtual mouse position.
 +Common::Point sierraHdMouse();
 +void sierraHdSetMouse(const Common::Point &position);
++// The cast of a kAnimate call (milestone 5): begun when the call starts,
++// one entry per cast member in drawing order once it has drawn, and written
++// to SIERRA_HD_ACTORS with the call's trace line.
++void sierraHdCastBegin();
++void sierraHdCastEntry(reg_t object, int16 x, int16 y, int16 z, int16 priority, int view, int16 loop, int16 cel, uint16 signal);
 +
 +} // End of namespace Sci
 +
