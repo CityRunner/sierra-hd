@@ -198,42 +198,28 @@ introduced during this gate, measured with
 - What could reduce the minutes further:
   - a self-hosted Linux runner on a machine of yours, which would make the
     Linux jobs free;
-  - a self-hosted macOS runner, which would remove about 150 of the 236
-    included minutes of a gate;
   - ccache, whose savings show from the second gate run on.
 
 ## Deviations from the spec
 
-None from section 2. For your confirmation (`docs/ASSUMPTIONS.md`,
-marked **Proposed**):
+None from section 2 (addendum A2 changes the output decision of section 2
+with your approval, from milestone SU on).
 
-- **HD mode while the game runs** draws everything but the picture as
-  EGA blocks; HD sprites are milestone 5.
-- **The game's own files** go in `files/` next to the configuration.
-- **What the first launch analyses**: each picture as drawn without
-  options; mirrored and EGA-palette variants are analysed when first
-  needed, and overlays are not cached.
+## Decisions at the gate (2026-10-21 and 22)
 
-## Open questions
-
-1. **The three proposals above**: are they acceptable?
-2. **The cache's size** (83 MB): acceptable, or should the entries be
-   compressed, at the cost of a more complex format?
-3. **The deterministic mode's time of day** now starts at noon on
-   1990-01-01 and runs. The opening and conversations need it to run;
-   do you agree with the start date and time?
-4. **The CI spending limit.**
-   - Under the policy, a gate run costs about 236 included minutes (about
-     $1.40 at list prices), so the 2,000 included minutes a month cover
-     about 8 gate runs.
-   - At the pace so far, that is not enough: please set an Actions budget
-     on the account. It is under Settings, Billing and licensing, Budgets
-     and alerts, with "stop usage when budget limit is reached".
-   - Tell me the amount, and I will plan the gates within it.
-5. **macOS at every gate.** The policy puts macOS back into the gate
-   matrix, where it had been optional since milestone 0, and it is about
-   150 of the 236 included minutes of a gate. I have followed the policy.
-   Confirm, or say if macOS should stay optional.
-6. **Self-hosted runners** (proposed, not set up): a Linux runner on a
-   machine of yours that is always on, and a macOS runner if you have a
-   Mac. This session's container cannot be one, because it is ephemeral.
+All points of this report were accepted:
+- **HD mode in the game:** HD drawing with EGA blocks for everything but
+  the picture is accepted until milestone 5. The same goes for `files/`
+  next to the configuration, what the first launch analyses, the cache's
+  83 MB, and the test mode's time of day from noon on 1990-01-01.
+- **Spending limit:** no amount was needed in the end. The repository was
+  made public on 2026-10-22, and its standard GitHub-hosted runners cost
+  nothing.
+- **Self-hosted runners:** accepted, but not set up. They need a machine of
+  yours, and they are not recommended for a public repository.
+- **Platforms:** macOS is optional again; Linux is the first priority and
+  Windows the second. The gate is the Linux and Windows matrix. macOS runs
+  only when asked for, and the fix it prompted (`std::ranges::iota`) is
+  kept.
+- **Addendum A2** (sprite undithering) is recorded and scheduled as
+  milestone SU, after milestone 6.

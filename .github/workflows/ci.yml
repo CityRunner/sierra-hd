@@ -11,9 +11,11 @@
 #   spec requires, all at once so every failure shows: Linux x86-64 and
 #   ARM64 (release, ASan+UBSan, TSan, with the golden hashes of synthetic
 #   scenes on both), the fuzzers, Windows x64 (release, ASan) and ARM64
-#   (release), macOS ARM64 (release, ASan+UBSan, TSan);
-# - manual runs (workflow_dispatch): one fast Linux job, or a single
-#   platform between gates for a fix only that platform reproduces.
+#   (release). Linux is the first priority and Windows the second; macOS
+#   is optional (customer decision, 2026-10-22) and not part of the gate;
+# - manual runs (workflow_dispatch): one fast Linux job, a single platform
+#   between gates for a fix only that platform reproduces, or macOS ARM64
+#   (release, ASan+UBSan, TSan) when it is wanted.
 # A push that changes only docs/, reports/ or Markdown files runs nothing;
 # one that changes only hints/ runs only the hint-file check.
 
@@ -109,7 +111,7 @@ jobs:
               if [[ "$DRAFT" == true ]]; then
                 wip=true
               else
-                linux=true; arm=true; windows=true; macos=true
+                linux=true; arm=true; windows=true
               fi
             fi
           else

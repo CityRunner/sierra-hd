@@ -260,9 +260,10 @@ Details: docs/ARCHITECTURE.md, "Error handling".
   no longer part of the milestone gates. This saves about 60 of the roughly
   90 included minutes a gate costs, and avoids the macOS runner queues seen
   on 2026-10-20. macOS stays a supported platform (spec section 1.2). The
-  customer can ask for a macOS run at any gate. **Superseded** on
-  2026-10-21: the CI cost policy below puts macOS back into every gate and
-  release.
+  customer can ask for a macOS run at any gate. On 2026-10-21 the CI cost
+  policy below put macOS back into every gate and release; on 2026-10-22
+  the customer made it optional again (see "Platform priorities" under the
+  CI cost policy).
 - Push, pull request and manual runs are in separate concurrency groups, so
   they do not cancel each other.
 - The tail of a failed step's log is published as an error annotation. It is
@@ -320,9 +321,10 @@ CI confirms, it does not discover. **Decided** (customer instruction).
        comparison is against the same constants.
      - The fuzzers, 60 s per target.
      - Windows x64 in release and ASan, and Windows ARM64 in release.
-     - macOS ARM64 in release, ASan+UBSan and TSan.
+     - macOS is optional and not part of the gate (2026-10-22, below).
    - **Release binaries** (`release.yml`): only for a pushed version tag,
-     on Linux, Windows and macOS.
+     on Linux and Windows. A manual run on a tag with `macos` builds the
+     macOS package as an artifact.
    - **No scheduled runs.**
 3. **Avoiding wasted runs.**
    - A newer commit cancels the in-progress run of the same pull request. A
@@ -381,8 +383,8 @@ CI confirms, it does not discover. **Decided** (customer instruction).
      - Release packages are kept 3 days; the GitHub release holds them
        after that.
 5. **Runners.**
-   - macOS and Windows run only at gates and for release tags. Between
-     gates, ARM64 is covered by qemu-user locally.
+   - Windows runs only at gates and for release tags, macOS only on manual
+     runs. Between gates, ARM64 is covered by qemu-user locally.
    - When a problem reproduces only on macOS, Windows or native ARM64, a
      manual run of that one platform (scope `macos`, `windows` or
      `linux-arm64`) is allowed between gates. The milestone report says so.
@@ -482,9 +484,26 @@ Estimated from the measured job durations, before ccache's savings:
     licensing, Budgets and alerts: an Actions budget that stops usage at
     the limit). The session cannot reach the billing settings.
 
-### Proposals (accepted by the customer at the 4b gate; not set up)
+### Platform priorities (customer decision, 2026-10-22)
 
-macOS stays in every gate (confirmed). The self-hosted runners below need
+"As macOS is optional, concentrate on Linux as first and Windows as second
+priority." **Decided**, replacing macOS at every gate:
+- Linux comes first, then Windows. A gate is green when its Linux and
+  Windows jobs are, and work on a platform problem goes to Linux first.
+- macOS returns to the milestone 0 decision: optional, run only on a
+  manual run (CI scope `macos`, or the release workflow with `macos`). It
+  stays a supported platform (spec section 1.2), and the customer can ask
+  for a macOS run at any gate.
+- A problem found on macOS is still fixed when it is cheap and cannot hurt
+  Linux or Windows. For example, `std::ranges::iota` was replaced because
+  the libc++ of Apple's SDK lacks it, found by the 4b gate's macOS job.
+- The estimates above drop the macOS share: a gate is about 52 Linux and
+  17 Windows minutes, about 86 included minutes or about $0.50 at list
+  prices for a private repository. Since 2026-10-22 the repository is
+  public, so its standard GitHub-hosted runners cost nothing.
+
+### Proposals (accepted by the customer at the 4b gate; not set up)
+ The self-hosted runners below need
 a machine of the customer's and are set up only when the customer provides
 one; for a public repository they are not recommended (anyone can open a
 pull request whose code would run on them).

@@ -1,14 +1,21 @@
 name: Release
 
 # Release binaries (spec section 10.4): Linux and Windows, x64 and ARM64,
-# and macOS ARM64, built and tested with the release presets, packaged with
-# the hint files and published as a GitHub release. Under the CI cost
-# policy (docs/ASSUMPTIONS.md) they are built only for a pushed version tag
-# (v*).
+# built and tested with the release presets, packaged with the hint files
+# and published as a GitHub release for a pushed version tag (v*), under the
+# CI cost policy (docs/ASSUMPTIONS.md). macOS is optional (customer
+# decision, 2026-10-22): a manual run on a tag with "macos" builds the macOS
+# package as a workflow artifact.
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      macos:
+        description: Build the macOS ARM64 package (run on a version tag)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -27,6 +34,7 @@ concurrency:
 jobs:
   linux:
     name: linux-${{ matrix.arch }}
+    if: github.event_name == 'push'
     runs-on: ${{ matrix.arch == 'x64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
     timeout-minutes: 20
     strategy:
@@ -55,6 +63,7 @@ jobs:
 
   windows:
     name: windows-${{ matrix.arch }}
+    if: github.event_name == 'push'
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
     strategy:
@@ -100,6 +109,7 @@ jobs:
 
   macos:
     name: macos-arm64
+    if: github.event_name == 'workflow_dispatch' && inputs.macos
     runs-on: macos-15
     timeout-minutes: 25
     steps:
@@ -132,7 +142,8 @@ jobs:
 
   publish:
     name: publish
-    needs: [linux, windows, macos]
+    if: github.event_name == 'push'
+    needs: [linux, windows]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
