@@ -497,6 +497,14 @@ priority." **Decided**, replacing macOS at every gate:
 - A problem found on macOS is still fixed when it is cheap and cannot hurt
   Linux or Windows. For example, `std::ranges::iota` was replaced because
   the libc++ of Apple's SDK lacks it, found by the 4b gate's macOS job.
+- **Known macOS gaps** (from the 4b gate's macOS job, built with `-k 0`),
+  left until macOS is wanted:
+  - the libc++ of Apple's SDK (Xcode 16.4) has no `std::jthread`, used by
+    `ThreadExecutor`;
+  - it has no `std::chrono::zoned_time`, used for the host's local time in
+    `main.cpp`.
+  Both can be replaced with `std::thread` and `localtime_r` when macOS is
+  taken up.
 - The estimates above drop the macOS share: a gate is about 52 Linux and
   17 Windows minutes, about 86 included minutes or about $0.50 at list
   prices for a private repository. Since 2026-10-22 the repository is

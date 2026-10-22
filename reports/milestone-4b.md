@@ -220,6 +220,8 @@ All points of this report were accepted:
 - **Platforms:** macOS is optional again; Linux is the first priority and
   Windows the second. The gate is the Linux and Windows matrix. macOS runs
   only when asked for, and the fix it prompted (`std::ranges::iota`) is
-  kept.
+  kept. The optional macOS build still fails, because the libc++ of Apple's
+  SDK lacks `std::jthread` and `std::chrono::zoned_time`. Both are recorded
+  in `docs/ASSUMPTIONS.md` for when macOS is wanted.
 - **Addendum A2** (sprite undithering) is recorded and scheduled as
   milestone SU, after milestone 6.
