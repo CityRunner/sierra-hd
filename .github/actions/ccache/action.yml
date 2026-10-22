@@ -1,0 +1,18 @@
+name: ccache
+description: >
+  Restores the compiler cache of a Linux job (.ccache in the workspace,
+  which docker/run.sh hands to ccache inside the toolchain image when
+  SIERRA_HD_CCACHE is set) and saves it when the job ends. The newest cache
+  with the same key prefix is restored; each run saves its own.
+inputs:
+  key:
+    description: Cache name for this job kind (architecture and preset)
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .ccache
+        key: ccache-${{ inputs.key }}-${{ hashFiles('docker/Dockerfile') }}-${{ github.run_id }}
+        restore-keys: ccache-${{ inputs.key }}-${{ hashFiles('docker/Dockerfile') }}-

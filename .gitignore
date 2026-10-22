@@ -9,6 +9,7 @@
 /out/
 compile_commands.json
 .cache/
+.ccache/
 
 # Game resources are never committed (spec section 2). The patterns are
 # case-insensitive because DOS file names may come in either case.

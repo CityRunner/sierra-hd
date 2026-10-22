@@ -84,11 +84,20 @@ void Paint::draw_picture(int picture, bool mirrored, bool add_to, int ega_palett
         graphics_->faults().raise(std::format("pic.{:03}: {}", picture, drawn.error().message));
         return;
     }
+    const std::vector<std::uint8_t> visual_before = add_to ? screen.visual_map() : std::vector<std::uint8_t>{};
     screen.visual_map() = maps_.visual;
     screen.priority_map() = maps_.priority;
     screen.control_map() = maps_.control;
+    if (add_to) {
+        screen.cover_changes(visual_before);
+    } else {
+        screen.uncover_picture();
+    }
     if (drawn->priority_bands) {
         ports.priority_bands_init(*drawn->priority_bands);
+    }
+    if (!add_to) {
+        drawn_picture_ = Picture{.number = picture, .mirrored = mirrored, .ega_palette = ega_palette};
     }
 }
 
@@ -195,7 +204,18 @@ void Paint::frame_rect(const Rect& rect) {
     paint_rect(r);
 }
 
-void Paint::bits_show(const Rect& /*rect*/) {
+void Paint::bits_show(const Rect& rect) {
+    const Ports& ports = graphics_->ports();
+    Rect r = rect;
+    r.clip(ports.port()->rect);
+    if (r.is_empty()) {
+        return;
+    }
+    ports.offset_rect(r);
+    // Even left and right edges (EGA bytes hold two pixels).
+    r.left = static_cast<std::int16_t>(static_cast<unsigned>(r.left) & 0xFFFEU);
+    r.right = static_cast<std::int16_t>((static_cast<unsigned>(r.right) + 1U) & 0xFFFEU);
+    graphics_->screen().show(r);
 }
 
 Reg Paint::bits_save(const Rect& rect, std::uint8_t mask) {
@@ -251,6 +271,7 @@ void Paint::kernel_draw_picture(int picture, int animation, bool blackout, bool 
         ports.begin_update(ports.pic_window());
         draw_picture(picture, mirrored, add_to, ega_palette);
         ports.end_update(ports.pic_window());
+        picture_shown(); // End_update redrew it under the windows.
     }
     ports.set_port(old_port);
 }
@@ -318,7 +339,7 @@ Reg Paint::kernel_display(const std::string& text, std::span<Reg> args) {
             ports.pen_color(arg(i++).to_uint16());
             break;
         case display_set_background_color:
-            color_back = arg(i++).to_uint16();
+            color_back = arg(i++).to_sint16();
             break;
         case display_set_greyed_output:
             ports.text_greyed_output(!arg(i++).is_null());
@@ -327,7 +348,7 @@ Reg Paint::kernel_display(const std::string& text, std::span<Reg> args) {
             text16.set_font(arg(i++).to_uint16());
             break;
         case display_width:
-            width = arg(i++).to_uint16();
+            width = arg(i++).to_sint16();
             break;
         case display_save_under:
             save_under = true;

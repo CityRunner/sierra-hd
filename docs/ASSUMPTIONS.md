@@ -9,7 +9,10 @@ Changes the customer made to the spec itself are recorded in
 `docs/SPEC_ADDENDA.md`. **A1** (2026-10-21) adds milestone 3b and section
 6.10 (drawing order, occlusion and stroke integrity), amends sections 6.4,
 6.7 and 12, and moves release v0.1 to after milestone 3b; see "Addendum A1"
-below.
+below. **A2** (2026-10-21) adds section 6.11 (sprite undithering) and
+milestone SU, a separate gate between milestones 6 and 7, and amends
+sections 1.1, 2 (the output decision, approved by the customer), 6.5 and
+12; it is implemented at milestone SU, not before.
 
 Status markers: **decided** (final unless the customer objects),
 **assumed** (to be confirmed), **pending** (waiting for input).
@@ -250,15 +253,17 @@ Details: docs/ARCHITECTURE.md, "Error handling".
     develops.
 - **Decision.** Linux x86-64 and ARM64 run on every push. Windows runs on
   pull requests to `main` (the milestone gates) and on manual runs.
-  **Decided.**
+  **Superseded** on 2026-10-21 by the CI cost policy below.
 - **macOS is optional** (customer decision, 2026-10-20, at the milestone 0
   approval: "make macOS optional and concentrate on Windows and Linux for
   now"). The macOS jobs run only when a manual run selects `macos`. They are
   no longer part of the milestone gates. This saves about 60 of the roughly
   90 included minutes a gate costs, and avoids the macOS runner queues seen
   on 2026-10-20. macOS stays a supported platform (spec section 1.2). The
-  customer can ask for a macOS run at any gate. **Decided**, approved by the
-  customer as a deviation from spec section 3.2.
+  customer can ask for a macOS run at any gate. On 2026-10-21 the CI cost
+  policy below put macOS back into every gate and release; on 2026-10-22
+  the customer made it optional again (see "Platform priorities" under the
+  CI cost policy).
 - Push, pull request and manual runs are in separate concurrency groups, so
   they do not cancel each other.
 - The tail of a failed step's log is published as an error annotation. It is
@@ -275,6 +280,258 @@ Details: docs/ARCHITECTURE.md, "Error handling".
   architecture, with its layers in the GitHub Actions cache.
 - TSan jobs set `vm.mmap_rnd_bits=28` on the runner. TSan's memory layout does
   not fit the default ASLR entropy of the current runner kernels.
+
+## CI cost policy (2026-10-21)
+
+The customer's policy, verbatim in intent: minimise CI minutes without
+weakening any check the spec requires. CI is for what cannot be checked
+on the local machine. Everything that can run locally runs locally first;
+CI confirms, it does not discover. **Decided** (customer instruction).
+
+### The rules
+
+1. **Local first.**
+   - Before every push, `scripts/pre-push.sh` passes locally. It runs, in
+     the toolchain image:
+     - the build, clang-format and clang-tidy;
+     - the unit tests in release, ASan+UBSan and TSan;
+     - short fuzzing (30 s per target);
+     - the ARM64 build and all tests under qemu-user, with the golden
+       hashes of synthetic scenes. This build leaves out the program
+       (`SCI_BUILD_APP=OFF`), because the cross sysroot has no ARM64
+       window-system libraries for SDL3; the native ARM64 jobs at gates
+       build it.
+   - Long fuzzing and the golden-hash and scenario runs with game files
+     stay local.
+   - Pushes come in batches of meaningful progress, not after every commit.
+2. **Tiered triggers** (`.github/workflows/ci.yml`):
+   - **Push to a work branch:** no CI. A manual run (`workflow_dispatch`,
+     scope `quick`) gives one fast Linux x86-64 job (lint, then release
+     build and tests) if a remote check is useful.
+   - **Draft pull request (work in progress):** Linux x86-64 only, one job
+     after the other, so the first failure stops the run:
+     1. style and static analysis;
+     2. build and all tests under ASan+UBSan in one job;
+     3. TSan for the threaded tests only (CTest label `threads`,
+        `tests/threads`).
+   - **Pull request ready for review (the milestone gate):** the full matrix
+     the spec requires, all jobs at once so every failure shows:
+     - Linux x86-64 and ARM64 in release, ASan+UBSan and TSan. Every preset
+       runs the golden hashes of synthetic scenes, so the cross-architecture
+       comparison is against the same constants.
+     - The fuzzers, 60 s per target.
+     - Windows x64 in release and ASan, and Windows ARM64 in release.
+     - macOS is optional and not part of the gate (2026-10-22, below).
+   - **Release binaries** (`release.yml`): only for a pushed version tag,
+     on Linux and Windows. A manual run on a tag with `macos` builds the
+     macOS package as an artifact.
+   - **No scheduled runs.**
+3. **Avoiding wasted runs.**
+   - A newer commit cancels the in-progress run of the same pull request. A
+     draft run is cancelled as a whole. In a gate run, cancellation is per
+     job, so a push that changes only documents cannot cancel a gate matrix
+     that is still running.
+   - Each commit is tested once: push events start nothing, and pull
+     request events do the testing.
+   - **Path filters.**
+     - A pull request that changes only `docs/`, `reports/` or Markdown
+       files starts nothing.
+     - A push to an open pull request is checked by the `plan` job, which
+       compares the push with the commit before: one rounded minute.
+       Documents only: nothing more runs. `hints/` only: only the hint-file
+       check runs, on the runner's own Python, without the toolchain image.
+   - **Fail fast.** Format and lint come first, then the build, then the
+     tests: work-in-progress runs stop at the first failure. Gate runs run
+     the whole matrix (`fail-fast: false`, no dependencies between jobs).
+   - **Re-runs** use "re-run failed jobs" (`gh run rerun --failed`), never
+     the whole workflow.
+   - **Timeouts.** Every job has one, sized to its measured duration plus a
+     margin. A first run after a toolchain change rebuilds the image, which
+     takes 4 to 9 minutes.
+     | Job | Timeout (min) |
+     |---|---|
+     | plan, hint files | 5 |
+     | Linux release, TSan | 15 |
+     | Linux ASan | 20 |
+     | lint | 25 |
+     | fuzz | 30 |
+     | Windows x64 | 30 |
+     | Windows ARM64 | 20 |
+     | macOS | 45 |
+     | release jobs | 20 to 25 |
+4. **Each minute cheaper.**
+   - **ccache:**
+     - In the toolchain image (pinned Ubuntu package) for the Linux jobs,
+       through `docker/run.sh` with `SIERRA_HD_CCACHE=1`.
+     - From pinned ccache 4.14.2 release archives (SHA-256 recorded in the
+       workflow) for Windows and macOS.
+     - Each job kind keeps its own cache: the newest is restored, and each
+       run saves its own. GitHub evicts old entries beyond the repository's
+       10 GB.
+     - SDL3, the only built third-party library, goes through ccache as
+       well. Its sources are vendored at a pinned version, so their objects
+       hit unless the flags change.
+     - With ccache, clang-cl writes debug information into the objects
+       (`/Z7` instead of `/Zi`), because ccache cannot cache a shared PDB.
+   - **The toolchain image** is cached in the GitHub Actions cache per
+     architecture, as before.
+   - **Fuzzing in CI:** 60 s per target, with the grown corpus cached
+     between runs.
+   - **Artifacts:**
+     - Test outputs are uploaded only when a job fails: the log tail as an
+       annotation, and the fuzz crash inputs, kept 7 days.
+     - Release packages are kept 3 days; the GitHub release holds them
+       after that.
+5. **Runners.**
+   - Windows runs only at gates and for release tags, macOS only on manual
+     runs. Between gates, ARM64 is covered by qemu-user locally.
+   - When a problem reproduces only on macOS, Windows or native ARM64, a
+     manual run of that one platform (scope `macos`, `windows` or
+     `linux-arm64`) is allowed between gates. The milestone report says so.
+6. **Never at the cost of the project.**
+   - A milestone is never approved without a green full matrix at its gate.
+   - No check from the spec is dropped or weakened to save minutes. If the
+     budget looks insufficient, I stop and ask instead of cutting checks.
+7. **Budget and reporting.**
+   - Every milestone report has a section "CI minutes": the minutes used,
+     by platform, measured with `scripts/ci-minutes.py --branch <branch>`,
+     and what could reduce them further.
+   - The script sums each job's time rounded up to whole minutes, as
+     GitHub bills it. The account's billing page is the authority; the
+     session cannot reach it.
+
+### A CI defect found while applying the policy
+
+- **Linux jobs never failed on a build, lint or test error** from
+  milestone 0 to 4b.
+  - Their steps ran `docker/run.sh ... | tee build.log` under GitHub's
+    default Linux shell (`bash -e`), which does not set `pipefail`, so a
+    step took `tee`'s status.
+  - The Windows and macOS jobs, which name `shell: bash` (that adds
+    `-o pipefail`), were not affected.
+- **Found by the first local run of `scripts/pre-push.sh`.** clang-tidy
+  reported a function of milestone 4b's script scanner
+  (`src/sci-vm/src/scan.cpp`) over the complexity limit, while the CI lint
+  job had passed on the same commit.
+- **Fixed.** Both workflows now set `shell: bash` as the default.
+  **Decided.**
+- **Earlier Linux results are confirmations only of what ran locally.**
+  The reports of milestones 0 to 4a list local runs of the builds, tests
+  and sanitizers, which failed properly; the lint findings were checked
+  locally only on the files changed. The first gate under the fixed
+  workflows confirms the whole tree.
+
+### Rates
+
+GitHub-hosted standard runners for private repositories, per minute, since
+2026-01-01. These come from public pricing summaries, because GitHub's
+documentation is not reachable from the session; to be confirmed on the
+account's billing page.
+
+| Runner | List price per minute | Included minutes used per minute |
+|---|---|---|
+| Linux x64, 2-core | $0.006 | 1 |
+| Linux arm64, 2-core | $0.005 | 1 |
+| Windows x64 and arm64, 2-core | $0.010 | 2 |
+| macOS (M1, 3-core) | $0.062 | 10 |
+
+The account (GitHub Free) includes 2,000 minutes a month for private
+repositories. The included-minute multipliers are the historical ones,
+also to be confirmed on the billing page. No platform fee for self-hosted
+runners applies as of October 2026; GitHub announced one and then
+postponed it.
+
+### Measured before the policy
+
+`scripts/ci-minutes.py`, all 103 runs of 2026-10-20 and 21, from milestone
+0 to the 4b gate:
+- 3,024 runner minutes, or 3,859 included minutes, at about $22 at list
+  prices;
+- Linux 2,693 minutes; Windows 268 minutes (536 included); macOS 63 minutes
+  (630 included, at milestone 0 only).
+
+Most of it was push runs: every push ran 8 Linux jobs, often cancelled
+part-way by the next push. That exhausted the month's 2,000 included
+minutes within two days.
+
+### Estimates under the policy
+
+Estimated from the measured job durations, before ccache's savings:
+
+| Run | Linux min | Windows min | macOS min | Included min | List price |
+|---|---|---|---|---|---|
+| Push | 0 | 0 | 0 | 0 | $0 |
+| Draft run (plan, lint, ASan, TSan threads) | about 21 | 0 | 0 | about 21 | about $0.13 |
+| Gate (full matrix) | about 52 | about 17 | about 15 | about 236 | about $1.40 |
+| Release tag | about 11 | about 10 | about 5 | about 81 | about $0.48 |
+
+- **Gate breakdown:** plan 1, lint 10, six Linux preset jobs 25, fuzz 16;
+  Windows x64 12 and ARM64 5; macOS three presets in one job.
+- **macOS dominates:** about 150 of the 236 included minutes of a gate.
+- **Per month:**
+  - The 2,000 included minutes cover about 8 gate runs, or about 5 gate
+    runs and 30 draft runs.
+  - A milestone has needed one to three gate runs: the first, and runs
+    after review fixes.
+  - At the pace of the first two days (several milestones a day), the
+    included minutes run out within days.
+  - At list prices, the overage is small: about $1.40 a gate run.
+  - So a spending limit is the deciding control, not the included minutes.
+    **Pending:** the amount of the spending limit (the customer accepted
+    the estimates at the 4b gate). Once the repository is public, its
+    standard GitHub-hosted runners cost nothing, so the limit then only
+    guards the private-repository case. The customer sets it (Settings, Billing and
+    licensing, Budgets and alerts: an Actions budget that stops usage at
+    the limit). The session cannot reach the billing settings.
+
+### Platform priorities (customer decision, 2026-10-22)
+
+"As macOS is optional, concentrate on Linux as first and Windows as second
+priority." **Decided**, replacing macOS at every gate:
+- Linux comes first, then Windows. A gate is green when its Linux and
+  Windows jobs are, and work on a platform problem goes to Linux first.
+- macOS returns to the milestone 0 decision: optional, run only on a
+  manual run (CI scope `macos`, or the release workflow with `macos`). It
+  stays a supported platform (spec section 1.2), and the customer can ask
+  for a macOS run at any gate.
+- A problem found on macOS is still fixed when it is cheap and cannot hurt
+  Linux or Windows. For example, `std::ranges::iota` was replaced because
+  the libc++ of Apple's SDK lacks it, found by the 4b gate's macOS job.
+- **Known macOS gaps** (from the 4b gate's macOS job, built with `-k 0`),
+  left until macOS is wanted:
+  - the libc++ of Apple's SDK (Xcode 16.4) has no `std::jthread`, used by
+    `ThreadExecutor`;
+  - it has no `std::chrono::zoned_time`, used for the host's local time in
+    `main.cpp`.
+  Both can be replaced with `std::thread` and `localtime_r` when macOS is
+  taken up.
+- The estimates above drop the macOS share: a gate is about 52 Linux and
+  17 Windows minutes, about 86 included minutes or about $0.50 at list
+  prices for a private repository. Since 2026-10-22 the repository is
+  public, so its standard GitHub-hosted runners cost nothing.
+
+### Proposals (accepted by the customer at the 4b gate; not set up)
+ The self-hosted runners below need
+a machine of the customer's and are set up only when the customer provides
+one; for a public repository they are not recommended (anyone can open a
+pull request whose code would run on them).
+
+- **A self-hosted Linux runner** would make the Linux jobs free (no
+  platform fee as of October 2026).
+  - This session's machine is not suitable. It is an ephemeral cloud
+    container that is reclaimed after inactivity, and its Docker daemon
+    stopped once during this milestone.
+  - A machine of the customer's that is always on (a Linux PC, a VM or a
+    small server with Docker) would do. The jobs run unchanged in the
+    toolchain image.
+  - It would serve the Linux jobs only; Windows and the native ARM64
+    gate jobs stay GitHub-hosted.
+  - A private repository with a single owner keeps the usual risk of
+    self-hosted runners, code from strangers' pull requests, out of
+    reach.
+- **A self-hosted macOS runner** on the customer's Mac, if there is one,
+  would remove the largest share of every gate: about 150 of 236 included
+  minutes.
 
 ## Third-party components (milestone 0)
 
@@ -890,6 +1147,148 @@ Scope:
   at milestone 7.
 - 4b adds two items to the spec's scope: running the game in the program,
   and the analysis cache of spec section 10.2.
+
+## Milestone 4b: kernel coverage (2026-10-21)
+
+- **Saves are listed, not written, until milestone 8** (the customer's
+  choice at the start of 4b). GetSaveFiles and CheckSaveGame work as in
+  ScummVM with an empty save folder; SaveGame and RestoreGame report
+  failure to the game, as ScummVM does when it cannot save, and log why.
+  The project's save format comes at milestone 8 (spec section 9), and the
+  scenario recordings do not save. **Decided.**
+- **The game's own save and restore dialogs.** ScummVM replaces the
+  game's save and restore methods with calls to its own dialogs unless
+  `originalsaveload` is set. sci-vm keeps the game's methods, and the
+  reference now runs with `originalsaveload=true`, so both run the same
+  bytecode; the boot trace is unchanged by it. **Decided.**
+- **Files the game opens** come from a `FileStore` the host supplies
+  (sci-vm does no I/O): files the game wrote, else the game folder's, as
+  ScummVM falls back to the game files. The tool uses an in-memory store
+  that starts empty, as the reference's save folder does. **Decided.**
+- **The referenced kernel functions** are found by `sci-vm-trace
+  --scan-kernel`: every callk in the scripts' code blocks, after the script
+  patches. The tested release references 97; DoAvoider is not among them.
+  **Decided.**
+- **The game runs in the program by default** (the customer's request at
+  the 4a gate); `--viewer` keeps the room viewer of v0.1. The interpreter
+  runs on the main thread (spec section 4.3): wherever virtual time would
+  pass (kWait, the speed throttle, event polling, busy waits), sci-vm calls
+  the host, which presents the frame, reads input and returns once that
+  much real time has passed. If the program falls more than 250 ms behind
+  (a slow room entry, a dragged window), it drops the lag instead of
+  running fast to catch up. Interactive runs seed the random source from
+  the host's performance counter; the deterministic runs keep their seed.
+  **Decided.**
+- **What the player sees** is what ScummVM copies to the screen (bitsShow,
+  transitions), not the visual map drawing goes to. sci-vm keeps that
+  shown screen, and with it the picture it shows. **Decided.**
+- **HD mode while the game runs (milestone 4b approximation).** A pixel of
+  the shown screen that nothing but the picture drew (the cover map, kept
+  by sci-vm and saved and restored with the screen bits) comes from the HD
+  background; any other pixel (sprites, text, windows, the menu bar) is
+  drawn as an N x N block of its EGA colour. Sprites are occluded correctly
+  because the interpreter only draws their visible pixels. F12 switches
+  between HD and original mode at any time (spec section 1); F11 or
+  Alt+Enter toggles fullscreen. **Decided** (approved at the 4b gate; the
+  HD sprite pipeline belongs to milestone 5).
+- **The game's own files** (and later the saves) are kept in a `files`
+  folder next to the configuration; a file the game opens is looked for
+  there first, then in the game folder. **Decided** (approved at the 4b
+  gate).
+- **SDL's single-precision window coordinates.** SDL3 reports and takes
+  mouse and window positions as `float`; the program names that type
+  `SdlCoordinate` (via `decltype`) and does all arithmetic on it in double.
+  The values only place the pointer and never reach rendering, so the
+  floating-point profile of spec section 5.3 is unaffected. **Decided.**
+- **Busy waits on kGetTime.** Scripts (the copy-protection dialog among
+  them) wait by reading kGetTime(elapsed) until enough time has passed,
+  with no other kernel call in between. On a virtual clock no time would
+  ever pass there, so in both engines such a read lets 1 ms pass first
+  (`docs/formats/replay-and-trace.md`). Interactive runs need the same
+  rule, since they also run on virtual time paced by the host. The earlier
+  reference traces are unchanged by it. **Decided.**
+- **Time of day in the deterministic mode** (start date and time approved
+  at the 4b gate). The game times its scenes
+  (the opening, conversations) by the time of day from kGetTime, so a
+  fixed time froze them. The day now starts at Monday 1990-01-01, 12:00:00
+  and runs with the virtual clock, in both engines; the interactive program
+  reports the host's local time, as ScummVM does. **Decided.**
+- **ScummVM's real-time remnants in the deterministic mode.** The
+  screen-update throttle (which is also where a requested quit stops the
+  game) and the text-edit cursor blink run on the host clock in ScummVM;
+  the reference patch moves both to the virtual clock, and sci-vm ports
+  them on the virtual clock. Otherwise where a run stops and when the
+  cursor shows depended on the host's speed. **Decided.**
+- **Screens are compared as well as kernel calls.** A kernel-call trace
+  cannot see drawing: with a wrongly signed kDisplay background colour,
+  every text box was filled white while the traces matched. The reference
+  patch and `sci-vm-trace` now also write the shown screen once a second
+  of virtual time, and the scenario gate compares both (the boot scenario:
+  61 screens identical). **Decided.**
+
+- **The text parser is in sci-text** (`sci/text/parser.hpp`): the
+  vocabulary (vocab.000, 901, 900), tokenizing, synonyms, the grammar and
+  the Said specs, without VM types; sci-vm's kParse and kSaid connect it
+  to the game's objects, as ScummVM's Vocabulary and kparse.cpp do.
+  **Decided.**
+- **A grammar that keeps growing stops the parser.** ScummVM expands the
+  grammar rules until memory runs out when a vocab.900 is recursive in a
+  certain way; the port stops at 4000 rules or 1000 passes, warns, and
+  turns the parser off for the game. The tested release stays far below
+  the limit (no warning; the traces match); only damaged or fuzzed data
+  reaches it. **Decided.**
+- **An empty sentence parses as a success**, as in ScummVM; kParse never
+  passes one, since it handles empty input first. **Decided.**
+
+## Milestone 4b: the analysis cache (2026-10-21)
+
+- **Where the cache lives.**
+  - The scene serialization is in sci-vector, as bytes in and bytes out.
+  - The cache with its file I/O is in sci-platform (app's library), because
+    spec section 4.2 keeps the libraries free of OS files.
+  - The files are in `cache/` next to `sierra-hd.ini`.
+  - **Decided.**
+- **The key** is the SHA-256 of the game digest, `analyser_version`,
+  `scene_format_version`, the bytes of the picture's hint file and the
+  variant (picture, plane, mirrored, EGA palette). **Decided.**
+- **The game digest is computed over the resources** (type, number, size
+  and data of each, as the resource manager delivers them), not over the
+  files on disk. So a patch file that changes a picture changes the digest,
+  and identical content in another file layout does not. It takes about
+  the time of reading the game once at launch. **Decided.**
+- **`analyser_version` is increased with every change of
+  `tests/golden/pictures.txt`**, since any change to a scene changes those
+  hashes. **Decided.**
+- **What the first launch prepares.**
+  - It prepares both planes of every picture as drawn without options.
+  - Mirrored and EGA-palette variants are analysed and stored the first
+    time they are needed.
+  - Overlays (`kDrawPic` with add-to) are not cached, because their scene
+    depends on the picture below.
+  - **Decided** (approved at the 4b gate), as is the cache's size (83 MB,
+    uncompressed).
+- **Batches of 16 on the executor.** The executor's `run` blocks until it
+  is done. So the progress bar and the window events are handled between
+  batches, on the main thread, and only the main thread writes files.
+  Closing the window cancels the analysis and quits; the entries written so
+  far are kept. **Decided.**
+- **The last 8 scenes are also kept in memory**, so going back and forth
+  between rooms does not read files. **Decided.**
+- **The original mode still draws path 1 directly**; only the HD mode uses
+  the cache. **Decided.**
+- **Measured** (release build, 4 cores, the tested release):
+  - The first launch analyses all 176 entries in 2.8 s, against the 15 s
+    budget.
+  - A scene loads from its file in 4 ms, against 64 ms to analyse it.
+  - The entries take 83 MB.
+
+## Milestone 4b approval (2026-10-22)
+
+- The gate matrix is green (Linux and Windows; macOS optional). The
+  customer accepted every point of the report and said to go ahead with
+  the next step: milestone 5. The pull request is merged by the customer,
+  as before.
+- Addendum A2 is scheduled as milestone SU, after milestone 6.
 
 ## Spec items carried forward
 

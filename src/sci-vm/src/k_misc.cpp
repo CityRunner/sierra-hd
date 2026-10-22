@@ -30,12 +30,15 @@
 #include "kernel_functions.hpp"
 #include "machine.hpp"
 #include "parser.hpp"
+#include "path_match.hpp"
 #include "sound.hpp"
 #include "subsystems.hpp"
 #include "timing.hpp"
 
 #include <array>
 #include <format>
+#include <optional>
+#include <string_view>
 #include <utility>
 
 namespace sci::vm {
@@ -45,12 +48,6 @@ namespace {
 constexpr std::uint32_t speed_throttle_delay = 30; // kSpeedThrottleDefaultDelay, in ms.
 
 // 1990-01-01 12:00:00, the date and time of the deterministic mode.
-constexpr unsigned fixed_hour = 12;
-constexpr unsigned fixed_minute = 0;
-constexpr unsigned fixed_second = 0;
-constexpr unsigned fixed_day = 1;
-constexpr unsigned fixed_month = 0; // January, as tm_mon.
-constexpr unsigned fixed_year = 90; // Since 1900, as tm_year.
 
 struct KeyDirection {
     std::uint16_t key;
@@ -72,6 +69,85 @@ constexpr std::array<KeyDirection, 9> key_directions{
 };
 
 } // namespace
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): kept close to Common::matchString.
+bool match_path(std::string_view str, std::string_view pattern) {
+    const auto at = [](std::string_view text, std::size_t i) { return i < text.size() ? text[i] : '\0'; };
+    std::size_t s = 0;
+    std::size_t p = 0;
+    std::optional<std::size_t> back_pattern;
+    std::size_t back_string = 0;
+    bool escaped = false;
+    for (;;) {
+        const char c = at(str, s);
+        if (c == '\0' || c == '/') {
+            back_pattern.reset();
+            if (at(pattern, p) == '?') {
+                return false;
+            }
+        }
+        const char current = at(pattern, p);
+        bool literal = false;
+        switch (current) {
+        case '*':
+            if (c != '\0') {
+                back_pattern = ++p;
+                back_string = s;
+            } else {
+                ++p;
+                back_pattern.reset();
+            }
+            break; // With exclusions, a trailing * is no early match.
+        case '\\':
+            if (!escaped) {
+                ++p;
+                break;
+            }
+            literal = true;
+            break;
+        case '#':
+            if (!escaped) {
+                if (c < '0' || c > '9') {
+                    return false;
+                }
+                ++p;
+                ++s;
+                break;
+            }
+            literal = true;
+            break;
+        case '?':
+            if (c == '\0') {
+                return at(pattern, p) == '\0';
+            }
+            ++p;
+            ++s;
+            break;
+        default:
+            literal = true;
+            break;
+        }
+        if (literal) {
+            if (current != c) {
+                if (!back_pattern) {
+                    return false;
+                }
+                p = *back_pattern;
+                s = ++back_string;
+                if (at(str, s) == '\0') {
+                    return at(pattern, p) == '\0';
+                }
+            } else {
+                if (c == '\0') {
+                    return at(pattern, p) == '\0';
+                }
+                ++p;
+                ++s;
+            }
+        }
+        escaped = !escaped && current == '\\';
+    }
+}
 
 Reg k_restart_game(Machine& machine, std::span<Reg> /*args*/) {
     machine.shrink_stack_to_base();
@@ -126,25 +202,31 @@ Reg k_set_debug(Machine& machine, std::span<Reg> /*args*/) {
 Reg k_get_time(Machine& machine, std::span<Reg> args) {
     const int mode = !args.empty() ? args[0].to_uint16() : 0;
     unsigned value = 0;
+    const LocalTime now = mode != 0 ? machine.subsystems().clock().local_time() : LocalTime{};
+    const auto hour24 = static_cast<unsigned>(now.hour);
+    const auto minute = static_cast<unsigned>(now.minute);
+    const auto second = static_cast<unsigned>(now.second);
     switch (mode) {
     case 0:
+        machine.subsystems().clock().read_elapsed(machine.kernel_calls());
         value = machine.subsystems().clock().ticks();
         break;
     case 1: {
-        unsigned hour = fixed_hour % 12;
+        unsigned hour = hour24 % 12;
         if (hour == 0) {
             hour = 12;
         }
-        value = (hour << 12U) | (fixed_minute << 6U) | fixed_second;
+        value = (hour << 12U) | (minute << 6U) | second;
         break;
     }
     case 2:
-        value = (fixed_hour << 11U) | (fixed_minute << 5U) | (fixed_second >> 1U);
+        value = (hour24 << 11U) | (minute << 5U) | (second >> 1U);
         break;
     case 3: {
         // SCI0 late on DOS: years since 1920.
         constexpr unsigned base_year = 20;
-        value = fixed_day | ((fixed_month + 1U) << 5U) | (((fixed_year - base_year) & 0x7FU) << 9U);
+        value = static_cast<unsigned>(now.day) | ((static_cast<unsigned>(now.month) + 1U) << 5U) |
+                (((static_cast<unsigned>(now.year) - base_year) & 0x7FU) << 9U);
         break;
     }
     default:
@@ -204,11 +286,28 @@ Reg k_device_info(Machine& machine, std::span<Reg> args) {
         segments.strcpy(args[1], "/");
         break;
     case 2: // Paths equal.
-        return number(segments.get_string(args[2]) == segments.get_string(args[1]) ? 1 : 0);
+        return number(match_path(segments.get_string(args[2]), segments.get_string(args[1])) ? 1 : 0);
     case 3: // Is floppy: never.
+    case 4: // The configuration path: none.
         return null_reg;
+    case 5: // The save catalogue's name, for deleting saves.
+        segments.strcpy(args[1], "__throwaway");
+        break;
+    case 6: { // A save file's name, for deleting it.
+        segments.strcpy(args[1], "__throwaway");
+        // SAVEGAMEID_OFFICIALRANGE_START and _END. Until the save format of
+        // milestone 8 there are no saves, so none is deleted.
+        constexpr int first_save_id = 100;
+        constexpr int last_save_id = 199;
+        const int virtual_id = args[3].to_uint16();
+        if (virtual_id < first_save_id || virtual_id > last_save_id) {
+            machine.faults().raise("kDeviceInfo(deleteSave): invalid savegame ID specified");
+            return null_reg;
+        }
+        break;
+    }
     default:
-        machine.faults().raise(std::format("kDeviceInfo sub-op {} is not implemented", args[0].to_uint16()));
+        machine.faults().raise(std::format("Unknown DeviceInfo() sub-command: {}", args[0].to_uint16()));
         return null_reg;
     }
     return machine.acc();

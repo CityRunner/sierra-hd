@@ -1,7 +1,8 @@
 # Test helpers.
 #
-# sci_add_unit_test(NAME <name> SOURCES ... DEPENDS ...)
-#   One test executable built on tests/support, registered with CTest.
+# sci_add_unit_test(NAME <name> SOURCES ... DEPENDS ... [LABELS ...])
+#   One test executable built on tests/support, registered with CTest, with
+#   optional CTest labels (ctest -L <label>).
 #
 # sci_add_fuzz_target(NAME <name> SOURCE <file> DEPENDS ... CORPUS <dir>)
 #   With SCI_FUZZ=ON: a libFuzzer binary, run by scripts/run-fuzzers.sh.
@@ -9,11 +10,14 @@
 #   seed corpus, registered with CTest, so every platform runs the inputs.
 
 function(sci_add_unit_test)
-    cmake_parse_arguments(PARSE_ARGV 0 arg "" "NAME" "SOURCES;DEPENDS")
+    cmake_parse_arguments(PARSE_ARGV 0 arg "" "NAME" "SOURCES;DEPENDS;LABELS")
     add_executable(${arg_NAME} ${arg_SOURCES})
     target_link_libraries(${arg_NAME} PRIVATE sci_test_support ${arg_DEPENDS})
     sci_target_defaults(${arg_NAME})
     add_test(NAME ${arg_NAME} COMMAND ${arg_NAME})
+    if(arg_LABELS)
+        set_tests_properties(${arg_NAME} PROPERTIES LABELS "${arg_LABELS}")
+    endif()
 endfunction()
 
 function(sci_add_fuzz_target)

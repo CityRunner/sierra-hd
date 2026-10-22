@@ -1,0 +1,99 @@
+sierra-hd replay 1
+# The menu bar and the dialogs it opens, in Laura's bedroom (room 44),
+# with seed 0 and stop tick 9030.
+# Passes the copy protection (seed 0) and answers "Yes" to "Have you
+# previously attended?", which starts Act I in the bedroom (playable from
+# about tick 3300). Menus of this game: the Sierra menu (About Bequest,
+# Help F1), File (Save, Restore, Restart, Quit: not used), Action (Pause,
+# Inventory, Retype, Ask/Tell about, Show, Give, Look at: only Pause and
+# Inventory used, the others start parser input), Speed (Faster, Normal,
+# Slower) and Sound (Volume, Turn Off F2). A menu opens on the item last
+# chosen. Enter is only pressed in a menu or a dialog.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 key 13
+# About Bequest (Escape opens the Sierra menu), closed with Enter.
+3400 key 27
+3460 key 13
+3600 key 13
+# Help from the menu, closed with Enter; then Help with F1.
+3700 key 27
+3740 key 20480
+3780 key 13
+3900 key 13
+4000 key 15104
+4100 key 13
+# Action > Inventory (notebook & pencil), closed with Escape; then Tab.
+4200 key 27
+4240 key 19712
+4280 key 19712
+4320 key 20480
+4360 key 13
+4500 key 27
+4600 key 9
+4700 key 27
+# The menu again: it opens on Inventory.
+4800 key 27
+4840 key 13
+4980 key 13
+# Speed > Faster, then Slower, then Faster again (Down wraps).
+5100 key 27
+5140 key 19712
+5180 key 13
+5400 key 27
+5440 key 20480
+5480 key 20480
+5520 key 13
+5700 key 27
+5740 key 20480
+5780 key 13
+# Sound > Volume: an edit field with the volume; the cursor keys move in
+# it, Escape closes it.
+5900 key 27
+5940 key 19712
+5980 key 13
+6100 key 19712
+6140 key 19712
+6180 key 19200
+6300 key 27
+# F2 turns the sound off and on again.
+6400 key 15360
+6600 key 15360
+# Ctrl+P pauses ("Intermission"), Enter continues.
+6800 key 16 4
+7000 key 13
+# Action > Pause from the menu, going up through the items (it wraps).
+7100 key 27
+7140 key 19200
+7180 key 19200
+7220 key 18432
+7260 key 18432
+7300 key 18432
+7340 key 18432
+7380 key 18432
+7420 key 18432
+7460 key 18432
+7500 key 18432
+7540 key 13
+7700 key 13
+# Speed > Normal.
+7800 key 27
+7840 key 19712
+7920 key 13
+# Ctrl+V (volume) closed with Escape, Ctrl+I (inventory) closed with Enter.
+8100 key 22 4
+8250 key 27
+8350 key 9 4
+8500 key 13
+# A short walk to the left at normal speed.
+8600 key 19200

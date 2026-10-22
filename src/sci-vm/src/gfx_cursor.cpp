@@ -173,7 +173,7 @@ void Transitions::setup(int number, bool blackout) {
     }
 }
 
-void Transitions::doit(const Rect& /*pic_rect*/) {
+void Transitions::doit(const Rect& pic_rect) {
     if (const TransitionEntry* entry = translate(number_, old_transition_ids)) {
         number_ = entry->id;
         blackout_ = entry->blackout;
@@ -190,6 +190,9 @@ void Transitions::doit(const Rect& /*pic_rect*/) {
         }
     }
     do_transition(number_, false);
+    // Every transition ends with the picture window on the screen.
+    graphics_->screen().show(pic_rect);
+    graphics_->paint().picture_shown();
     graphics_->screen().set_pic_not_valid(0);
 }
 

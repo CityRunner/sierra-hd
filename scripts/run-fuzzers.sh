@@ -1,16 +1,23 @@
 #!/usr/bin/env bash
 # Runs every libFuzzer target of a fuzz build (preset "fuzz") for a fixed time
 # each, starting from its seed corpus. New inputs go to a scratch corpus
-# directory, never into the repository.
+# directory, never into the repository; with SCI_FUZZ_CORPUS=<dir> they are
+# kept there (one folder per target), so later runs start from them (CI
+# caches it).
 #   scripts/run-fuzzers.sh build/fuzz 60
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 build_dir="${1:?usage: run-fuzzers.sh <fuzz build directory> [seconds per target]}"
 seconds="${2:-60}"
-scratch="$(mktemp -d)"
+if [[ -n "${SCI_FUZZ_CORPUS:-}" ]]; then
+    scratch="${SCI_FUZZ_CORPUS}"
+    mkdir -p "${scratch}"
+else
+    scratch="$(mktemp -d)"
+    trap 'rm -rf "${scratch}"' EXIT
+fi
 artifacts="${PWD}/build/fuzz-artifacts"
-trap 'rm -rf "${scratch}"' EXIT
 
 while IFS='=' read -r target corpus; do
     [[ -z "${target}" ]] && continue

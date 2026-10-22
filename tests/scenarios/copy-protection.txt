@@ -1,0 +1,7 @@
+sierra-hd replay 1
+# Leaves the title with Enter, then clicks the first name of the
+# copy-protection screen.
+600 key 13
+900 move 15 54
+920 down 15 54 0
+924 up 15 54 0

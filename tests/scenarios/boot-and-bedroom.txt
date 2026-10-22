@@ -1,0 +1,25 @@
+sierra-hd replay 1
+# Boot to Laura's bedroom with seed 7 and stop tick 5000.
+# The fingerprint on the copy-protection screen depends on the seed; with
+# seed 7 the right name is Dr. Feels (seed 0 shows another fingerprint).
+# Leaves the title with Enter, clicks "Dr. Feels" ("The curtain is about
+# to go up. Please be seated."), closes that with Enter, then Enter for
+# "Yes" to "Have you previously attended?", which starts Act I in the
+# bedroom (room 44): the clock, then the room, playable from about tick
+# 3300.
+600 key 13
+700 move 20 134
+702 down 20 134 0
+706 up 20 134 0
+800 key 13
+1000 key 13
+# Room 44: "look" (the room description), closed with Enter; a click
+# walks Laura down-left; "look at the bed" ("There is a suitcase lying on
+# each bed.").
+3500 text look
+3700 key 13
+3800 move 120 160
+3802 down 120 160 0
+3806 up 120 160 0
+4300 text look at the bed
+4500 key 13

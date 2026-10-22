@@ -40,6 +40,12 @@ functions and source files it comes from.
 | `src/sci-pic/src/pattern_tables.hpp` | `engines/sci/graphics/picture.cpp` (`vectorPatternCircles`, `vectorPatternTextures`, `vectorPatternTextureOffset`), generated |
 | `src/sci-view/src/view.cpp` | `engines/sci/graphics/view.cpp` (`GfxView::initData` and `unpackCelData` for EGA views, `getBitmap`) |
 | `src/sci-text/src/font.cpp` | `engines/sci/graphics/scifont.cpp` (`GfxFontFromResource`) |
+| `src/sci-text/src/vocabulary.cpp` | `engines/sci/parser/vocabulary.cpp` (SCI0 vocabulary loading, `lookupWord`, tokenizing, synonyms) |
+| `src/sci-text/src/grammar.cpp` | `engines/sci/parser/grammar.cpp` (`buildGNF`, `parseGNF`), `engines/sci/parser/vocabulary.cpp` (`scanForMajor`) |
+| `src/sci-text/src/said.cpp` | `engines/sci/parser/said.cpp` (the Said spec parser and tree matching) |
+| `src/sci-text/src/parser_internal.hpp` | `engines/sci/parser/vocabulary.h`, `grammar.cpp` (internal declarations) |
+| `src/sci-vm/src/*` (68 files) | the SCI0 engine: `engines/sci/engine/*` (VM, segments, scripts, kernel functions, script patches, workarounds, savegame-free file I/O), `engines/sci/graphics/*` (screen, ports, paint16, text16, compare, animate, cursor, menu, controls16, transitions), `engines/sci/sound/*` (soundcmd, music, MIDI parser), `engines/sci/event.cpp`, `engines/sci/sci.cpp`; the mapping per file is in `src/sci-vm/README.md`, and each file names its sources |
+| `src/app/src/game_screen.cpp` | `engines/sci/event.cpp` (key translation), `engines/sci/graphics/cursor.cpp` (SCI0 cursor decoding) |
 
 `tools/scummvm-patches/` holds patches to ScummVM itself (GPL v3 or later),
 used only for the reference build.

@@ -3,14 +3,16 @@
 # With SIERRA_HD_TRACE=<file> set, the SCI engine runs on a virtual clock
 # (time passes only where the engine sleeps or waits), drives the music timer
 # from that clock, seeds its random source with SIERRA_HD_SEED (default 0),
-# returns a fixed date and time, takes input only from SIERRA_HD_REPLAY
-# (docs/formats/replay.md), and writes every kernel call with its arguments
-# and result to the trace file. SIERRA_HD_STOP_TICK and SIERRA_HD_STOP_CALLS
-# end the game. Used by tools/vm-trace to compare sci-vm with ScummVM
-# (engines/sci/sierra_hd_trace.cpp describes the details).
+# runs the date and time from noon on 1990-01-01 on that clock, takes input only from SIERRA_HD_REPLAY
+# (docs/formats/replay-and-trace.md), and writes every kernel call with its
+# arguments and result to the trace file. SIERRA_HD_STOP_TICK and
+# SIERRA_HD_STOP_CALLS end the game. With SIERRA_HD_SCREENS=<folder> (milestone
+# 4b) it also writes the screen the player sees there. Used by tools/vm-trace
+# to compare sci-vm with ScummVM (engines/sci/sierra_hd_trace.cpp describes
+# the details).
 diff -ruN a/engines/sci/engine/kevent.cpp b/engines/sci/engine/kevent.cpp
---- a/engines/sci/engine/kevent.cpp	2026-10-20 11:49:32.000000000 +0000
-+++ b/engines/sci/engine/kevent.cpp	2026-10-21 13:35:18.830811873 +0000
+--- a/engines/sci/engine/kevent.cpp
++++ b/engines/sci/engine/kevent.cpp
 @@ -22,6 +22,7 @@
  #include "common/system.h"
  
@@ -32,8 +34,8 @@ diff -ruN a/engines/sci/engine/kevent.cpp b/engines/sci/engine/kevent.cpp
  	}
  
 diff -ruN a/engines/sci/engine/kmisc.cpp b/engines/sci/engine/kmisc.cpp
---- a/engines/sci/engine/kmisc.cpp	2026-10-20 11:49:32.000000000 +0000
-+++ b/engines/sci/engine/kmisc.cpp	2026-10-21 13:35:29.396918543 +0000
+--- a/engines/sci/engine/kmisc.cpp
++++ b/engines/sci/engine/kmisc.cpp
 @@ -25,6 +25,7 @@
  #include "common/translation.h"
  
@@ -42,31 +44,40 @@ diff -ruN a/engines/sci/engine/kmisc.cpp b/engines/sci/engine/kmisc.cpp
  #include "sci/debug.h"
  #include "sci/event.h"
  #include "sci/engine/state.h"
-@@ -304,6 +305,23 @@
+@@ -304,6 +305,26 @@
  	KGETTIME_DATE = 3
  };
  
-+// sierra-hd: a fixed date and time in the deterministic mode, 1990-01-01
-+// 12:00:00 (a Monday).
++// sierra-hd: in the deterministic mode the day starts at Monday 1990-01-01,
++// 12:00:00 and runs with the virtual clock.
 +static void sierraHdTimeAndDate(TimeDate &timeDate) {
 +	if (!sierraHdDeterministic()) {
 +		g_system->getTimeAndDate(timeDate);
 +		return;
 +	}
++	const uint32 seconds = 12 * 60 * 60 + sierraHdMillis() / 1000;
++	const uint32 ofDay = seconds % (24 * 60 * 60);
++	const uint32 days = seconds / (24 * 60 * 60);
 +	timeDate = TimeDate();
-+	timeDate.tm_sec = 0;
-+	timeDate.tm_min = 0;
-+	timeDate.tm_hour = 12;
-+	timeDate.tm_mday = 1;
++	timeDate.tm_sec = ofDay % 60;
++	timeDate.tm_min = (ofDay / 60) % 60;
++	timeDate.tm_hour = ofDay / 3600;
++	timeDate.tm_mday = 1 + days;
 +	timeDate.tm_mon = 0;
 +	timeDate.tm_year = 90;
-+	timeDate.tm_wday = 1;
++	timeDate.tm_wday = (1 + days) % 7;
 +}
 +
  reg_t kGetTime(EngineState *s, int argc, reg_t *argv) {
  	TimeDate loc_time;
  	uint16 retval = 0; // Avoid spurious warning
-@@ -321,7 +339,7 @@
+@@ -317,11 +338,13 @@
+ 
+ 	switch (mode) {
+ 	case KGETTIME_TICKS :
++		if (sierraHdDeterministic())
++			sierraHdElapsedTimeRead();
+ 		retval = g_sci->getTickCount();
  		debugC(kDebugLevelTime, "GetTime(elapsed) returns %d", retval);
  		break;
  	case KGETTIME_TIME_12HOUR :
@@ -75,7 +86,7 @@ diff -ruN a/engines/sci/engine/kmisc.cpp b/engines/sci/engine/kmisc.cpp
  		loc_time.tm_hour %= 12;
  		if (loc_time.tm_hour == 0) {
  			loc_time.tm_hour = 12;
-@@ -330,13 +348,13 @@
+@@ -330,13 +353,13 @@
  		debugC(kDebugLevelTime, "GetTime(12h) returns %d", retval);
  		break;
  	case KGETTIME_TIME_24HOUR :
@@ -92,8 +103,8 @@ diff -ruN a/engines/sci/engine/kmisc.cpp b/engines/sci/engine/kmisc.cpp
  		// SCI01 and newer: Year since 1980 (0 = 1980, 1 = 1981, etc)
  		// Atari ST SCI0 late versions use the newer base year.
 diff -ruN a/engines/sci/engine/state.cpp b/engines/sci/engine/state.cpp
---- a/engines/sci/engine/state.cpp	2026-10-20 11:49:32.000000000 +0000
-+++ b/engines/sci/engine/state.cpp	2026-10-21 13:35:18.830527820 +0000
+--- a/engines/sci/engine/state.cpp
++++ b/engines/sci/engine/state.cpp
 @@ -27,6 +27,7 @@
  #include "sci/engine/guest_additions.h"
  #include "sci/engine/kernel.h"
@@ -127,8 +138,8 @@ diff -ruN a/engines/sci/engine/state.cpp b/engines/sci/engine/state.cpp
  	uint32 ms = ticks * 1000 / 60;
  	uint32 duration = time - lastWaitTime;
 diff -ruN a/engines/sci/engine/vm.cpp b/engines/sci/engine/vm.cpp
---- a/engines/sci/engine/vm.cpp	2026-10-20 11:49:32.000000000 +0000
-+++ b/engines/sci/engine/vm.cpp	2026-10-21 13:34:51.007337572 +0000
+--- a/engines/sci/engine/vm.cpp
++++ b/engines/sci/engine/vm.cpp
 @@ -29,6 +29,7 @@
  #include "sci/engine/guest_additions.h"
  #include "sci/engine/state.h"
@@ -179,8 +190,8 @@ diff -ruN a/engines/sci/engine/vm.cpp b/engines/sci/engine/vm.cpp
  	uint offset = 0;
  	extOpcode = src[offset++]; // Get "extended" opcode (lower bit has special meaning)
 diff -ruN a/engines/sci/event.cpp b/engines/sci/event.cpp
---- a/engines/sci/event.cpp	2026-10-20 11:49:32.000000000 +0000
-+++ b/engines/sci/event.cpp	2026-10-21 13:35:43.682769949 +0000
+--- a/engines/sci/event.cpp
++++ b/engines/sci/event.cpp
 @@ -25,6 +25,7 @@
  
  #include "sci/sci.h"
@@ -189,7 +200,21 @@ diff -ruN a/engines/sci/event.cpp b/engines/sci/event.cpp
  #include "sci/console.h"
  #include "sci/engine/state.h"
  #include "sci/engine/kernel.h"
-@@ -454,12 +455,32 @@
+@@ -429,9 +430,11 @@
+ 	// Update the screen here, since it's called very often.
+ 	// Throttle the screen update rate to 60fps.
+ 	EngineState *s = g_sci->getEngineState();
+-	if (g_system->getMillis() - s->_screenUpdateTime >= 1000 / 60) {
++	// sierra-hd: on the virtual clock in the deterministic mode.
++	const uint32 now = sierraHdDeterministic() ? sierraHdMillis() : g_system->getMillis();
++	if (now - s->_screenUpdateTime >= 1000 / 60) {
+ 		g_system->updateScreen();
+-		s->_screenUpdateTime = g_system->getMillis();
++		s->_screenUpdateTime = now;
+ 		// Throttle the checking of shouldQuit() to 60fps as well, since
+ 		// Engine::shouldQuit() invokes 2 virtual functions
+ 		// (EventManager::shouldQuit() and EventManager::shouldReturnToLauncher()),
+@@ -454,12 +457,32 @@
  		updateScreen();
  	}
  
@@ -222,9 +247,39 @@ diff -ruN a/engines/sci/event.cpp b/engines/sci/event.cpp
  
  	// Search for matching event in queue
  	Common::List<SciEvent>::iterator iter = _events.begin();
+diff -ruN a/engines/sci/graphics/controls16.cpp b/engines/sci/graphics/controls16.cpp
+--- a/engines/sci/graphics/controls16.cpp
++++ b/engines/sci/graphics/controls16.cpp
+@@ -26,6 +26,7 @@
+ #include "graphics/primitives.h"
+ 
+ #include "sci/sci.h"
++#include "sci/sierra_hd_trace.h"
+ #include "sci/event.h"
+ #include "sci/engine/kernel.h"
+ #include "sci/engine/state.h"
+@@ -154,7 +155,8 @@
+ }
+ 
+ void GfxControls16::texteditSetBlinkTime() {
+-	_texteditBlinkTime = g_system->getMillis() + (30 * 1000 / 60);
++	// sierra-hd: on the virtual clock in the deterministic mode.
++	_texteditBlinkTime = (sierraHdDeterministic() ? sierraHdMillis() : g_system->getMillis()) + (30 * 1000 / 60);
+ }
+ 
+ void GfxControls16::kernelTexteditChange(reg_t controlObject, reg_t eventObject) {
+@@ -294,7 +296,7 @@
+ 		// Write back string
+ 		_segMan->strcpy_(textReference, text.c_str());
+ 	} else {
+-		if (g_system->getMillis() >= _texteditBlinkTime) {
++		if ((sierraHdDeterministic() ? sierraHdMillis() : g_system->getMillis()) >= _texteditBlinkTime) {
+ 			_paint16->invertRect(_texteditCursorRect);
+ 			_paint16->bitsShow(_texteditCursorRect);
+ 			_texteditCursorVisible = !_texteditCursorVisible;
 diff -ruN a/engines/sci/graphics/cursor.cpp b/engines/sci/graphics/cursor.cpp
---- a/engines/sci/graphics/cursor.cpp	2026-10-20 11:49:32.000000000 +0000
-+++ b/engines/sci/graphics/cursor.cpp	2026-10-21 13:35:18.829509469 +0000
+--- a/engines/sci/graphics/cursor.cpp
++++ b/engines/sci/graphics/cursor.cpp
 @@ -36,6 +36,7 @@
  #include "sci/graphics/coordadjuster.h"
  #include "sci/graphics/view.h"
@@ -253,8 +308,8 @@ diff -ruN a/engines/sci/graphics/cursor.cpp b/engines/sci/graphics/cursor.cpp
  	if (_upscaledHires)
  		_screen->adjustBackUpscaledCoordinates(mousePos.y, mousePos.x);
 diff -ruN a/engines/sci/module.mk b/engines/sci/module.mk
---- a/engines/sci/module.mk	2026-10-20 19:14:11.639584440 +0000
-+++ b/engines/sci/module.mk	2026-10-21 13:35:43.683418245 +0000
+--- a/engines/sci/module.mk
++++ b/engines/sci/module.mk
 @@ -8,6 +8,7 @@
  	metaengine.o \
  	sci.o \
@@ -264,8 +319,8 @@ diff -ruN a/engines/sci/module.mk b/engines/sci/module.mk
  	engine/features.o \
  	engine/file.o \
 diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
---- a/engines/sci/sci.cpp	2026-10-20 19:14:11.639725328 +0000
-+++ b/engines/sci/sci.cpp	2026-10-21 13:35:18.830239609 +0000
+--- a/engines/sci/sci.cpp
++++ b/engines/sci/sci.cpp
 @@ -28,6 +28,7 @@
  #include "engines/util.h"
  
@@ -310,9 +365,9 @@ diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
  }
  void SciEngine::setTickCount(const uint32 ticks) {
 diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
---- a/engines/sci/sierra_hd_trace.cpp	1970-01-01 00:00:00.000000000 +0000
-+++ b/engines/sci/sierra_hd_trace.cpp	2026-10-21 13:36:13.540131806 +0000
-@@ -0,0 +1,251 @@
+--- a/engines/sci/sierra_hd_trace.cpp
++++ b/engines/sci/sierra_hd_trace.cpp
+@@ -0,0 +1,320 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -329,7 +384,9 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 + * - The music timer runs on the virtual clock, once per base tempo of the
 + *   driver, on the main thread; the driver's own timer is not installed.
 + * - The "sci" random source is seeded with SIERRA_HD_SEED (default 0).
-+ * - Date and time are fixed: 1990-01-01, 12:00:00.
++ * - The day starts at Monday 1990-01-01, 12:00:00 and runs with the
++ *   virtual clock. The screen-update throttle (and its quit check) and the
++ *   text-edit cursor blink run on the virtual clock too.
 + * - Input comes only from SIERRA_HD_REPLAY (docs/formats/replay.md in
 + *   sierra-hd); host input other than quitting is ignored. The mouse
 + *   position is virtual too.
@@ -338,7 +395,13 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 + *   with values as unsigned decimal numbers, or <segment>:<offset> in hex
 + *   for pointers.
 + * - SIERRA_HD_STOP_TICK and SIERRA_HD_STOP_CALLS end the game when the tick
-+ *   or the number of kernel calls reaches them.
++ *   or the number of kernel calls reaches them; should the game not stop,
++ *   the process ends a minute of virtual time or a million calls later.
++ * - With SIERRA_HD_SCREENS=<folder>, the screen the player sees is written
++ *   there as <tick>.ppm whenever the clock reaches the next multiple of
++ *   SIERRA_HD_SCREEN_EVERY ticks (default 60), once graphics are up.
++ * - kGetTime(elapsed) right after another kGetTime(elapsed), with no other
++ *   kernel call between them, lets 1 ms of virtual time pass first.
 + */
 +
 +#define FORBIDDEN_SYMBOL_ALLOW_ALL
@@ -348,7 +411,10 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +#include "common/list.h"
 +#include "common/mutex.h"
 +#include "common/str.h"
++#include "common/system.h"
 +#include "common/textconsole.h"
++#include "graphics/paletteman.h"
++#include "graphics/surface.h"
 +#include "sci/event.h"
 +#include "sci/sci.h"
 +#include "sci/sound/music.h"
@@ -380,6 +446,11 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	uint32 stopCalls = 0xFFFFFFFF;
 +	Common::Point mouse;
 +	Common::List<ReplayEvent> replay;
++	const char *screens = nullptr;
++	uint32 screenEvery = 60;
++	uint32 nextScreen = 0;
++	bool elapsedRead = false;
++	uint32 lastElapsedRead = 0;
 +};
 +
 +State &state();
@@ -466,6 +537,12 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +			const char *replay = getenv("SIERRA_HD_REPLAY");
 +			if (replay && *replay)
 +				readReplay(s, replay);
++			const char *screens = getenv("SIERRA_HD_SCREENS");
++			if (screens && *screens)
++				s.screens = screens;
++			s.screenEvery = numberFrom("SIERRA_HD_SCREEN_EVERY", 60);
++			if (s.screenEvery == 0)
++				s.screenEvery = 60;
 +		}
 +	}
 +	return s;
@@ -481,6 +558,44 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +			fflush(s.trace);
 +		g_sci->quitGame();
 +	}
++	// A script that never returns to the event loop would not see the quit:
++	// a minute (of virtual time) or a million kernel calls later, the
++	// process ends, as sci-vm stops then too.
++	if ((uint64)currentTick(s) >= (uint64)s.stopTick + 3600 || (uint64)s.calls >= (uint64)s.stopCalls + 1000000) {
++		if (s.trace)
++			fclose(s.trace);
++		warning("sierra-hd: the game did not stop at the limit; ending the process");
++		exit(0);
++	}
++}
++
++// Writes the screen the player sees (the backend's game surface, without
++// the cursor) as a binary PPM once the tick reaches the next one due.
++void dumpScreen(State &s) {
++	const uint32 tick = currentTick(s);
++	if (!s.screens || tick < s.nextScreen || !g_sci || !g_sci->_gfxScreen)
++		return;
++	Graphics::Surface *surface = g_system->lockScreen();
++	if (!surface)
++		return;
++	if (surface->format.bytesPerPixel != 1)
++		error("sierra-hd: the screen is not 8 bits per pixel");
++	byte palette[256 * 3];
++	g_system->getPaletteManager()->grabPalette(palette, 0, 256);
++	char path[1024];
++	snprintf(path, sizeof(path), "%s/%06u.ppm", s.screens, tick);
++	FILE *file = fopen(path, "wb");
++	if (!file)
++		error("sierra-hd: cannot write %s", path);
++	fprintf(file, "P6\n%d %d\n255\n", surface->w, surface->h);
++	for (int y = 0; y < surface->h; ++y) {
++		const byte *row = (const byte *)surface->getBasePtr(0, y);
++		for (int x = 0; x < surface->w; ++x)
++			fwrite(palette + 3 * row[x], 1, 3, file);
++	}
++	fclose(file);
++	g_system->unlockScreen();
++	s.nextScreen = tick - tick % s.screenEvery + s.screenEvery;
 +}
 +
 +void writeValue(FILE *file, reg_t value) {
@@ -513,6 +628,15 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +		s.music->onTimer();
 +	}
 +	checkStop(s);
++	dumpScreen(s);
++}
++
++void sierraHdElapsedTimeRead() {
++	State &s = state();
++	if (s.elapsedRead && s.calls == s.lastElapsedRead + 1)
++		sierraHdAdvance(1);
++	s.elapsedRead = true;
++	s.lastElapsedRead = s.calls;
 +}
 +
 +void sierraHdSetMusic(SciMusic *music, uint32 tempoMicroseconds) {
@@ -565,9 +689,9 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +
 +} // End of namespace Sci
 diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
---- a/engines/sci/sierra_hd_trace.h	1970-01-01 00:00:00.000000000 +0000
-+++ b/engines/sci/sierra_hd_trace.h	2026-10-21 13:33:55.352784058 +0000
-@@ -0,0 +1,45 @@
+--- a/engines/sci/sierra_hd_trace.h
++++ b/engines/sci/sierra_hd_trace.h
+@@ -0,0 +1,49 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -600,6 +724,10 @@ diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 +// Advances the virtual clock; runs the music timer once per base tempo
 +// of virtual time crossed.
 +void sierraHdAdvance(uint32 milliseconds);
++// kGetTime reads the elapsed time. A read right after another one, with no
++// other kernel call between them, lets 1 ms of virtual time pass first, so
++// scripts that wait by reading the time see it pass.
++void sierraHdElapsedTimeRead();
 +// The music the virtual clock drives.
 +void sierraHdSetMusic(SciMusic *music, uint32 tempoMicroseconds);
 +// Writes one kernel call to the trace.
@@ -614,8 +742,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 +
 +#endif
 diff -ruN a/engines/sci/sound/music.cpp b/engines/sci/sound/music.cpp
---- a/engines/sci/sound/music.cpp	2026-10-20 11:49:32.000000000 +0000
-+++ b/engines/sci/sound/music.cpp	2026-10-21 13:35:43.683169371 +0000
+--- a/engines/sci/sound/music.cpp
++++ b/engines/sci/sound/music.cpp
 @@ -33,6 +33,7 @@
  #include "sci/engine/state.h"
  #include "sci/sound/midiparser_sci.h"

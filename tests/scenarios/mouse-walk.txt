@@ -1,0 +1,116 @@
+sierra-hd replay 1
+# A walk through the mansion with mouse clicks only, with seed 0 and stop
+# tick 12600.
+# Passes the copy protection (seed 0) and answers "Yes" to "Have you
+# previously attended?", which starts Act I in Laura's bedroom (room 44;
+# playable from about tick 3300). After that, only the mouse: a left click
+# walks Laura to the point clicked (her feet end 10 pixels above it; she
+# stops at the first obstacle, so the way round furniture and banisters
+# takes several clicks) or closes the message on screen; a right click
+# (modifier 3) looks at what is under the pointer. The first visit of each
+# room shows its description, closed by the next click. On the stairs of
+# room 37 the game walks Laura itself until she reaches the bottom.
+# Path: bedroom 44 (looks at the armchair: "Most of these chairs look
+# pretty old!") -> Ethel's room 45 (looks at the dollhouse) -> back to 44
+# -> back upstairs hallway 43 -> front upstairs hallway 47 -> along the
+# landing and down the right staircase into the front downstairs hallway
+# 37 (looks at the rugs) -> north into the back downstairs hallway 33
+# (looks at the grandfather clock: its close-up) -> out of the French doors
+# into the back garden 4.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 key 13
+# Room 44: a right click on the armchair, a click to close the message;
+# down a little, then east into 45.
+3500 move 110 135
+3502 down 110 135 3
+3506 up 110 135 3
+3800 down 110 135 0
+3804 up 110 135 0
+3900 move 211 133
+3902 down 211 133 0
+3906 up 211 133 0
+4000 move 300 133
+4002 down 300 133 0
+4006 up 300 133 0
+# Room 45: close the description, a right click on the dollhouse, close
+# the message, back west into 44.
+4400 down 160 100 0
+4404 up 160 100 0
+4500 move 252 110
+4502 down 252 110 3
+4506 up 252 110 3
+4700 down 252 110 0
+4704 up 252 110 0
+4800 move 0 133
+4802 down 0 133 0
+4806 up 0 133 0
+# Room 44: past the armchair, then out of the west door into 43.
+5000 move 105 143
+5002 down 105 143 0
+5006 up 105 143 0
+5400 move 0 157
+5402 down 0 157 0
+5406 up 0 157 0
+# Room 43: close the description, south into 47.
+5800 down 160 100 0
+5804 up 160 100 0
+5900 move 160 199
+5902 down 160 199 0
+5906 up 160 199 0
+# Room 47: close the description, to the landing, east along it, down the
+# right staircase into 37.
+6740 down 160 100 0
+6744 up 160 100 0
+6800 move 215 150
+6802 down 215 150 0
+6806 up 215 150 0
+7100 move 272 148
+7102 down 272 148 0
+7106 up 272 148 0
+7500 move 290 199
+7502 down 290 199 0
+7506 up 290 199 0
+# Room 37: close the description (Laura then walks down the stairs), a
+# right click on the rug, a click on Laura's own place to close the
+# message; a step down, round the banister, north up the hallway into 33.
+8300 down 160 100 0
+8304 up 160 100 0
+8600 move 160 110
+8602 down 160 110 3
+8606 up 160 110 3
+8800 move 290 156
+8802 down 290 156 0
+8806 up 290 156 0
+9000 move 289 166
+9002 down 289 166 0
+9006 up 289 166 0
+9200 move 120 170
+9202 down 120 170 0
+9206 up 120 170 0
+9600 move 160 60
+9602 down 160 60 0
+9606 up 160 60 0
+# Room 33: close the description, a right click on the grandfather clock
+# (its close-up and a message), close it, then north through the French
+# doors into the back garden 4, whose description stays on screen.
+10800 down 160 100 0
+10804 up 160 100 0
+10900 move 52 130
+10902 down 52 130 3
+10906 up 52 130 3
+11100 down 52 130 0
+11104 up 52 130 0
+11500 move 160 95
+11502 down 160 95 0
+11506 up 160 95 0

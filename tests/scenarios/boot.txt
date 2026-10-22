@@ -1,0 +1,2 @@
+sierra-hd replay 1
+# Boots the game with no input: the title and the copy-protection screen.

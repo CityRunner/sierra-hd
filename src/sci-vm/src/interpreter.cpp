@@ -3,6 +3,9 @@
 #include "sci/vm/interpreter.hpp"
 
 #include "events.hpp"
+#include "files.hpp"
+#include "gfx_screen.hpp"
+#include "graphics.hpp"
 #include "machine.hpp"
 #include "subsystems.hpp"
 #include "timing.hpp"
@@ -50,6 +53,7 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
     for (const InputEvent& event : options.input) {
         subsystems.events().schedule(event);
     }
+    subsystems.files().set_store(options.files);
     Machine machine(resources, subsystems);
     Clock& clock = subsystems.clock();
     std::uint32_t calls = 0;
@@ -65,7 +69,12 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
             machine.abort(Abort::QuitGame);
         }
     };
-    clock.set_advance_hook(check_stop);
+    clock.set_advance_hook([&] {
+        check_stop();
+        if (options.on_tick && subsystems.graphics().attached()) {
+            options.on_tick(clock.ticks(), subsystems.graphics().screen().shown());
+        }
+    });
     machine.set_kernel_log([&](const KernelCall& call) {
         if (options.trace) {
             const SegManager* callers = options.trace_callers ? &machine.segments() : nullptr;

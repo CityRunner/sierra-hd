@@ -32,7 +32,7 @@ sci_add_unit_test(NAME sci-view-tests
     DEPENDS sci-view)
 
 sci_add_unit_test(NAME sci-text-tests
-    SOURCES text/font_test.cpp
+    SOURCES text/font_test.cpp text/parser_test.cpp
     DEPENDS sci-text)
 
 sci_add_unit_test(NAME sci-vector-tests
@@ -42,6 +42,7 @@ sci_add_unit_test(NAME sci-vector-tests
         vector/fitting_test.cpp
         vector/hint_scene_test.cpp
         vector/hints_test.cpp
+        vector/scene_io_test.cpp
         vector/stroke_integrity_test.cpp
     DEPENDS sci-vector sci-render)
 # The fitting tests reach into sci-vector's internals.
@@ -52,11 +53,25 @@ sci_add_unit_test(NAME sci-render-tests
     DEPENDS sci-render)
 
 sci_add_unit_test(NAME sci-platform-tests
-    SOURCES platform/platform_test.cpp
+    SOURCES platform/analysis_cache_test.cpp platform/platform_test.cpp
     DEPENDS sci-platform)
 
 sci_add_unit_test(NAME sci-vm-tests
-    SOURCES vm/input_test.cpp vm/music_test.cpp vm/script_patcher_test.cpp
+    SOURCES
+        vm/files_test.cpp
+        vm/input_test.cpp
+        vm/music_test.cpp
+        vm/path_match_test.cpp
+        vm/script_patcher_test.cpp
     DEPENDS sci-vm)
 # The tests reach into sci-vm's internals.
 target_include_directories(sci-vm-tests PRIVATE ${PROJECT_SOURCE_DIR}/src/sci-vm/src)
+
+# The window layer's key and cursor conversion, compiled from the program's
+# sources (the program itself is no library).
+sci_add_unit_test(NAME sci-app-tests
+    SOURCES
+        app/game_screen_test.cpp
+        ${PROJECT_SOURCE_DIR}/src/app/src/game_screen.cpp
+    DEPENDS sci-vm sci-render sci-platform sci-view sci-text sci-resource sci-core)
+target_include_directories(sci-app-tests PRIVATE ${PROJECT_SOURCE_DIR}/src/app/src)

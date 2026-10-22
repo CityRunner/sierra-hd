@@ -32,6 +32,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <list>
 
 namespace sci::vm {
@@ -40,6 +41,16 @@ class EventQueue {
 public:
     // Input due at a game tick, in order.
     void schedule(const InputEvent& event) { pending_.push_back(event); }
+
+    // Input from the host now; key events take the mouse position.
+    void push(SciEvent event) {
+        if (event.type == event_key_down || event.type == event_key_up) {
+            event.mouse = mouse_;
+        } else {
+            mouse_ = event.mouse;
+        }
+        queue_.push_back(event);
+    }
 
     [[nodiscard]] bool has_pending() const { return !pending_.empty(); }
 
@@ -53,6 +64,12 @@ public:
     // next poll, before the replayed input.
     void request_quit() { quit_requested_ = true; }
 
+    [[nodiscard]] bool quit_requested() const { return quit_requested_; }
+
+    // Called at the start of every read (EventManager::getSciEvent calls
+    // updateScreen there).
+    void set_update_screen(std::function<void()> hook) { update_screen_ = std::move(hook); }
+
     [[nodiscard]] Point mouse() const { return mouse_; }
 
     void set_mouse(Point position) { mouse_ = position; }
@@ -64,6 +81,7 @@ private:
     std::list<SciEvent> queue_;
     Point mouse_{.x = 160, .y = 100};
     bool quit_requested_ = false;
+    std::function<void()> update_screen_;
 };
 
 } // namespace sci::vm

@@ -3,7 +3,8 @@ description: >
   Installs the pinned upstream LLVM release and Ninja on macOS and Windows
   runners (Linux jobs use the toolchain image instead), verifies their
   SHA-256, and on Windows sets up the MSVC and Windows SDK environment that
-  clang-cl needs.
+  clang-cl needs. With a ccache archive, also installs ccache, makes it
+  CMake's compiler launcher and restores and saves its cache.
 inputs:
   llvm-archive:
     description: File name of the LLVM release archive
@@ -20,6 +21,18 @@ inputs:
   ninja-sha256:
     description: SHA-256 of the Ninja release archive
     required: true
+  ccache-archive:
+    description: File name of the ccache release archive (optional)
+    required: false
+    default: ""
+  ccache-sha256:
+    description: SHA-256 of the ccache release archive
+    required: false
+    default: ""
+  ccache-key:
+    description: Name of the compiler cache of this job kind
+    required: false
+    default: ""
   msvc-arch:
     description: Target architecture for vcvarsall.bat (Windows only)
     required: false
@@ -35,7 +48,7 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.paths.outputs.root }}
-        key: toolchain-${{ inputs.llvm-archive }}-${{ inputs.llvm-sha256 }}-${{ inputs.ninja-archive }}-${{ inputs.ninja-sha256 }}
+        key: toolchain-${{ inputs.llvm-archive }}-${{ inputs.llvm-sha256 }}-${{ inputs.ninja-archive }}-${{ inputs.ninja-sha256 }}-${{ inputs.ccache-sha256 }}
 
     - if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
@@ -46,6 +59,8 @@ runs:
         NINJA_VERSION: ${{ inputs.ninja-version }}
         NINJA_ARCHIVE: ${{ inputs.ninja-archive }}
         NINJA_SHA256: ${{ inputs.ninja-sha256 }}
+        CCACHE_ARCHIVE: ${{ inputs.ccache-archive }}
+        CCACHE_SHA256: ${{ inputs.ccache-sha256 }}
       run: |
         set -euo pipefail
         mkdir -p "$ROOT/llvm" "$ROOT/ninja"
@@ -70,6 +85,19 @@ runs:
         tar -xJf llvm.tar.xz -C "$ROOT/llvm" --strip-components=1 "${members[@]}"
         unzip -q ninja.zip -d "$ROOT/ninja"
         rm llvm.tar.xz ninja.zip
+        if [[ -n "$CCACHE_ARCHIVE" ]]; then
+          ccache_version="$(sed -E 's/^ccache-([0-9.]+)-.*/\1/' <<< "$CCACHE_ARCHIVE")"
+          curl -fsSL -o "$CCACHE_ARCHIVE" \
+            "https://github.com/ccache/ccache/releases/download/v${ccache_version}/${CCACHE_ARCHIVE}"
+          echo "$CCACHE_SHA256  $CCACHE_ARCHIVE" | sha256 -c -
+          mkdir -p "$ROOT/ccache"
+          if [[ "$CCACHE_ARCHIVE" == *.zip ]]; then
+            unzip -q -j "$CCACHE_ARCHIVE" '*/ccache.exe' -d "$ROOT/ccache"
+          else
+            tar -xzf "$CCACHE_ARCHIVE" -C "$ROOT/ccache" --strip-components=1 "${CCACHE_ARCHIVE%.tar.gz}/ccache"
+          fi
+          rm "$CCACHE_ARCHIVE"
+        fi
 
     - if: runner.os == 'Windows'
       shell: pwsh
@@ -89,15 +117,33 @@ runs:
           }
         }
 
+    - if: inputs.ccache-archive != ''
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.paths.outputs.root }}-ccache
+        key: ccache-${{ inputs.ccache-key }}-${{ inputs.llvm-sha256 }}-${{ github.run_id }}
+        restore-keys: ccache-${{ inputs.ccache-key }}-${{ inputs.llvm-sha256 }}-
+
     # Added last: GITHUB_PATH entries from later steps take precedence, so
     # the pinned LLVM wins over any clang that comes with Visual Studio.
     - shell: bash
       env:
         ROOT: ${{ steps.paths.outputs.root }}
+        CCACHE_ARCHIVE: ${{ inputs.ccache-archive }}
       run: |
         set -euo pipefail
         echo "$ROOT/llvm/bin" >> "$GITHUB_PATH"
         echo "$ROOT/ninja" >> "$GITHUB_PATH"
+        if [[ -n "$CCACHE_ARCHIVE" ]]; then
+          echo "$ROOT/ccache" >> "$GITHUB_PATH"
+          {
+            echo "CCACHE_DIR=$ROOT-ccache"
+            echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE"
+            echo "CCACHE_MAXSIZE=400M"
+            echo "CMAKE_C_COMPILER_LAUNCHER=ccache"
+            echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache"
+          } >> "$GITHUB_ENV"
+        fi
         if [[ "$RUNNER_OS" == "Windows" ]]; then
           # The ASan runtime DLL is loaded from PATH.
           echo "$(cygpath -w "$ROOT/llvm/lib/clang")\\$(ls "$ROOT/llvm/lib/clang")\\lib\\windows" >> "$GITHUB_PATH"

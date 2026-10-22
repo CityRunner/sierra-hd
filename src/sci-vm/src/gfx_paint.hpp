@@ -33,6 +33,7 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <vector>
 
 namespace sci::vm {
 
@@ -53,8 +54,7 @@ public:
     void frame_rect(const Rect& rect);
     void invert_rect(const Rect& rect);
 
-    // The screen shows the maps directly: showing bits only checks the
-    // rectangle, as GfxPaint16::bitsShow does before copying.
+    // Copies a rectangle of the port to what is shown (copyRectToScreen).
     void bits_show(const Rect& rect);
     Reg bits_save(const Rect& rect, std::uint8_t mask);
     [[nodiscard]] Rect bits_rect(Reg handle) const;
@@ -67,9 +67,24 @@ public:
     void kernel_graph_redraw_box(Rect rect);
     Reg kernel_display(const std::string& text, std::span<Reg> args);
 
+    // The last picture drawn without adding to the previous one, for the HD
+    // background; and the one shown, which a transition (or a redraw under a
+    // window) makes the drawn one.
+    struct Picture {
+        int number = -1;
+        bool mirrored = false;
+        int ega_palette = 0;
+    };
+
+    void picture_shown() { shown_picture_ = drawn_picture_; }
+
+    [[nodiscard]] const Picture& shown_picture() const { return shown_picture_; }
+
 private:
     Graphics* graphics_;
     pic::PictureMaps maps_; // The colour pairs carry over between pictures added to each other.
+    Picture drawn_picture_;
+    Picture shown_picture_;
 };
 
 } // namespace sci::vm

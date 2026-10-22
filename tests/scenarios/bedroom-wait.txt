@@ -1,0 +1,20 @@
+sierra-hd replay 1
+# Act I in Laura's bedroom without input, with seed 0 and stop tick 20000.
+# Passes the copy protection (seed 0) and answers "Yes" to "Have you
+# previously attended?", which starts Act I in the bedroom (room 44): the
+# clock, the "Act I" title, then the room. Laura stands still; the game's
+# own actors move on their own (Lillian comes in and sits down in the
+# armchair, around tick 14000).
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 key 13

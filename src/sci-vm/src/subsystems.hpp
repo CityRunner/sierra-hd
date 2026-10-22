@@ -40,6 +40,10 @@ public:
     void on_init_game(Machine& machine);
     void on_stop_game(Machine& machine);
     void on_restart_game(Machine& machine);
+    // EventManager::updateScreen: at most once per 1000/60 ms of virtual
+    // time, a requested quit aborts the game (after the kernel call in
+    // progress).
+    void update_screen(Machine& machine);
     // Hunks the engine holds for itself (GfxPorts::processEngineHunkList).
     [[nodiscard]] std::vector<Reg> engine_hunks() const;
 
@@ -76,6 +80,7 @@ private:
     std::unique_ptr<Files> files_;
     std::uint32_t seed_ = 0;
     int event_counter_ = 0;
+    std::uint32_t screen_update_time_ = 0;
 };
 
 } // namespace sci::vm

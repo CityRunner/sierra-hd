@@ -123,6 +123,8 @@ public:
     void sound_kill(MusicEntry& sound);
     void sound_pause(MusicEntry& sound);
     void sound_resume(MusicEntry& sound);
+    // SciMusic::pauseAll: pauses or resumes every song, with a counter.
+    void pause_all(bool pause);
     void sound_set_volume(MusicEntry& sound, int volume);
     void sound_set_priority(MusicEntry& sound, std::uint8_t priority);
 

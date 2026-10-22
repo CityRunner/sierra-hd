@@ -181,8 +181,8 @@ Reg k_text_size(Machine& machine, std::span<Reg> args) {
     const SegManager& segments = machine.segments();
     const std::span<Reg> dest = segments.deref_regs(args[0], 4);
     const std::string text = segments.get_string(args[1]);
-    const int font = args[2].to_uint16();
-    const int max_width = args.size() > 3 ? args[3].to_uint16() : 0;
+    const int font = args[2].to_sint16();                            // int16 in kernelTextSize: -1 keeps the font.
+    const int max_width = args.size() > 3 ? args[3].to_sint16() : 0; // int16 in kernelTextSize.
     if (dest.empty()) {
         return machine.acc();
     }
@@ -301,7 +301,11 @@ Reg k_draw_pic(Machine& machine, std::span<Reg> args) {
         add_to = args[2].is_null();
     }
     if (args.size() >= 4) {
-        ega_palette = args[3].to_uint16();
+        // int16 in kDrawPic; the picture takes 0 for anything but 0 to 3.
+        ega_palette = args[3].to_sint16();
+        if (ega_palette < 0 || ega_palette >= 4) {
+            ega_palette = 0;
+        }
     }
     gfx(machine).paint().kernel_draw_picture(picture, animation, blackout, mirrored, add_to, ega_palette);
     return machine.acc();
@@ -480,6 +484,41 @@ Reg k_draw_status(Machine& machine, std::span<Reg> args) {
 
 Reg k_draw_menu_bar(Machine& machine, std::span<Reg> args) {
     gfx(machine).menu().kernel_draw_menu_bar(args[0].is_null());
+    return machine.acc();
+}
+
+Reg k_menu_select(Machine& machine, std::span<Reg> args) {
+    const bool pause_sound = args.size() <= 1 || !args[1].is_null();
+    return gfx(machine).menu().kernel_select(args[0], pause_sound);
+}
+
+Reg k_draw_control(Machine& machine, std::span<Reg> args) {
+    const Reg control = args[0];
+    // Mostly no result; text codes would leave rectangles in the accumulator.
+    machine.set_acc(null_reg);
+    const std::string name = machine.segments().object_name(control);
+    // The "Change Directory" button is disabled: the save folder is fixed.
+    if (name == "changeDirI" || name == "changeDirItem") {
+        const SelectorCache& s = machine.selector();
+        const auto state =
+            static_cast<unsigned>(static_cast<std::uint16_t>(machine.read_selector_value(control, s.state)));
+        machine.write_selector_value(control, s.state,
+                                     static_cast<int>((state | control_style_disabled) & ~control_style_enabled));
+    }
+    gfx(machine).controls().draw_control(control, false);
+    return machine.acc();
+}
+
+Reg k_hilite_control(Machine& machine, std::span<Reg> args) {
+    gfx(machine).controls().draw_control(args[0], true);
+    return machine.acc();
+}
+
+Reg k_edit_control(Machine& machine, std::span<Reg> args) {
+    const Reg control = args[0];
+    if (!control.is_null() && machine.read_selector_value(control, machine.selector().type) == control_type_textedit) {
+        gfx(machine).controls().kernel_textedit_change(control, args[1]);
+    }
     return machine.acc();
 }
 

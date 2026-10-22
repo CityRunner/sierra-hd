@@ -42,7 +42,7 @@ RUN --mount=type=secret,id=extra_ca,mode=0444 set -eux; \
     fi; \
     apt-get ${apt_opts} update; \
     apt-get ${apt_opts} install -y --no-install-recommends \
-        ca-certificates curl xz-utils git make binutils pkg-config \
+        ca-certificates curl xz-utils git make binutils pkg-config ccache \
         cmake ninja-build python3 python3-jsonschema \
         libstdc++-14-dev libgcc-14-dev libc6-dev \
         xvfb xauth \
