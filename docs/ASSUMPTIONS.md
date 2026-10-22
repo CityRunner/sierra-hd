@@ -1436,6 +1436,83 @@ scripts' bytecode (after the script patches), not from runs:
   left to the playthrough of milestone 9; their stacks are covered by
   golden hashes.
 
+## Milestone 6a: vocabulary and Said matching (2026-10-22)
+
+- **The parser is compared directly, not only through the kernel calls.**
+  Both engines write, with the trace line of every kParse call, the input,
+  the outcome (parsed, grammar failed, unknown word, no words), the words
+  the grammar got (class and group, after the room's synonyms and the
+  pronouns), the parse tree the Said specs are matched against (ScummVM's
+  `_parserNodes`) or the unknown word, and the event's type and claimed
+  flag; with every kSaid call, the spec's bytes, how it matched (or why it
+  was not matched) and the claimed flag it leaves
+  (`docs/formats/replay-and-trace.md`, "Parser files"). The reference
+  hooks `kparse.cpp` (patch 0003); sci-vm reports through
+  `RunOptions::on_parser`, and the scenario gate compares the files as a
+  fifth item (`tools/vm-trace/compare-parser.py`). **Decided.**
+- **The corpus is generated from the vocabulary.** `sci-vm-trace
+  --vocabulary` lists vocab.000, 901 and the scripts' synonyms as sci-text
+  reads them; `tools/vm-trace/make-parser-scenarios.py` turns that into
+  seven replays (`tests/scenarios/README.md`, "The parser corpus"):
+  - two for the sentence forms: pronouns (before any noun, after a noun,
+    after a failed parse), the room's synonyms, several sentences in one
+    line, punctuation, capitals, long input, empty input, unknown words,
+    numbers and broken grammar;
+  - five that type every word: imperative verbs alone and with an object,
+    nouns after look at or a verb, adjectives, prepositions and articles
+    with a noun, adverbs, indicative verbs, conjunctions, pronouns after a
+    noun, the wildcard words, and one typed form per suffix;
+  - in five rooms with their own Said specs and synonyms: Laura's room
+    (44), the back upstairs hallway (43), the front downstairs hallway
+    (37), the kitchen (35) and outdoors, the back garden (4), reached
+    along the routes of earlier recordings.
+  **Decided.**
+- **Coverage** (the parser files of the seven runs): all 1295 words of
+  vocab.000 are typed at least once. 1289 are recognized; the other six
+  cannot be, in either engine: the Said wildcards `!*` and `*` (the
+  tokenizer drops the punctuation) and the four words stored with a dash
+  or an apostrophe (`good-looking`, `manor-house`, `o'neil`, `run-down`:
+  the lookup removes dashes and the tokenizer drops apostrophes before
+  looking a word up, so the stored spelling never matches; typing them
+  gives an unknown word). 1287 words are in at least one command the
+  grammar accepts (all but the number word `10` and `noword`). By class
+  (all typed): 770 nouns (768 recognized), 218 imperative verbs, 122
+  adjectives (120), 51 adverbs, 37 prepositions, 34 noun-verbs, 21
+  indicative verbs, 11 pronouns, 6 articles, 11 conjunctions and linking
+  words (and, or, with, about, ...), 5 noun-indicative verbs, 4
+  preposition-verbs and others (back, front, open, gold), 3 wildcards
+  (`any`, `anyword`, `*`) and `!*`, `noword`. The seven runs make 1421
+  kParse calls (1362 parsed, 24 rejected by the grammar, 32 with an
+  unknown word, 3 without words) and 227944 kSaid calls (397 full and
+  3911 partial matches, 218407 without a match, 5229 skipped), all equal
+  in both engines, as are their traces, screens, maps and actor
+  positions.
+- **Timing of the commands.** Each command is typed at once (a `text`
+  event), closed with Enter 40 ticks plus a tick per character later, then
+  a second Enter 20 ticks later for a second message (the kitchen's
+  description has two; an Enter with nothing on screen does nothing), and
+  the next command follows 20 ticks after that. Commands after which Laura
+  walks first (opening the suitcase) wait 300 ticks. Commands with quit,
+  restart, save or restore are closed with Escape, since Enter would take
+  the question's default button. The parser files show that every command
+  reached kParse as typed, except where the game itself changes the
+  input: the input line takes only what fits its width, so the long lines
+  are cut. **Decided.**
+- **Laura's room before tick 24000.** At about tick 24400 Lillian comes
+  in, then Ethel, and their conversation's messages close on any key, so
+  they would take the commands typed then. The scenarios in that room
+  stop before; the others run to just under tick 40000. **Decided.**
+- **The `text` replay event skips all white space before the text**, as
+  the reference reads it (`sscanf` with `"%15s %n"`); sci-vm skipped one
+  space. A text cannot start with a space; no earlier recording had one.
+  **Decided.**
+- **No parser difference was found.** sci-text and sci-vm gave the
+  reference's results for every command of the corpus and of the earlier
+  scenarios (which are now compared with the parser files as well). A
+  unit test pins what the corpus established (stored dashes and
+  apostrophes, bytes above 127, tabs). The only fix is in the replay
+  reader above.
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with
