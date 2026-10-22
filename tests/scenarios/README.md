@@ -18,3 +18,4 @@ All use seed 0.
 | `mouse-obstacles.txt` | 8500 | Mouse walks into furniture and round it, turns mid-walk, rooms 44, 45 and 43. |
 | `stairs.txt` | 8200 | Both grand staircases of rooms 47 and 37, down and up, turned mid-flight. |
 | `lillian-walk.txt` | 17400 | Lillian comes in while Laura is in her way; Laura walks into her and round her. |
+| `attic.txt` | 9400 | Up to the attic stairway (room 74) and into Fifi's room: both of the room's picture stacks, 174 with EGA palette 1 then 74 over it, and 174 with palette 0 then 74 (kDrawPic with add-to and a palette). |

@@ -15,12 +15,19 @@
 //
 // The recorded hashes are made with the repository's hints (hints/).
 //
-// One line per picture: "pic <n> <kind> <hash>" for each kind. Overlays
-// are added once the scripts tell which rooms draw them (milestone 4).
+// One line per picture: "pic <n> <kind> <hash>" for each kind. Then the
+// picture stacks the game's scripts draw (a picture with overlays drawn
+// over it by kDrawPic with add-to; docs/ASSUMPTIONS.md, "Milestone 5: the
+// picture stacks"): "stack <stack> <kind> <hash>", where <stack> is the
+// base picture, then each overlay, joined by "+", each with ".mirrored"
+// and ".palette<n>" for its kDrawPic options as the analysis cache names
+// its entries ("174.palette1+74"). The HD frames of a stack come from the
+// analysis cache's variant of the stack, as the program draws them.
 
 #include "game_folder.hpp"
 #include "picture.hpp"
 #include "sci/core/sha256.hpp"
+#include "sci/pic/picture_maps.hpp"
 #include "sci/platform/analysis_cache.hpp"
 #include "sci/platform/picture_hints.hpp"
 #include "sci/platform/thread_executor.hpp"
@@ -41,6 +48,8 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace {
 
@@ -50,6 +59,18 @@ constexpr std::array hd_scales{1, 2, 5, 10};
 
 std::string hash(std::span<const std::uint8_t> bytes) {
     return sci::core::to_hex(sci::core::sha256(bytes));
+}
+
+// The lines of one background: the HD frames at each N, the original frame.
+std::string frame_hashes(std::string_view prefix, const sci::vector::Scene& visual, const sci::pic::PictureMaps& maps,
+                         sci::core::Executor& executor) {
+    std::string lines;
+    for (const int scale : hd_scales) {
+        const auto frame = sci::render::render_hd(visual, scale, executor);
+        lines += std::format("{} hd{} {}\n", prefix, scale, hash(frame.pixels));
+    }
+    lines += std::format("{} original1 {}\n", prefix, hash(sci::render::render_original(maps, 1)));
+    return lines;
 }
 
 std::string picture_hashes(const sci::resource::ResourceManager& manager, std::uint16_t number,
@@ -74,13 +95,79 @@ std::string picture_hashes(const sci::resource::ResourceManager& manager, std::u
         visual =
             sci::vector::build_scene(drawn->maps, drawn->trace, sci::vector::Plane::Visual, hints.pointers()).scene;
     }
-    std::string lines;
-    for (const int scale : hd_scales) {
-        const auto frame = sci::render::render_hd(visual, scale, executor);
-        lines += std::format("pic {} hd{} {}\n", number, scale, hash(frame.pixels));
+    return frame_hashes(std::format("pic {}", number), visual, drawn->maps, executor);
+}
+
+using sci::platform::PictureOverlay;
+using sci::platform::SceneVariant;
+
+// The picture stacks the scripts draw, with the options they draw them with
+// (docs/ASSUMPTIONS.md, "Milestone 5: the picture stacks").
+std::vector<SceneVariant> script_stacks() {
+    return {
+        // Room 74, its two local procedures: 174 with palette 0 or 1, then
+        // 74 over it with palette 0 (script 074 at 002d and 0125).
+        SceneVariant{.picture = 174, .overlays = {PictureOverlay{.picture = 74}}},
+        SceneVariant{.picture = 174, .ega_palette = 1, .overlays = {PictureOverlay{.picture = 74}}},
+        // Game::replay after restoring a game saved in room 74 (script 994 at
+        // 01e5): the room's curPic 74, then global 57 (174) over it, both
+        // with global 61's palette, 0 or 1.
+        SceneVariant{.picture = 74, .overlays = {PictureOverlay{.picture = 174}}},
+        SceneVariant{.picture = 74, .ega_palette = 1, .overlays = {PictureOverlay{.picture = 174, .ega_palette = 1}}},
+        // Room 290: 282, then local 0 over it, 182 or 382 (script 290 at 01c1).
+        SceneVariant{.picture = 282, .overlays = {PictureOverlay{.picture = 182}}},
+        SceneVariant{.picture = 282, .overlays = {PictureOverlay{.picture = 382}}},
+        // Room 353: 42, then 162 over it (script 353 at 005b).
+        SceneVariant{.picture = 42, .overlays = {PictureOverlay{.picture = 162}}},
+    };
+}
+
+std::string picture_name(std::uint16_t number, bool mirrored, std::uint8_t ega_palette) {
+    std::string name = std::to_string(number);
+    if (mirrored) {
+        name += ".mirrored";
     }
-    lines += std::format("pic {} original1 {}\n", number, hash(sci::render::render_original(drawn->maps, 1)));
-    return lines;
+    if (ega_palette != 0) {
+        name += std::format(".palette{}", ega_palette);
+    }
+    return name;
+}
+
+// "174.palette1+74": the base picture, then the overlays.
+std::string stack_name(const SceneVariant& stack) {
+    std::string name = picture_name(stack.picture, stack.mirrored, stack.ega_palette);
+    for (const PictureOverlay& overlay : stack.overlays) {
+        name += "+" + picture_name(overlay.picture, overlay.mirrored, overlay.ega_palette);
+    }
+    return name;
+}
+
+std::string stack_hashes(const sci::resource::ResourceManager& manager, const SceneVariant& stack,
+                         const std::optional<std::filesystem::path>& hint_directory, sci::core::Executor& executor,
+                         sci::platform::AnalysisCache* cache) {
+    const std::string prefix = std::format("stack {}", stack_name(stack));
+    const auto drawn = sci::platform::draw_variant(manager, stack);
+    if (!drawn) {
+        std::println(stderr, "{}: {}", prefix, drawn.error().message);
+        return prefix + " error\n";
+    }
+    sci::vector::Scene visual;
+    if (cache != nullptr) {
+        const auto cached = cache->scene(stack);
+        if (!cached) {
+            std::println(stderr, "{}: {}", prefix, cached.error().message);
+            return prefix + " error\n";
+        }
+        visual = **cached;
+    } else {
+        auto analysed = sci::platform::analyse(manager, hint_directory, stack);
+        if (!analysed) {
+            std::println(stderr, "{}: {}", prefix, analysed.error().message);
+            return prefix + " error\n";
+        }
+        visual = std::move(*analysed);
+    }
+    return frame_hashes(prefix, visual, drawn->maps, executor);
 }
 
 // Analyses the missing entries as the program's first launch does.
@@ -154,6 +241,9 @@ int main(int argc, char** argv) {
         std::println(stderr, "visual scenes from the cache: {} us per picture",
                      std::chrono::duration_cast<std::chrono::microseconds>(in_cache).count() /
                          static_cast<std::int64_t>(pictures.size()));
+    }
+    for (const SceneVariant& stack : script_stacks()) {
+        hashes += stack_hashes(*manager, stack, hint_directory, executor, cache ? &*cache : nullptr);
     }
     const std::filesystem::path path = args[2];
     if (!check) {

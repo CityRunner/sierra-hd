@@ -1,0 +1,69 @@
+sierra-hd replay 1
+# Up to the attic (room 74), with seed 0 and stop tick 9400 (milestone 5:
+# the picture stacks of room 74, see docs/ASSUMPTIONS.md "Milestone 5: the
+# picture stacks").
+# Passes the copy protection (seed 0) and answers "Yes" to "Have you
+# previously attended?", which starts Act I in Laura's bedroom (room 44;
+# playable from about tick 3300). Left clicks walk Laura to 10 pixels above
+# the point clicked or close the message on screen.
+# Path: bedroom 44 (two clicks to the west door) -> back upstairs hallway
+# 43 (south) -> front upstairs hallway 47: round the corner of the wall to
+# the doorway on the right and up into it -> attic stairway 74, entered from
+# a room other than 64: picture 174 with EGA palette 1, then 74 over it
+# (procedure B); up the stairway and right into Fifi's room: 174 with
+# palette 0, then 74 over it (procedure A); a few steps in the room.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 key 13
+# Room 44: to the west door; room 43: close the description, south.
+3400 move 105 143
+3402 down 105 143 0
+3406 up 105 143 0
+3700 move 0 157
+3702 down 0 157 0
+3706 up 0 157 0
+4000 down 160 100 0
+4004 up 160 100 0
+4060 move 160 199
+4062 down 160 199 0
+4066 up 160 199 0
+# Room 47: close the description; down-left of the wall's corner, right
+# along the landing, then straight up the passage to the doorway (control
+# colour 4 while facing up).
+4330 down 160 100 0
+4334 up 160 100 0
+4400 move 200 145
+4402 down 200 145 0
+4406 up 200 145 0
+4900 move 255 145
+4902 down 255 145 0
+4906 up 255 145 0
+5400 move 255 112
+5402 down 255 112 0
+5406 up 255 112 0
+# Room 74 (about tick 5460): close the description, up the stairway, right
+# through the passage into Fifi's room (about tick 7550), close the
+# description, a few steps in the room.
+6700 down 160 100 0
+6704 up 160 100 0
+6800 move 42 124
+6802 down 42 124 0
+6806 up 42 124 0
+7500 move 150 124
+7502 down 150 124 0
+7506 up 150 124 0
+8800 down 160 100 0
+8804 up 160 100 0
+8900 move 180 150
+8902 down 180 150 0
+8906 up 180 150 0
