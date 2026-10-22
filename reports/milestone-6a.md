@@ -1,6 +1,6 @@
 # Milestone 6a: vocabulary and Said matching
 
-Status: **awaiting approval**.
+Status: **approved** (2026-10-22), as is.
 
 Exit criterion (spec section 12): a recorded set of typed commands gives the
 same results as ScummVM.

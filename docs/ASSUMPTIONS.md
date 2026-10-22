@@ -1513,6 +1513,11 @@ scripts' bytecode (after the script patches), not from runs:
   apostrophes, bytes above 127, tabs). The only fix is in the replay
   reader above.
 
+## Milestone 6a approval (2026-10-22)
+
+- The gate is approved as is and merged: the Linux and Windows matrix is
+  green; macOS is optional.
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with
