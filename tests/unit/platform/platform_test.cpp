@@ -22,16 +22,26 @@ SCI_TEST(config_reads_its_keys) {
     SCI_CHECK(parsed->config.mode == GraphicsMode::Original);
     SCI_CHECK(parsed->config.scale == 5);
     SCI_CHECK(parsed->config.mt32_rom.empty());
+    SCI_CHECK(!parsed->config.priority_snap); // Off by default.
     SCI_CHECK(parsed->warnings.size() == 1);
+}
+
+SCI_TEST(config_reads_priority_snap) {
+    const auto on = parse_config("[sierra-hd]\nformat = 1\npriority_snap = on\n");
+    SCI_CHECK(on.has_value() && on->config.priority_snap);
+    const auto off = parse_config("[sierra-hd]\nformat = 1\npriority_snap = off ; comment\n");
+    SCI_CHECK(off.has_value() && !off->config.priority_snap);
+    SCI_CHECK(!parse_config("[sierra-hd]\nformat = 1\npriority_snap = yes\n").has_value());
 }
 
 SCI_TEST(config_round_trips) {
     sci::platform::Config config;
     config.game_folder = "/home/player/laura bow";
     config.scale = 0;
+    config.priority_snap = true;
     const auto parsed = parse_config(sci::platform::format_config(config));
     SCI_CHECK(parsed.has_value() && parsed->config.game_folder == config.game_folder && parsed->config.scale == 0 &&
-              parsed->config.mode == GraphicsMode::Hd && parsed->warnings.empty());
+              parsed->config.mode == GraphicsMode::Hd && parsed->config.priority_snap && parsed->warnings.empty());
 }
 
 SCI_TEST(config_rejects_what_it_cannot_read) {

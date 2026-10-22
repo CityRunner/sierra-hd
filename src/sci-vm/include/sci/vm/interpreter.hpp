@@ -3,12 +3,15 @@
 // Runs the game in the deterministic mode of milestone 4: virtual time, a
 // seeded random source, input from a replay, and every kernel call traced
 // as the reference ScummVM traces it (docs/formats/replay-and-trace.md).
+// Milestone 5 adds the cast of every kAnimate call and the 1x priority and
+// control maps, compared with the reference's as well.
 
 #pragma once
 
 #include "sci/resource/resource_manager.hpp"
 #include "sci/vm/events.hpp"
 #include "sci/vm/files.hpp"
+#include "sci/vm/reg.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -20,6 +23,30 @@
 #include <vector>
 
 namespace sci::vm {
+
+// One cast entry of a kAnimate call: the values GfxAnimate drew it with
+// (loop and cel corrected, priority from its y unless fixed, the signal as
+// written back at the end of the call).
+struct CastEntry {
+    Reg object;
+    std::int16_t x = 0;
+    std::int16_t y = 0;
+    std::int16_t z = 0;
+    std::int16_t priority = 0;
+    int view = 0;
+    std::int16_t loop = 0;
+    std::int16_t cel = 0;
+    std::uint16_t signal = 0;
+};
+
+// The 1x maps at a tick, each 320 x 200: the screen the player sees (EGA
+// colours) and the priority and control maps the logic reads.
+struct ScreenMaps {
+    std::uint32_t tick = 0;
+    std::span<const std::uint8_t> shown;
+    std::span<const std::uint8_t> priority;
+    std::span<const std::uint8_t> control;
+};
 
 struct RunOptions {
     std::uint32_t seed = 0;
@@ -35,9 +62,13 @@ struct RunOptions {
     bool trace_callers = false;
     // The files the game may open; none can be opened without a store.
     FileStore* files = nullptr;
-    // Called whenever virtual time passes, with the game tick and the
-    // screen the player sees (320 x 200 EGA colours), once graphics are up.
-    std::function<void(std::uint32_t, std::span<const std::uint8_t>)> on_tick;
+    // Called whenever virtual time passes, with the game tick and the maps,
+    // once graphics are up.
+    std::function<void(const ScreenMaps&)> on_tick;
+    // Called after the trace line of every kAnimate call, with the number
+    // and tick of that line and the cast in drawing order (empty when the
+    // call drew nothing).
+    std::function<void(std::uint32_t call, std::uint32_t tick, std::span<const CastEntry>)> on_animate;
 };
 
 struct RunResult {

@@ -35,7 +35,8 @@ Tests that need the game files run locally, never in CI:
 
 Each file in `scenarios/` is a hand-written replay, timed in game ticks.
 Both interpreters run it with the same seed and a stop tick, and their
-kernel-call traces and the screens they show must match.
+kernel-call traces, the screens they show, the 1x priority and control maps
+and the actor positions of every kAnimate call (milestone 5) must match.
 `scenarios/scenarios.txt` lists the runs (file, stop tick, seed), and
 
     SIERRA_HD_MOUNTS=/path/to/game:/game docker/run.sh tools/vm-trace/run-all-scenarios.sh
@@ -93,6 +94,27 @@ runs them all (`tools/vm-trace/run-scenario.sh` runs one).
 - `boot-and-bedroom.txt` (seed 7, stop tick 5000): the copy protection
   with seed 7, whose fingerprint is Dr. Feels (clicked), "Yes", then
   "look", a click and "look at the bed" in the bedroom.
+
+The walks of milestone 5 (hero positions, priorities and collisions,
+frame by frame; each file's header describes the route):
+
+- `walls-keyboard.txt` (seed 0, stop tick 9300): keys only, in the
+  bedroom (44) and Ethel's room (45): into the walls and along them,
+  against the furniture, the four diagonals, quick walk-stop-walk presses,
+  behind the bookcases of room 45, out of the west door into 43 and back.
+- `mouse-obstacles.txt` (seed 0, stop tick 8500): clicks only: into the
+  sofa and the bed of room 44 and round them, clicks that turn Laura
+  mid-walk, past the four-poster bed and along the bookcases of 45 (Ethel
+  sits in her chair), out into 43, its corners with the plants, back
+  into 44.
+- `stairs.txt` (seed 0, stop tick 8200): from 44 by mouse through 43 to
+  the landing of 47, down the right staircase into 37, back up with the
+  arrow keys (turned mid-flight), along the landing, down the left
+  staircase and straight back up.
+- `lillian-walk.txt` (seed 0, stop tick 17400): Act I in the bedroom;
+  Laura stands in Lillian's way when Lillian comes in, Lillian runs into
+  her and goes round her to the sofa; then Laura walks into her, round
+  her and out into 45.
 
 Every run, of the reference and of `sci-vm-trace`, gives a stop tick:
 

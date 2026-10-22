@@ -139,11 +139,13 @@ Reg k_graph_restore_box(Machine& machine, std::span<Reg> args) {
 }
 
 Reg k_graph_fill_box_background(Machine& machine, std::span<Reg> args) {
+    const OwnerScope owner(gfx(machine).screen(), gfx(machine).paint().primitive_owner());
     gfx(machine).paint().erase_rect(graph_rect(args));
     return machine.acc();
 }
 
 Reg k_graph_fill_box_foreground(Machine& machine, std::span<Reg> args) {
+    const OwnerScope owner(gfx(machine).screen(), gfx(machine).paint().primitive_owner());
     gfx(machine).paint().paint_rect(graph_rect(args));
     return machine.acc();
 }
@@ -154,6 +156,7 @@ Reg k_graph_fill_box_any(Machine& machine, std::span<Reg> args) {
     const int color = adjust_graph_color(args[5].to_sint16());
     const int priority = machine.kernel_argument(6).to_sint16();
     const int control = machine.kernel_argument(7).to_sint16();
+    const OwnerScope owner(gfx(machine).screen(), gfx(machine).paint().primitive_owner());
     gfx(machine).paint().fill_rect(graph_rect(args), static_cast<std::int16_t>(color_mask),
                                    static_cast<std::uint8_t>(color), static_cast<std::uint8_t>(priority),
                                    static_cast<std::uint8_t>(control));

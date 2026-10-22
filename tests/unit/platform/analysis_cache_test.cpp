@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "sci/core/sha256.hpp"
 #include "sci/platform/analysis_cache.hpp"
+#include "sci/vector/build_scene.hpp"
 #include "sci/vector/scene_io.hpp"
 #include "sci_test.hpp"
 
@@ -14,6 +16,7 @@ using sci::platform::decode_entry;
 using sci::platform::encode_entry;
 using sci::platform::entry_file_name;
 using sci::platform::entry_key;
+using sci::platform::PictureOverlay;
 using sci::platform::SceneVariant;
 using sci::vector::Plane;
 
@@ -64,4 +67,58 @@ SCI_TEST(entry_file_names_tell_the_variants_apart) {
     SCI_CHECK(
         entry_file_name(SceneVariant{.picture = 5, .plane = Plane::Priority, .mirrored = true, .ega_palette = 2}) ==
         "pic.005.priority.mirrored.palette2.scene");
+}
+
+SCI_TEST(overlays_are_variants_of_their_own) {
+    const std::array<std::uint8_t, 3> hint{1, 2, 3};
+    const SceneVariant base{.picture = 174};
+    const SceneVariant stack{.picture = 174, .overlays = {PictureOverlay{.picture = 74}}};
+    const std::vector<std::vector<std::uint8_t>> overlay_hints{{9}};
+    const std::set<Sha256Digest> keys{
+        entry_key(digest(1), hint, base),
+        entry_key(digest(1), hint, stack),
+        entry_key(digest(1), hint, stack, overlay_hints),
+        entry_key(digest(1), hint, SceneVariant{.picture = 174, .overlays = {PictureOverlay{.picture = 75}}}),
+        entry_key(digest(1), hint,
+                  SceneVariant{.picture = 174, .overlays = {PictureOverlay{.picture = 74, .mirrored = true}}}),
+        entry_key(digest(1), hint,
+                  SceneVariant{.picture = 174, .overlays = {PictureOverlay{.picture = 74, .ega_palette = 1}}}),
+        entry_key(
+            digest(1), hint,
+            SceneVariant{.picture = 174, .overlays = {PictureOverlay{.picture = 74}, PictureOverlay{.picture = 74}}}),
+    };
+    SCI_CHECK(keys.size() == 7);
+    SCI_CHECK(entry_file_name(stack) == "pic.174.visual.over.074.scene");
+    SCI_CHECK(entry_file_name(SceneVariant{.picture = 1,
+                                           .mirrored = true,
+                                           .overlays = {PictureOverlay{.picture = 2, .ega_palette = 3},
+                                                        PictureOverlay{.picture = 3, .mirrored = true}}}) ==
+              "pic.001.visual.mirrored.over.002.palette3.over.003.mirrored.scene");
+}
+
+SCI_TEST(keys_without_overlays_are_those_of_the_first_format) {
+    // The key as the first cache format computed it.
+    const std::array<std::uint8_t, 3> hint{1, 2, 3};
+    sci::core::Sha256 hash;
+    hash.update(digest(4));
+    const auto add = [&](std::uint32_t value) {
+        const std::array<std::uint8_t, 4> bytes{
+            static_cast<std::uint8_t>(value & 0xFFU),
+            static_cast<std::uint8_t>((value >> 8U) & 0xFFU),
+            static_cast<std::uint8_t>((value >> 16U) & 0xFFU),
+            static_cast<std::uint8_t>(value >> 24U),
+        };
+        hash.update(bytes);
+    };
+    add(sci::vector::analyser_version);
+    add(sci::vector::scene_format_version);
+    add(3);
+    hash.update(hint);
+    add(44); // Picture, priority plane, mirrored, palette 2.
+    add(1);
+    add(1);
+    add(2);
+    SCI_CHECK(entry_key(digest(4), hint,
+                        SceneVariant{.picture = 44, .plane = Plane::Priority, .mirrored = true, .ega_palette = 2}) ==
+              hash.finish());
 }

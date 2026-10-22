@@ -55,6 +55,10 @@ where the window is larger.
 the scale. It is written when you quit. Delete it to be asked for the game
 folder again.
 
+In HD mode, characters pass behind the foreground along its smooth edges.
+With `priority_snap = on` in that file, they are hidden in whole original
+pixels instead, exactly as in the original game.
+
 The `hints` folder holds the scene-analysis hints for the HD mode. Keep it
 next to the program; without it, HD pictures are drawn without them.
 

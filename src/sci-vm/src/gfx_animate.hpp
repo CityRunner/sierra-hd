@@ -79,12 +79,18 @@ public:
 
     void dispose_last_cast() { last_cast_.clear(); }
 
+    // The cast of the last kAnimate call in drawing order, with the values
+    // it was drawn with; empty if that call drew nothing (for the actor
+    // positions of the deterministic runs).
+    [[nodiscard]] const std::vector<AnimateEntry>& drawn_cast() const { return drawn_cast_; }
+
 private:
     bool invoke(Reg list);
     void make_sorted_list(Reg list);
     void fill(int& old_pic_not_valid);
     void update();
     void draw_cels();
+    void draw_sprite(const AnimateEntry& it);
     void update_screen(int old_pic_not_valid);
     void restore_and_delete();
     void add_to_pic_draw_cels();
@@ -93,6 +99,7 @@ private:
     Graphics* graphics_;
     std::vector<AnimateEntry> list_;
     std::vector<AnimateEntry> last_cast_;
+    std::vector<AnimateEntry> drawn_cast_;
 };
 
 } // namespace sci::vm

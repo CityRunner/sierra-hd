@@ -4,6 +4,7 @@
 
 #include "events.hpp"
 #include "files.hpp"
+#include "gfx_animate.hpp"
 #include "gfx_screen.hpp"
 #include "graphics.hpp"
 #include "machine.hpp"
@@ -12,6 +13,8 @@
 
 #include <format>
 #include <iterator>
+#include <string_view>
+#include <vector>
 
 namespace sci::vm {
 
@@ -72,13 +75,37 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
     clock.set_advance_hook([&] {
         check_stop();
         if (options.on_tick && subsystems.graphics().attached()) {
-            options.on_tick(clock.ticks(), subsystems.graphics().screen().shown());
+            Screen& screen = subsystems.graphics().screen();
+            options.on_tick(ScreenMaps{
+                .tick = clock.ticks(),
+                .shown = screen.shown(),
+                .priority = screen.priority_map(),
+                .control = screen.control_map(),
+            });
         }
     });
+    std::vector<CastEntry> cast;
     machine.set_kernel_log([&](const KernelCall& call) {
         if (options.trace) {
             const SegManager* callers = options.trace_callers ? &machine.segments() : nullptr;
             options.trace(trace_line(call, calls, clock.ticks(), callers));
+        }
+        if (options.on_animate && std::string_view(call.name) == "Animate") {
+            cast.clear();
+            for (const AnimateEntry& entry : subsystems.graphics().animate().drawn_cast()) {
+                cast.push_back(CastEntry{
+                    .object = entry.object,
+                    .x = entry.x,
+                    .y = entry.y,
+                    .z = entry.z,
+                    .priority = entry.priority,
+                    .view = entry.view,
+                    .loop = entry.loop,
+                    .cel = entry.cel,
+                    .signal = entry.signal,
+                });
+            }
+            options.on_animate(calls, clock.ticks(), cast);
         }
         ++calls;
         check_stop();

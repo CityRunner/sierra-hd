@@ -17,6 +17,9 @@ Public interface (`include/sci/vm`):
   (`docs/formats/replay-and-trace.md`), and the shown screen on request;
 - `game.hpp`: `Game` runs the game for the program, with a `GameHost` that
   waits in real time, presents the screen and gives input and the time;
+- `shown_screen.hpp`: what `ShownScreen` carries for the HD composition
+  (`docs/hd-composition.md`): owners, the picture stack, kernel lines,
+  sprite lists;
 - `files.hpp`: `FileStore`, through which the game's files are read and
   written (the VM does no I/O), and `MemoryFileStore`;
 - `scan.hpp`: the kernel functions the scripts reference;

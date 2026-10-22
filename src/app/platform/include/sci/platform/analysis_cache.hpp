@@ -11,6 +11,8 @@
 #include "sci/core/error.hpp"
 #include "sci/core/executor.hpp"
 #include "sci/core/sha256.hpp"
+#include "sci/pic/draw_trace.hpp"
+#include "sci/pic/picture_maps.hpp"
 #include "sci/resource/resource_manager.hpp"
 #include "sci/vector/scene.hpp"
 
@@ -27,22 +29,38 @@
 
 namespace sci::platform {
 
+// A picture drawn over another without clearing it (kDrawPic with add-to),
+// with its options.
+struct PictureOverlay {
+    std::uint16_t picture = 0;
+    bool mirrored = false;
+    std::uint8_t ega_palette = 0;
+
+    friend auto operator<=>(const PictureOverlay&, const PictureOverlay&) = default;
+};
+
 // What the scene of a picture depends on besides the picture itself: the
-// plane, and the options of kDrawPic that change the drawing.
+// plane, the options of kDrawPic that change the drawing, and the overlays
+// drawn over it, in order (spec section 6.8: they become layers of the
+// scene).
 struct SceneVariant {
     std::uint16_t picture = 0;
     vector::Plane plane = vector::Plane::Visual;
     bool mirrored = false;
     std::uint8_t ega_palette = 0;
+    // NOLINTNEXTLINE(readability-redundant-member-init): variants without overlays need not name them.
+    std::vector<PictureOverlay> overlays = {};
 
     friend auto operator<=>(const SceneVariant&, const SceneVariant&) = default;
 };
 
 // The key of an entry: SHA-256 over the game data's digest, the analyser
 // and scene format versions, the hint file's bytes (empty for none) and the
-// variant.
+// variant; for each overlay, its options and its hint file
+// (`overlay_hint_files`, one per overlay; missing ones count as empty).
 [[nodiscard]] core::Sha256Digest entry_key(const core::Sha256Digest& game, std::span<const std::uint8_t> hint_file,
-                                           const SceneVariant& variant);
+                                           const SceneVariant& variant,
+                                           std::span<const std::vector<std::uint8_t>> overlay_hint_files = {});
 
 // An entry file: a header with the key, then the scene (sci/vector/scene_io.hpp).
 [[nodiscard]] std::vector<std::uint8_t> encode_entry(const core::Sha256Digest& key, const vector::Scene& scene);
@@ -50,12 +68,23 @@ struct SceneVariant {
 [[nodiscard]] core::Result<vector::Scene> decode_entry(std::span<const std::uint8_t> bytes,
                                                        const core::Sha256Digest& key);
 
-// The file name of a variant's entry, for example "pic.044.visual.scene".
+// The file name of a variant's entry, for example "pic.044.visual.scene", or
+// "pic.174.visual.over.074.scene" with an overlay.
 [[nodiscard]] std::string entry_file_name(const SceneVariant& variant);
 
 // SHA-256 over every resource of the game (type, number, size, data), in
 // the manager's order: the game files' content as the resources see it.
 [[nodiscard]] core::Sha256Digest game_digest(const resource::ResourceManager& manager);
+
+// The 1x maps and the trace of a variant, drawn as kDrawPic draws the
+// stack: the base picture with its options, then each overlay over it.
+struct DrawnVariant {
+    pic::PictureMaps maps;
+    pic::DrawTrace trace;
+};
+
+[[nodiscard]] core::Result<DrawnVariant> draw_variant(const resource::ResourceManager& manager,
+                                                      const SceneVariant& variant);
 
 // Analyses one variant as path 1 draws it and the vector path builds it.
 [[nodiscard]] core::Result<vector::Scene> analyse(const resource::ResourceManager& manager,

@@ -1,0 +1,31 @@
+# hd-frames
+
+Runs the game without a window, on virtual time only, and writes the frames
+the program would present at chosen ticks: original mode and HD mode side
+by side at N (milestone 5, `docs/hd-composition.md`). The frames are
+composed by the program's own code (`sci/platform/game_frame.hpp`), and the
+run is deterministic: a replay file, a seed and virtual time.
+
+    sci-hd-frames <game folder> <output folder> --at <tick>[,<tick>...]
+                  [--replay <file>] [--seed <n>] [--scale <n>] [--snap]
+                  [--hints <directory>] [--cache <directory>]
+                  [--timing <from>-<to>] [--stop-tick <n>]
+    sci-hd-frames <game folder> <output folder> --stack <n>[+<n>...]
+                  [--scale <n>] [--snap] [--hints <directory>] [--cache <directory>]
+
+- `--at` writes `<output>/<tick>.png` once the virtual time reaches each
+  tick (60 per second): original | HD, and with `--snap` a third panel, HD
+  with `priority_snap = on`. N is 5 unless `--scale` says otherwise.
+- `--hints hints` uses the repository's hint files; `--cache <directory>`
+  keeps the analysed scenes between runs (`docs/formats/analysis-cache.md`).
+- `--timing <from>-<to>` composes the HD frame whenever the shown screen
+  changes between the two ticks, as the program presents it, and prints
+  the time taken per frame; the first frame includes rendering the HD
+  images of the picture. Measure in a release build.
+- `--stack 174+74` writes the picture stack (a picture with overlays drawn
+  over it) as the interpreter would show it with nothing else on screen,
+  through the analysis cache's variant of the stack.
+
+The run ends at the last tick asked for (or `--stop-tick`) with a quit
+event. The output is derived from the game art: write it only to
+git-ignored places such as `build/` or `reports/images/`; never commit it.

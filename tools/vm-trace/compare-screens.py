@@ -1,36 +1,43 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Compares the screens of a reference run with those of a sci-vm run.
+"""Compares the screens and maps of a reference run with those of a sci-vm run.
 
     compare-screens.py <reference folder> <sci-vm folder> [--all]
 
-Both folders hold <tick>.ppm files: the reference's from
-SIERRA_HD_SCREENS, ours from sci-vm-trace --screens. Screens of the ticks
-both runs wrote are compared pixel by pixel. Prints the first difference
-(or, with --all, every one) and exits with 1 if any screen differs or a
-tick is missing on one side.
+Both folders hold <tick>.ppm files (the screen the player sees) and
+<tick>.priority.pgm and <tick>.control.pgm files (the 1x maps the logic
+reads): the reference's from SIERRA_HD_SCREENS, ours from sci-vm-trace
+--screens. The files of the ticks both runs wrote are compared pixel by
+pixel. Prints the first difference of the screens and of the maps (or, with
+--all, every one) and exits with 1 if any differs or a file is missing on
+one side.
 """
 
 import pathlib
 import sys
 
 
-def read_ppm(path: pathlib.Path) -> tuple[int, int, bytes]:
+def read_image(path: pathlib.Path) -> tuple[int, int, int, bytes]:
+    """Width, height, bytes per pixel and pixels of a binary PPM or PGM."""
     data = path.read_bytes()
-    magic, size, depth, pixels = data.split(b"\n", 3)
-    if magic != b"P6" or depth != b"255":
-        raise ValueError(f"{path}: not an 8-bit binary PPM")
+    magic, size, _depth, pixels = data.split(b"\n", 3)
+    if magic not in (b"P6", b"P5"):
+        raise ValueError(f"{path}: not a binary PPM or PGM")
     width, height = (int(value) for value in size.split())
-    return width, height, pixels
+    return width, height, 3 if magic == b"P6" else 1, pixels
 
 
 def difference(reference: pathlib.Path, ours: pathlib.Path) -> str | None:
-    ref_width, ref_height, ref_pixels = read_ppm(reference)
-    width, height, pixels = read_ppm(ours)
-    if (ref_width, ref_height) != (width, height):
+    ref_width, ref_height, ref_step, ref_pixels = read_image(reference)
+    width, height, step, pixels = read_image(ours)
+    if (ref_width, ref_height, ref_step) != (width, height, step):
         return f"size {ref_width}x{ref_height} vs {width}x{height}"
+    if ref_pixels == pixels:
+        return None
     differing = [
-        index // 3 for index in range(0, len(pixels), 3) if pixels[index : index + 3] != ref_pixels[index : index + 3]
+        index // step
+        for index in range(0, len(pixels), step)
+        if pixels[index : index + step] != ref_pixels[index : index + step]
     ]
     if not differing:
         return None
@@ -39,15 +46,10 @@ def difference(reference: pathlib.Path, ours: pathlib.Path) -> str | None:
     return f"{len(differing)} pixels differ in x {min(xs)}..{max(xs)}, y {min(ys)}..{max(ys)}"
 
 
-def main() -> int:
-    args = [arg for arg in sys.argv[1:] if arg != "--all"]
-    if len(args) != 2:
-        print(__doc__.strip().splitlines()[2].strip(), file=sys.stderr)
-        return 2
-    show_all = "--all" in sys.argv[1:]
-    reference, ours = (pathlib.Path(arg) for arg in args)
-    ref_ticks = {path.name for path in reference.glob("*.ppm")}
-    our_ticks = {path.name for path in ours.glob("*.ppm")}
+def compare(reference: pathlib.Path, ours: pathlib.Path, patterns: tuple[str, ...], what: str, show_all: bool) -> bool:
+    """Compares the files matching `patterns`; prints a summary line for `what`."""
+    ref_ticks = {path.name for pattern in patterns for path in reference.glob(pattern)}
+    our_ticks = {path.name for pattern in patterns for path in ours.glob(pattern)}
     failed = False
     for name in sorted(ref_ticks ^ our_ticks):
         side = "sci-vm" if name in ref_ticks else "the reference"
@@ -67,8 +69,22 @@ def main() -> int:
             print(f"{name}: {message}")
     if differing:
         failed = True
-    print(f"{compared} screens compared, {differing} differ" if failed else f"screens match: {compared}")
-    return 1 if failed else 0
+    # A frame is a tick: one screen, or a priority and a control map.
+    frames = len({name.split(".")[0] for name in ref_ticks & our_ticks})
+    print(f"{compared} {what} compared, {differing} differ" if failed else f"{what} match: {frames}")
+    return not failed
+
+
+def main() -> int:
+    args = [arg for arg in sys.argv[1:] if arg != "--all"]
+    if len(args) != 2:
+        print(__doc__.strip().splitlines()[2].strip(), file=sys.stderr)
+        return 2
+    show_all = "--all" in sys.argv[1:]
+    reference, ours = (pathlib.Path(arg) for arg in args)
+    screens = compare(reference, ours, ("*.ppm",), "screens", show_all)
+    maps = compare(reference, ours, ("*.priority.pgm", "*.control.pgm"), "maps", show_all)
+    return 0 if screens and maps else 1
 
 
 if __name__ == "__main__":

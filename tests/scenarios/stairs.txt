@@ -1,0 +1,73 @@
+sierra-hd replay 1
+# Up and down both grand staircases, with seed 0 and stop tick 8200
+# (milestone 5: hero positions, priorities and collisions, frame by frame).
+# Passes the copy protection (seed 0) and answers "Yes" to "Have you
+# previously attended?", which starts Act I in Laura's bedroom (room 44;
+# playable from about tick 3300). Left clicks walk Laura to 10 pixels above
+# the point clicked or close the message on screen; on the stairs of room
+# 37 the game walks her itself (with a fixed priority) and an arrow key
+# turns her there.
+# Path: bedroom 44 (two clicks to the west door) -> back upstairs hallway
+# 43 (south) -> front upstairs hallway 47: along the landing, the railing
+# stops her, then down the right staircase -> front downstairs hallway 37:
+# the game walks her down the stairs; the up arrow takes her back up, the
+# down arrow turns her mid-flight and the up arrow again -> 47: along the
+# whole landing to the left staircase and down it -> 37: down the left
+# stairs, then straight back up with the up arrow -> 47: up the steps to
+# the middle of the landing.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 key 13
+# Room 44: to the west door; room 43: close the description, south.
+3400 move 105 143
+3402 down 105 143 0
+3406 up 105 143 0
+3700 move 0 157
+3702 down 0 157 0
+3706 up 0 157 0
+4000 down 160 100 0
+4004 up 160 100 0
+4060 move 160 199
+4062 down 160 199 0
+4066 up 160 199 0
+# Room 47: close the description; along the landing, down the right staircase.
+4330 down 160 100 0
+4334 up 160 100 0
+4400 move 215 150
+4402 down 215 150 0
+4406 up 215 150 0
+4650 move 272 148
+4652 down 272 148 0
+4656 up 272 148 0
+4900 move 290 199
+4902 down 290 199 0
+4906 up 290 199 0
+# Room 37: close the description; down, up, turn, up again.
+5140 down 160 100 0
+5144 up 160 100 0
+5500 key 18432
+5600 key 18432
+5700 key 20480
+5740 key 18432
+# Room 47: along the landing to the left staircase and down it.
+6100 move 45 148
+6102 down 45 148 0
+6106 up 45 148 0
+6800 move 44 199
+6802 down 44 199 0
+6806 up 44 199 0
+# Room 37: straight back up the left stairs; room 47: to the middle.
+7300 key 18432
+7850 move 160 125
+7852 down 160 125 0
+7856 up 160 125 0

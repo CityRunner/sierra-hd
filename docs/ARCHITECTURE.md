@@ -18,9 +18,9 @@ purpose and invariants:
 | sci-view | View, loop and cel decoding (done, milestone 2) | sci-core, sci-resource |
 | sci-text | Fonts (done, milestone 2), messages, vocabulary, Said | sci-core, sci-resource |
 | sci-audio | Sound playback, silent driver, AdLib, MT-32, mixer | sci-core, sci-resource |
-| sci-render | HD rasteriser (done, milestone 3), original mode, acceptance check, A1 checks (milestone 3b); compositor later | sci-core, sci-pic, sci-vector, sci-view |
+| sci-render | HD rasteriser (done, milestone 3), original mode, acceptance check, A1 checks (milestone 3b), composition of the game screen (milestone 5) | sci-core, sci-pic, sci-vector, sci-view |
 | sci-vm | Bytecode interpreter, objects, kernel functions, the 1x graphics they drive, the music player with a silent driver, events, virtual clock, random source (boot gate, milestone 4a) | sci-core, sci-resource, sci-pic, sci-view, sci-text |
-| sci-platform (in `src/app/platform`) | The parts of app without a window, shared with the tools: thread executor, game-folder reading, release identification, configuration file, hint loading (done, milestone 3a) | sci-core, sci-resource, sci-vector |
+| sci-platform (in `src/app/platform`) | The parts of app without a window, shared with the tools: thread executor, game-folder reading, release identification, configuration file, hint loading (done, milestone 3a), analysis cache (milestone 4b), the HD images of the picture shown and the game's frame (milestone 5) | sci-core, sci-resource, sci-pic, sci-vector, sci-render, sci-vm |
 | app (`sierra-hd`) | Window, input, presentation (the room viewer at release v0.1), saves, cache | all libraries |
 
 `tests/` holds the unit tests (`tests/unit`), the fuzz targets
@@ -48,6 +48,9 @@ program:
   against the game, and turns review decisions into hint files.
 - `vm-trace`: runs the game in sci-vm's deterministic mode, writes the
   kernel-call trace and compares it with the reference's (milestone 4).
+- `hd-frames`: runs the game without a window on virtual time and writes
+  the frames the program would show at chosen ticks, original and HD side
+  by side, and measures the composition time (milestone 5).
 
 ### Dependency rules and how they are enforced
 
@@ -190,9 +193,12 @@ structure so that each part can be checked against its source
   GfxText16, GfxCompare, GfxAnimate, GfxCursor, GfxMenu and GfxTransitions.
   The screen is the 320 x 200 visual, priority and control maps that the
   game logic reads; pictures are drawn by sci-pic. Beside them the screen
-  keeps what the player sees (what bitsShow and the transitions copied)
-  and a cover map (where anything but the picture drew), which the program
-  presents.
+  keeps, for the HD composition (`docs/hd-composition.md`), the owner map
+  (what drew each visual pixel), the priority source map, the background
+  layer under the sprites and the sprite lists; and of all this what the
+  player sees (what bitsShow and the transitions copied), which the
+  program presents. Paint keeps the picture stack shown (base and
+  overlays) and the kernel lines drawn into it.
 - The text parser (vocabulary, grammar, Said specs) lives in sci-text
   (`sci/text/parser.hpp`), free of VM types; kParse and kSaid connect it
   to the game's objects.
@@ -220,11 +226,16 @@ Two entry points run the game:
 4. runs the game (`sci::vm::Game`, milestone 4b), or with `--viewer` drives
    the room viewer of release v0.1.
 
-In the game, `GameScreen` composes the 320N x 200N frame from the shown
-screen: in HD mode, pixels the cover map leaves to the picture come from
-the HD background (`HdPictures`, rendered from the cached scene at N);
-every other pixel is an N x N block of its EGA colour (sprites, text,
-windows; the HD sprites come in milestone 5). In original mode every
+In the game, `GameFrame` (sci-platform) composes the 320N x 200N frame
+from the shown screen with sci-render's `compose` (milestone 5,
+`docs/hd-composition.md`). In HD mode the interface (text, windows, menus)
+is drawn as N x N blocks on top; under it, the background layer comes from
+the HD background where the picture drew it (`HdPictures`, rendered from
+the cached scene of the picture stack at N) and is a block elsewhere; the
+sprites are original cels scaled N x N, hidden behind the picture by the
+HD priority map (rendered from the priority scene), or by the 1x priority
+where something else set it or with `priority_snap = on`. Only the 1x
+pixels whose shown data changed are composed again. In original mode every
 pixel is an EGA block. The game's cursor becomes the window's cursor, and
 keys are translated as ScummVM translates them. The game's own files are
 kept in `files/` next to the configuration (`DirectoryFileStore`).
@@ -246,7 +257,8 @@ The vector scenes are kept in files (spec section 10.2;
 - On launch, `main.cpp` has the cache analyse the missing entries on the
   executor, behind a progress bar.
 - `Viewer` and the game mode's `HdPictures` ask `AnalysisCache::scene`
-  for a scene. The scene comes from memory or from its file, or it is analysed
+  for a scene. A picture with overlays drawn over it (a picture stack) is
+  a variant of its own (milestone 5). The scene comes from memory or from its file, or it is analysed
   then and there.
 
 The key covers the game data, the analyser version, the hint file and the

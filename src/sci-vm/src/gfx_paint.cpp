@@ -85,20 +85,21 @@ void Paint::draw_picture(int picture, bool mirrored, bool add_to, int ega_palett
         return;
     }
     const std::vector<std::uint8_t> visual_before = add_to ? screen.visual_map() : std::vector<std::uint8_t>{};
+    const std::vector<std::uint8_t> priority_before = add_to ? screen.priority_map() : std::vector<std::uint8_t>{};
     screen.visual_map() = maps_.visual;
     screen.priority_map() = maps_.priority;
     screen.control_map() = maps_.control;
     if (add_to) {
-        screen.cover_changes(visual_before);
+        screen.overlay_drawn(visual_before, priority_before);
     } else {
-        screen.uncover_picture();
+        screen.picture_drawn();
+        drawn_stack_.clear();
+        drawn_lines_.clear();
     }
     if (drawn->priority_bands) {
         ports.priority_bands_init(*drawn->priority_bands);
     }
-    if (!add_to) {
-        drawn_picture_ = Picture{.number = picture, .mirrored = mirrored, .ega_palette = ega_palette};
-    }
+    drawn_stack_.push_back(ShownPicture{.number = picture, .mirrored = mirrored, .ega_palette = ega_palette});
 }
 
 void Paint::draw_cel_and_show(int view, int loop, int cel, int left, int top, int priority, int /*palette*/) {
@@ -216,6 +217,14 @@ void Paint::bits_show(const Rect& rect) {
     r.left = static_cast<std::int16_t>(static_cast<unsigned>(r.left) & 0xFFFEU);
     r.right = static_cast<std::int16_t>((static_cast<unsigned>(r.right) + 1U) & 0xFFFEU);
     graphics_->screen().show(r);
+    if (drawn_stack_ == shown_stack_) {
+        shown_lines_ = drawn_lines_; // Kernel lines drawn into the picture shown.
+    }
+}
+
+void Paint::picture_shown() {
+    shown_stack_ = drawn_stack_;
+    shown_lines_ = drawn_lines_;
 }
 
 Reg Paint::bits_save(const Rect& rect, std::uint8_t mask) {
@@ -280,8 +289,26 @@ void Paint::kernel_graph_draw_line(GPoint start, GPoint end, int color, int prio
     const Ports& ports = graphics_->ports();
     ports.clip_line(start, end);
     ports.offset_line(start, end);
-    graphics_->screen().draw_line(start, end, static_cast<std::uint8_t>(color), static_cast<std::uint8_t>(priority),
-                                  static_cast<std::uint8_t>(control));
+    Screen& screen = graphics_->screen();
+    const bool in_picture = ports.port() == ports.pic_window();
+    const OwnerScope owner(screen, in_picture ? Owner::Line : Owner::Interface);
+    screen.draw_line(start, end, static_cast<std::uint8_t>(color), static_cast<std::uint8_t>(priority),
+                     static_cast<std::uint8_t>(control));
+    if (in_picture && (Screen::drawing_mask(static_cast<std::uint8_t>(color), 0, 0) & mask_visual) != 0) {
+        // As Screen::draw_line clips it.
+        drawn_lines_.push_back(ShownLine{
+            .x0 = std::clamp<int>(start.x, 0, Screen::width - 1),
+            .y0 = std::clamp<int>(start.y, 0, Screen::height - 1),
+            .x1 = std::clamp<int>(end.x, 0, Screen::width - 1),
+            .y1 = std::clamp<int>(end.y, 0, Screen::height - 1),
+            .color = static_cast<std::uint8_t>(color),
+        });
+    }
+}
+
+Owner Paint::primitive_owner() const {
+    const Ports& ports = graphics_->ports();
+    return ports.port() == ports.pic_window() ? Owner::Primitive : Owner::Interface;
 }
 
 void Paint::kernel_graph_frame_box(const Rect& rect, int color) {

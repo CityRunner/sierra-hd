@@ -29,6 +29,7 @@
 #include "gfx_rect.hpp"
 #include "sci/pic/picture_maps.hpp"
 #include "sci/vm/reg.hpp"
+#include "sci/vm/shown_screen.hpp"
 
 #include <cstdint>
 #include <span>
@@ -67,24 +68,27 @@ public:
     void kernel_graph_redraw_box(Rect rect);
     Reg kernel_display(const std::string& text, std::span<Reg> args);
 
-    // The last picture drawn without adding to the previous one, for the HD
-    // background; and the one shown, which a transition (or a redraw under a
-    // window) makes the drawn one.
-    struct Picture {
-        int number = -1;
-        bool mirrored = false;
-        int ega_palette = 0;
-    };
+    // Who a kernel box (kGraph FillBox) draws as: a primitive in the picture
+    // window, the interface elsewhere.
+    [[nodiscard]] Owner primitive_owner() const;
 
-    void picture_shown() { shown_picture_ = drawn_picture_; }
+    // The picture stack (the last picture drawn without adding to the
+    // previous one, then the overlays) and the kernel lines drawn into it,
+    // for the HD background; and the ones shown, which a transition (or a
+    // redraw under a window) makes the drawn ones.
+    void picture_shown();
 
-    [[nodiscard]] const Picture& shown_picture() const { return shown_picture_; }
+    [[nodiscard]] const std::vector<ShownPicture>& shown_stack() const { return shown_stack_; }
+
+    [[nodiscard]] const std::vector<ShownLine>& shown_lines() const { return shown_lines_; }
 
 private:
     Graphics* graphics_;
     pic::PictureMaps maps_; // The colour pairs carry over between pictures added to each other.
-    Picture drawn_picture_;
-    Picture shown_picture_;
+    std::vector<ShownPicture> drawn_stack_;
+    std::vector<ShownPicture> shown_stack_;
+    std::vector<ShownLine> drawn_lines_;
+    std::vector<ShownLine> shown_lines_;
 };
 
 } // namespace sci::vm

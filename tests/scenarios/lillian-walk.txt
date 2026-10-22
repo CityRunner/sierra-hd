@@ -1,0 +1,61 @@
+sierra-hd replay 1
+# Laura walks while Lillian comes into the bedroom, with seed 0 and stop
+# tick 17400 (milestone 5: two actors moving at once, actor collisions,
+# priorities, frame by frame).
+# Passes the copy protection (seed 0) and answers "Yes" to "Have you
+# previously attended?", which starts Act I in Laura's bedroom (room 44),
+# as bedroom-wait.txt does. Left clicks walk Laura to 10 pixels above the
+# point clicked; an arrow key starts her walking that way, the same key
+# again stops her (PgUp: up and to the right).
+# Room 44: a click puts her into the middle of the room, in Lillian's way;
+# a second click starts a long walk to the bottom-left that the game stops
+# when Lillian knocks (the wait cursor; input is ignored while Lillian
+# comes in). Lillian walks in from the east door, runs into Laura, goes
+# round her and sits down on the sofa. Then turns and stops (keys pressed
+# during the scene take effect afterwards), a walk up to the back wall, a
+# click that walks her down into Lillian (Lillian stops her), west into
+# her, down in front of the sofa, west along the front, north up the west
+# wall, a diagonal, and a click that takes her east above the bed into
+# Ethel's room (45), where the description stays on screen.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 key 13
+# Room 44: into Lillian's way, then a long walk the game stops.
+13800 move 240 145
+13802 down 240 145 0
+13806 up 240 145 0
+13990 move 60 180
+13992 down 60 180 0
+13996 up 60 180 0
+# During Lillian's entrance: right, right, up, up (they act once she sits).
+14800 key 19712
+14830 key 19712
+14850 key 18432
+14900 key 18432
+# Into Lillian, round her, east into 45.
+15100 move 280 140
+15102 down 280 140 0
+15106 up 280 140 0
+15500 move 150 160
+15502 down 150 160 0
+15506 up 150 160 0
+15900 key 19200
+16000 key 20480
+16150 key 19200
+16300 key 19200
+16350 key 18432
+16500 key 18432
+16600 key 18688
+16800 move 300 133
+16802 down 300 133 0
+16806 up 300 133 0

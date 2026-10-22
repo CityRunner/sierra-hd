@@ -27,8 +27,6 @@
 
 #include "game_screen.hpp"
 
-#include "sci/render/colors.hpp"
-
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -37,8 +35,6 @@
 namespace sci::app {
 
 namespace {
-
-constexpr int picture_top = 10; // The picture's first screen row.
 
 constexpr std::uint16_t key_shift_tab = 15U << 8U;
 constexpr std::uint16_t key_home = 71U << 8U;
@@ -218,91 +214,6 @@ std::optional<CursorImage> decode_cursor(std::span<const std::uint8_t> resource)
         }
     }
     return image;
-}
-
-void GameScreen::draw_pixel(const vm::ShownScreen& shown, const render::RgbaImage* background, int x, int y) {
-    const int width = screen_width * scale_;
-    const std::size_t at = (static_cast<std::size_t>(y) * screen_width) + static_cast<std::size_t>(x);
-    const std::uint8_t color = shown.visual[at];
-    const bool from_picture =
-        background != nullptr && y >= picture_top && at < shown.cover.size() && shown.cover[at] == 0;
-    const render::Rgb8 rgb = render::ega_palette[color & 0x0FU];
-    for (int dy = 0; dy < scale_; ++dy) {
-        const int row = (y * scale_) + dy;
-        for (int dx = 0; dx < scale_; ++dx) {
-            const int column = (x * scale_) + dx;
-            const std::size_t i =
-                ((static_cast<std::size_t>(row) * static_cast<std::size_t>(width)) + static_cast<std::size_t>(column)) *
-                4;
-            if (from_picture) {
-                const std::size_t j = ((static_cast<std::size_t>(row - (picture_top * scale_)) *
-                                        static_cast<std::size_t>(background->width)) +
-                                       static_cast<std::size_t>(column)) *
-                                      4;
-                std::copy_n(background->pixels.begin() + static_cast<std::ptrdiff_t>(j), 4,
-                            frame_.begin() + static_cast<std::ptrdiff_t>(i));
-            } else {
-                frame_[i] = rgb.r;
-                frame_[i + 1] = rgb.g;
-                frame_[i + 2] = rgb.b;
-                frame_[i + 3] = 0xFF;
-            }
-        }
-    }
-}
-
-void GameScreen::update(const vm::ShownScreen& shown, platform::GraphicsMode mode, int scale) {
-    const std::size_t pixels = static_cast<std::size_t>(screen_width) * screen_height;
-    if (shown.visual.size() != pixels || shown.cover.size() != pixels) {
-        return; // Nothing shown yet.
-    }
-    const render::RgbaImage* background = nullptr;
-    if (mode == platform::GraphicsMode::Hd && shown.picture >= 0) {
-        background = background_(shown.picture, shown.mirrored, shown.ega_palette, scale);
-    }
-    const bool picture_changed =
-        shown.picture != last_picture_ || shown.mirrored != last_mirrored_ || shown.ega_palette != last_ega_palette_;
-    const bool full = scale != scale_ || mode != mode_ || last_visual_.size() != pixels ||
-                      last_cover_.size() != pixels || (mode == platform::GraphicsMode::Hd && picture_changed);
-    if (scale != scale_) {
-        scale_ = scale;
-        frame_.assign(pixels * static_cast<std::size_t>(scale) * static_cast<std::size_t>(scale) * 4, 0);
-    }
-    mode_ = mode;
-    int left = screen_width;
-    int top = screen_height;
-    int right = -1;
-    int bottom = -1;
-    for (int y = 0; y < screen_height; ++y) {
-        for (int x = 0; x < screen_width; ++x) {
-            const std::size_t at = (static_cast<std::size_t>(y) * screen_width) + static_cast<std::size_t>(x);
-            if (!full && shown.visual[at] == last_visual_[at] && shown.cover[at] == last_cover_[at]) {
-                continue;
-            }
-            draw_pixel(shown, background, x, y);
-            left = std::min(left, x);
-            top = std::min(top, y);
-            right = std::max(right, x);
-            bottom = std::max(bottom, y);
-        }
-    }
-    if (right >= 0) {
-        dirty_.push_back(Rect{
-            .x = left * scale_,
-            .y = top * scale_,
-            .width = (right - left + 1) * scale_,
-            .height = (bottom - top + 1) * scale_,
-        });
-    }
-    last_visual_.assign(shown.visual.begin(), shown.visual.end());
-    last_cover_.assign(shown.cover.begin(), shown.cover.end());
-    last_picture_ = shown.picture;
-    last_mirrored_ = shown.mirrored;
-    last_ega_palette_ = shown.ega_palette;
-}
-
-std::vector<Rect> GameScreen::take_dirty() {
-    return std::exchange(dirty_, {});
 }
 
 } // namespace sci::app

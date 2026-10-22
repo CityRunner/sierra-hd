@@ -7,8 +7,12 @@
 //
 //   sci-vm-trace <game folder> <trace file> [--replay <file>] [--seed <n>]
 //                [--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]
-//                [--screens <folder>] [--screen-every <ticks>]
+//                [--screens <folder>] [--screen-every <ticks>] [--actors <file>]
 //   sci-vm-trace --scan-kernel <game folder> <output file>
+//
+// --screens writes the screen the player sees and the 1x priority and
+// control maps; --actors writes the cast of every kAnimate call
+// (docs/formats/replay-and-trace.md).
 //
 // --scan-kernel lists the kernel functions the scripts reference (every
 // callk in their code, after the script patches): one line per function,
@@ -35,6 +39,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <print>
 #include <set>
 #include <span>
@@ -61,7 +66,7 @@ std::optional<std::uint32_t> parse_number(std::string_view text) {
 int usage() {
     std::println(stderr, "usage: sci-vm-trace <game folder> <trace file> [--replay <file>] [--seed <n>] "
                          "[--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]\n"
-                         "                    [--screens <folder>] [--screen-every <ticks>]");
+                         "                    [--screens <folder>] [--screen-every <ticks>] [--actors <file>]");
     return 2;
 }
 
@@ -72,6 +77,25 @@ void write_screen(const std::filesystem::path& path, std::span<const std::uint8_
     for (const std::uint8_t colour : visual) {
         const sci::render::Rgb8 rgb = sci::render::ega_palette.at(colour & 0x0FU);
         out.put(static_cast<char>(rgb.r)).put(static_cast<char>(rgb.g)).put(static_cast<char>(rgb.b));
+    }
+}
+
+// A 1x map (priority or control, values 0 to 15) as a binary PGM (P5).
+void write_map(const std::filesystem::path& path, std::span<const std::uint8_t> map) {
+    std::ofstream out{path, std::ios::binary};
+    out << std::format("P5\n{} {}\n15\n", screen_width, screen_height);
+    for (const std::uint8_t value : map) {
+        out.put(static_cast<char>(value));
+    }
+}
+
+// One line per cast entry of a kAnimate call:
+// <tick> <call> <object> <x> <y> <z> <priority> <view> <loop> <cel> <signal>
+void write_cast(std::ostream& out, std::uint32_t call, std::uint32_t tick, std::span<const sci::vm::CastEntry> cast) {
+    for (const sci::vm::CastEntry& entry : cast) {
+        out << std::format("{} {} {:x}:{:04x} {} {} {} {} {} {} {} {:04x}\n", tick, call, entry.object.segment,
+                           entry.object.offset, entry.x, entry.y, entry.z, entry.priority, entry.view, entry.loop,
+                           entry.cel, entry.signal);
     }
 }
 
@@ -126,6 +150,7 @@ int main(int argc, char** argv) {
     sci::tools::install_stderr_log();
     sci::vm::RunOptions options;
     std::filesystem::path screens;
+    std::filesystem::path actors;
     std::uint32_t screen_every = 60;
     for (std::size_t i = 3; i < args.size(); i += 2) {
         const std::string_view flag = args[i];
@@ -163,6 +188,10 @@ int main(int argc, char** argv) {
             screens = value;
             continue;
         }
+        if (flag == "--actors") {
+            actors = value;
+            continue;
+        }
         const auto parsed = parse_number(value);
         if (!parsed) {
             return usage();
@@ -193,11 +222,25 @@ int main(int argc, char** argv) {
     if (!screens.empty()) {
         std::error_code created;
         std::filesystem::create_directories(screens, created);
-        options.on_tick = [&](std::uint32_t tick, std::span<const std::uint8_t> shown) {
+        options.on_tick = [&](const sci::vm::ScreenMaps& maps) {
+            const std::uint32_t tick = maps.tick;
             if (tick >= next_screen) {
-                write_screen(screens / std::format("{:06}.ppm", tick), shown);
+                write_screen(screens / std::format("{:06}.ppm", tick), maps.shown);
+                write_map(screens / std::format("{:06}.priority.pgm", tick), maps.priority);
+                write_map(screens / std::format("{:06}.control.pgm", tick), maps.control);
                 next_screen = tick - (tick % screen_every) + screen_every;
             }
+        };
+    }
+    std::ofstream actor_file;
+    if (!actors.empty()) {
+        actor_file.open(actors);
+        if (!actor_file) {
+            std::println(stderr, "cannot write {}", actors.string());
+            return 1;
+        }
+        options.on_animate = [&](std::uint32_t call, std::uint32_t tick, std::span<const sci::vm::CastEntry> cast) {
+            write_cast(actor_file, call, tick, cast);
         };
     }
     // The game folder's files for kFOpen to read, under lower-case names,
@@ -219,10 +262,11 @@ int main(int argc, char** argv) {
     options.files = &files;
     const sci::vm::RunResult result = sci::vm::run_deterministic(*manager, options);
     trace.close();
+    actor_file.close();
     std::println(stderr, "{} kernel calls in {} ticks", result.calls, result.ticks);
     if (result.fault) {
         std::println(stderr, "stopped: {}", *result.fault);
         return 1;
     }
-    return trace ? 0 : 1;
+    return trace && (actors.empty() || actor_file) ? 0 : 1;
 }
