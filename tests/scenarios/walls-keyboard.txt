@@ -1,0 +1,92 @@
+sierra-hd replay 1
+# Keyboard walks against walls and furniture and through doorways, with
+# seed 0 and stop tick 9300 (milestone 5: hero positions, priorities and
+# collisions, frame by frame).
+# Passes the copy protection (seed 0) and answers "Yes" to "Have you
+# previously attended?", which starts Act I in Laura's bedroom (room 44;
+# playable from about tick 3300). After that only keys: an arrow key (or
+# Home, PgUp, End, PgDn for the diagonals) starts Laura walking that way,
+# the same key again stops her, another key turns her. The control lines
+# stop her where the floor ends; Escape closes the room description shown
+# on the first visit of a room.
+# Room 44: up into the back wall (she does not move), west along it, down
+# the slanted west wall, east along the front until the small table stops
+# her, the four diagonals, then walk-stop-walk: quick presses that stop,
+# restart and turn her every few ticks. North, east until the foot of the
+# bed stops her, north again and east through the doorway into Ethel's
+# room (45).
+# Room 45: down into the wall beside the door (no move), east along the
+# room until the dollhouse table stops her, back west, down past the bed
+# where the wall turns her, east and west along the front behind the
+# bookcases and the sofa (priority bands), north and west back into 44.
+# Room 44: turns and stops in quick succession, a diagonal down past the
+# armchair, west along the front to the west door, where the game fixes
+# her priority, a step north and out into the back upstairs hallway (43);
+# east at once back into 44, and a diagonal into the room.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 key 13
+# Room 44: the back wall, then west, down the west wall and east to the table.
+3400 key 18432
+3500 key 19200
+3800 key 20480
+4100 key 19712
+# The diagonals, then walk-stop-walk.
+4400 key 18176
+4500 key 20736
+4600 key 18688
+4700 key 20224
+4800 key 19712
+4810 key 19712
+4830 key 19712
+4840 key 18432
+4850 key 20480
+4870 key 19200
+4890 key 19712
+# North, east to the foot of the bed, north, east into 45.
+5000 key 18432
+5130 key 19712
+5450 key 18432
+5540 key 19712
+# Room 45: close the description; along the room and the front.
+5760 key 27
+5800 key 20480
+5950 key 19712
+6500 key 19200
+6620 key 20480
+6800 key 19712
+6950 key 19200
+# North and west back into 44.
+7500 key 18432
+7595 key 19200
+# Room 44: stops and turns, then down and west to the west door.
+7900 key 19200
+7906 key 19200
+7912 key 19200
+7930 key 20480
+7935 key 19200
+7950 key 18688
+7958 key 20224
+7980 key 19200
+8100 key 19200
+8105 key 19712
+8110 key 19200
+8200 key 20736
+8300 key 19200
+# A step north, west into 43; close the description, east back into 44.
+8700 key 18432
+8735 key 19200
+8840 key 27
+8900 key 19712
+9000 key 19712
+9150 key 20736

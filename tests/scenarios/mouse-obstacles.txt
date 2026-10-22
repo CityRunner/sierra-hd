@@ -1,0 +1,111 @@
+sierra-hd replay 1
+# Mouse walks into furniture and walls, around them and through doorways,
+# with seed 0 and stop tick 8500 (milestone 5: hero positions, priorities
+# and collisions, frame by frame).
+# Passes the copy protection (seed 0) and answers "Yes" to "Have you
+# previously attended?", which starts Act I in Laura's bedroom (room 44;
+# playable from about tick 3300). After that only left clicks: a click
+# walks Laura in a straight line to 10 pixels above the point clicked, or
+# closes the message on screen. The game has no path finding: she stops
+# at the first obstacle, so the way round takes several clicks, and a
+# click while she walks turns her at once.
+# Room 44: towards the bottom-left corner (the sofa stops her), across the
+# front to the right (the foot of the bed stops her), three clicks in quick
+# succession that turn her mid-walk, west along the front (the end of the
+# sofa stops her), north, then east above the bed through the doorway into
+# Ethel's room (45).
+# Room 45: close the description; up to the foot of the four-poster bed
+# (she passes behind the bed post), down to the bookcases at the front, east
+# along them, then west, where the corner of the wall stops her short of
+# the door; a step east and straight west through the door into 44, while
+# Ethel sits in her chair.
+# Room 44: diagonally down across the room past the bed and the sofa, then
+# to the west door, where the game fixes her priority, and out into the
+# back upstairs hallway (43).
+# Room 43: close the description; towards the plant in the bottom-left
+# corner, turned mid-walk towards the bottom right, then up the hallway
+# and east back into 44.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 key 13
+# Room 44: into the sofa, the bed, turns mid-walk, round the bed into 45.
+3500 move 60 185
+3502 down 60 185 0
+3506 up 60 185 0
+3900 move 300 185
+3902 down 300 185 0
+3906 up 300 185 0
+4200 move 250 150
+4202 down 250 150 0
+4206 up 250 150 0
+4240 move 150 130
+4242 down 150 130 0
+4246 up 150 130 0
+4280 move 230 180
+4282 down 230 180 0
+4286 up 230 180 0
+4500 move 190 178
+4502 down 190 178 0
+4506 up 190 178 0
+4650 move 195 132
+4652 down 195 132 0
+4656 up 195 132 0
+4850 move 310 134
+4852 down 310 134 0
+4856 up 310 134 0
+# Room 45: close the description; the bed, the bookcases, back into 44.
+5100 down 160 100 0
+5104 up 160 100 0
+5160 move 130 107
+5162 down 130 107 0
+5166 up 130 107 0
+5450 move 165 190
+5452 down 165 190 0
+5456 up 165 190 0
+5700 move 260 160
+5702 down 260 160 0
+5706 up 260 160 0
+5900 move 0 134
+5902 down 0 134 0
+5906 up 0 134 0
+6400 move 60 134
+6402 down 60 134 0
+6406 up 60 134 0
+6550 move 0 134
+6552 down 0 134 0
+6556 up 0 134 0
+# Room 44: across the room and out of the west door into 43.
+6800 move 60 185
+6802 down 60 185 0
+6806 up 60 185 0
+7200 move 30 160
+7202 down 30 160 0
+7206 up 30 160 0
+7400 move 0 157
+7402 down 0 157 0
+7406 up 0 157 0
+# Room 43: close the description; the corners, then east back into 44.
+7550 down 160 100 0
+7554 up 160 100 0
+7600 move 60 185
+7602 down 60 185 0
+7606 up 60 185 0
+7900 move 265 185
+7902 down 265 185 0
+7906 up 265 185 0
+7960 move 150 130
+7962 down 150 130 0
+7966 up 150 130 0
+8150 move 310 153
+8152 down 310 153 0
+8156 up 310 153 0

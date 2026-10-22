@@ -1,6 +1,6 @@
 # The scenario recordings of the VM gates: replay file, stop tick, seed.
 # tools/vm-trace/run-all-scenarios.sh runs each in both engines and compares
-# the kernel-call traces and the screens.
+# the kernel-call traces, the screens, the 1x maps and the actor positions.
 boot.txt 3600 0
 boot.txt 3600 7
 boot.txt 3600 12345
@@ -20,3 +20,7 @@ mouse-walk.txt 12600 0
 grounds.txt 12600 0
 inventory-and-actions.txt 24000 0
 boot-and-bedroom.txt 5000 7
+walls-keyboard.txt 9300 0
+mouse-obstacles.txt 8500 0
+stairs.txt 8200 0
+lillian-walk.txt 17400 0

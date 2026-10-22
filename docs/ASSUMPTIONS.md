@@ -1290,6 +1290,34 @@ Scope:
   as before.
 - Addendum A2 is scheduled as milestone SU, after milestone 6.
 
+## Milestone 5: frame-by-frame comparison (2026-10-22)
+
+- **Actor positions are compared after every kAnimate call** (spec
+  section 12: "scripted walks give the same hero positions as ScummVM,
+  frame by frame"). A frame is one kAnimate call; both engines write each
+  cast entry in drawing order with the values GfxAnimate drew it with
+  (position, z, priority, view, loop, cel) and the signal it leaves, keyed
+  by the call's number and tick in the trace
+  (`docs/formats/replay-and-trace.md`). Every cast member is compared, not
+  only the hero, so other actors moving at the same time are covered.
+  **Decided.**
+- **The 1x maps compared are the ones the logic reads**: GfxScreen's
+  priority and control maps, written at the ticks of the screen dumps.
+  At those ticks no kAnimate is running, so moving actors have been
+  restored away and the maps hold the picture, the added views and the
+  stopped actors. **Decided.**
+- **The reference hooks GfxAnimate::kernelAnimate** (patch 0003): the
+  cast is recorded after `restoreAndDelete()` and written with the
+  kAnimate trace line. sci-vm exposes the same data through
+  `RunOptions::on_animate` and the maps through `RunOptions::on_tick`,
+  without changing the trace. **Decided.**
+- **Scripted walks** (`tests/scenarios/`): four replays for movement,
+  priorities and collisions (keyboard and mouse walks against walls and
+  furniture, both staircases, Lillian moving while Laura walks), besides
+  the earlier walks, which are now compared frame by frame as well.
+  The game has no path finding (DoAvoider is not referenced), so the
+  mouse walks go round obstacles with several clicks. **Decided.**
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with
