@@ -162,7 +162,25 @@ reference's results for every command, so the parser code needed no change.
 
 ## CI minutes
 
-CI_MINUTES
+**The gate is green** (run 39859009686, commit `33fae59`). It ran style
+and static analysis; Linux x86-64 and ARM64 in release, ASan+UBSan and
+TSan; the fuzzers; and Windows x64 and ARM64. macOS is optional and was not
+run.
+
+Measured with `scripts/ci-minutes.py --branch milestone-6a`:
+
+| Platform | Jobs | Minutes | Included minutes | List price |
+|---|---|---|---|---|
+| Linux x86-64 | 6 | 69 | 69 | $0.41 |
+| Linux ARM64 | 3 | 20 | 20 | $0.10 |
+| Windows x64 | 1 | 7 | 14 | $0.07 |
+| Windows ARM64 | 1 | 4 | 8 | $0.04 |
+| **Total** (1 run) | | **100** | **111** | **$0.62** |
+
+- **Cost:** none. The repository is public, so standard runners are free.
+- **Runs:** one, the gate run of this pull request. Every check passed
+  locally first, so nothing had to be rerun. This report's own commit
+  changes only `reports/` and starts no run.
 
 ## Deviations from the spec
 
