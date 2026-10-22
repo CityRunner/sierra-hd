@@ -8,11 +8,19 @@
 //   sci-vm-trace <game folder> <trace file> [--replay <file>] [--seed <n>]
 //                [--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]
 //                [--screens <folder>] [--screen-every <ticks>] [--actors <file>]
+//                [--parser <file>]
 //   sci-vm-trace --scan-kernel <game folder> <output file>
+//   sci-vm-trace --vocabulary <game folder> <output file>
 //
 // --screens writes the screen the player sees and the 1x priority and
-// control maps; --actors writes the cast of every kAnimate call
-// (docs/formats/replay-and-trace.md).
+// control maps; --actors writes the cast of every kAnimate call; --parser
+// what kParse and kSaid made of the input (docs/formats/replay-and-trace.md).
+//
+// --vocabulary lists the parser's vocabulary as sci-text reads it: every
+// word of vocab.000 ("word <spelling> <class> <group>", in hex), the
+// suffixes of vocab.901 ("suffix <typed> <stored> <class mask> <class>") and
+// the synonyms each script sets with kSetSynonyms ("synonym <script>
+// <group> <replacement>").
 //
 // --scan-kernel lists the kernel functions the scripts reference (every
 // callk in their code, after the script patches): one line per function,
@@ -24,6 +32,8 @@
 #include "game_folder.hpp"
 #include "sci/core/log.hpp"
 #include "sci/render/colors.hpp"
+#include "sci/resource/resource_id.hpp"
+#include "sci/text/parser.hpp"
 #include "sci/vm/interpreter.hpp"
 #include "sci/vm/scan.hpp"
 
@@ -46,6 +56,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -66,7 +77,10 @@ std::optional<std::uint32_t> parse_number(std::string_view text) {
 int usage() {
     std::println(stderr, "usage: sci-vm-trace <game folder> <trace file> [--replay <file>] [--seed <n>] "
                          "[--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]\n"
-                         "                    [--screens <folder>] [--screen-every <ticks>] [--actors <file>]");
+                         "                    [--screens <folder>] [--screen-every <ticks>] [--actors <file>] "
+                         "[--parser <file>]\n"
+                         "       sci-vm-trace --scan-kernel <game folder> <output file>\n"
+                         "       sci-vm-trace --vocabulary <game folder> <output file>");
     return 2;
 }
 
@@ -135,6 +149,81 @@ int scan_kernel(const char* folder, const char* output) {
     return out ? 0 : 1;
 }
 
+// The synonyms block of an SCI0 script (block type 3): pairs of the group a
+// word has and the group it is replaced with, as kSetSynonyms reads them.
+std::vector<std::pair<std::uint16_t, std::uint16_t>> script_synonyms(std::span<const std::uint8_t> script) {
+    constexpr std::uint16_t synonyms_block = 3;
+    const auto u16 = [&](std::size_t at) {
+        return static_cast<std::uint16_t>(static_cast<unsigned>(script[at]) |
+                                          (static_cast<unsigned>(script[at + 1]) << 8U));
+    };
+    std::vector<std::pair<std::uint16_t, std::uint16_t>> synonyms;
+    std::size_t at = 0;
+    while (at + 4 <= script.size()) {
+        const std::uint16_t type = u16(at);
+        const std::uint16_t size = u16(at + 2);
+        if (type == 0 || size < 4 || at + size > script.size()) {
+            break;
+        }
+        if (type == synonyms_block) {
+            for (std::size_t pair = at + 4; pair + 4 <= at + size; pair += 4) {
+                synonyms.emplace_back(u16(pair), u16(pair + 2));
+            }
+        }
+        at += size;
+    }
+    return synonyms;
+}
+
+int dump_vocabulary(const char* folder, const char* output) {
+    const auto manager = sci::tools::open_game(folder);
+    if (!manager) {
+        return 1;
+    }
+    const auto vocab = [&](std::uint16_t number) -> std::optional<std::vector<std::uint8_t>> {
+        auto resource =
+            manager->load(sci::resource::ResourceId{.type = sci::resource::ResourceType::Vocab, .number = number});
+        if (!resource) {
+            return std::nullopt;
+        }
+        return std::move(resource->data);
+    };
+    const auto words = vocab(0);
+    const auto suffixes = vocab(901);
+    const auto branches = vocab(900);
+    const auto span_of = [](const std::optional<std::vector<std::uint8_t>>& data) {
+        return data ? std::optional<std::span<const std::uint8_t>>(*data) : std::nullopt;
+    };
+    const sci::text::Vocabulary vocabulary(span_of(words), span_of(suffixes), span_of(branches));
+    for (const std::string& warning : vocabulary.warnings()) {
+        std::println(stderr, "{}", warning);
+    }
+    std::ofstream out{std::filesystem::path(output)};
+    for (const auto& [spelling, meanings] : vocabulary.words()) {
+        for (const sci::text::ResultWord& meaning : meanings) {
+            out << std::format("word {} {:03x} {:03x}\n", spelling, meaning.word_class, meaning.group);
+        }
+    }
+    for (const sci::text::Suffix& suffix : vocabulary.suffixes()) {
+        out << std::format("suffix {} {} {:03x} {:03x}\n", suffix.alt_suffix, suffix.word_suffix, suffix.class_mask,
+                           suffix.result_class);
+    }
+    for (const sci::resource::ResourceId& id : manager->list()) {
+        if (id.type != sci::resource::ResourceType::Script) {
+            continue;
+        }
+        const auto script = manager->load(id);
+        if (!script) {
+            continue;
+        }
+        for (const auto& [group, replacement] : script_synonyms(script->data)) {
+            out << std::format("synonym {} {:03x} {:03x}\n", id.number, group, replacement);
+        }
+    }
+    std::println(stderr, "{} words, {} suffixes", vocabulary.words().size(), vocabulary.suffixes().size());
+    return out ? 0 : 1;
+}
+
 } // namespace
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): argument parsing.
@@ -144,6 +233,10 @@ int main(int argc, char** argv) {
         sci::tools::install_stderr_log();
         return scan_kernel(args[2], args[3]);
     }
+    if (args.size() == 4 && std::string_view(args[1]) == "--vocabulary") {
+        sci::tools::install_stderr_log();
+        return dump_vocabulary(args[2], args[3]);
+    }
     if (args.size() < 3) {
         return usage();
     }
@@ -151,6 +244,7 @@ int main(int argc, char** argv) {
     sci::vm::RunOptions options;
     std::filesystem::path screens;
     std::filesystem::path actors;
+    std::filesystem::path parser;
     std::uint32_t screen_every = 60;
     for (std::size_t i = 3; i < args.size(); i += 2) {
         const std::string_view flag = args[i];
@@ -190,6 +284,10 @@ int main(int argc, char** argv) {
         }
         if (flag == "--actors") {
             actors = value;
+            continue;
+        }
+        if (flag == "--parser") {
+            parser = value;
             continue;
         }
         const auto parsed = parse_number(value);
@@ -243,6 +341,17 @@ int main(int argc, char** argv) {
             write_cast(actor_file, call, tick, cast);
         };
     }
+    std::ofstream parser_file;
+    if (!parser.empty()) {
+        parser_file.open(parser);
+        if (!parser_file) {
+            std::println(stderr, "cannot write {}", parser.string());
+            return 1;
+        }
+        options.on_parser = [&](std::uint32_t call, std::uint32_t tick, std::string_view line) {
+            parser_file << tick << ' ' << call << ' ' << line << '\n';
+        };
+    }
     // The game folder's files for kFOpen to read, under lower-case names,
     // and nothing written yet: the reference starts with an empty save folder.
     std::map<std::string, std::vector<std::uint8_t>> game_files;
@@ -263,10 +372,11 @@ int main(int argc, char** argv) {
     const sci::vm::RunResult result = sci::vm::run_deterministic(*manager, options);
     trace.close();
     actor_file.close();
+    parser_file.close();
     std::println(stderr, "{} kernel calls in {} ticks", result.calls, result.ticks);
     if (result.fault) {
         std::println(stderr, "stopped: {}", *result.fault);
         return 1;
     }
-    return trace && (actors.empty() || actor_file) ? 0 : 1;
+    return trace && (actors.empty() || actor_file) && (parser.empty() || parser_file) ? 0 : 1;
 }

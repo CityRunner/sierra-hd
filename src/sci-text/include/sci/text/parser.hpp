@@ -104,6 +104,9 @@ public:
 
     [[nodiscard]] const std::vector<std::string>& warnings() const { return warnings_; }
 
+    // The words of vocab.000 and their meanings, by spelling.
+    [[nodiscard]] const std::map<std::string, WordMeanings, std::less<>>& words() const { return words_; }
+
     [[nodiscard]] const std::vector<Suffix>& suffixes() const { return suffixes_; }
 
     [[nodiscard]] const std::vector<ParseTreeBranch>& branches() const { return branches_; }

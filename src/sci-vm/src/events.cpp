@@ -127,7 +127,10 @@ bool parse_event_line(std::string_view line, Point& position, std::vector<InputE
         .move_only = false,
     };
     if (kind == "text") {
-        if (!line.empty() && line.front() == ' ') {
+        // The text starts after the white space that follows the kind, as
+        // the reference reads it (sscanf's "%15s %n").
+        while (!line.empty() && (line.front() == ' ' || line.front() == '\t' || line.front() == '\v' ||
+                                 line.front() == '\f' || line.front() == '\r')) {
             line.remove_prefix(1);
         }
         for (const char c : line) {

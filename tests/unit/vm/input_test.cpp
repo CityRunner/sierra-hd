@@ -45,6 +45,18 @@ SCI_TEST(replay_text_types_each_character_then_enter) {
     SCI_CHECK(events[2].event.character == sci::vm::key_enter);
 }
 
+// As the reference reads it (sscanf "%15s %n"): all white space before the
+// text is skipped, the spaces inside and after it are typed.
+SCI_TEST(replay_text_starts_after_the_white_space) {
+    const auto events = parsed("sierra-hd replay 1\n600 text \t  a b \n700 text\n800 text   \n");
+    SCI_CHECK(events.size() == 7);
+    SCI_CHECK(events[0].event.character == 'a' && events[1].event.character == ' ');
+    SCI_CHECK(events[2].event.character == 'b' && events[3].event.character == ' ');
+    SCI_CHECK(events[4].event.character == sci::vm::key_enter);
+    SCI_CHECK(events[5].tick == 700 && events[5].event.character == sci::vm::key_enter);
+    SCI_CHECK(events[6].tick == 800 && events[6].event.character == sci::vm::key_enter);
+}
+
 SCI_TEST(replay_mouse_events_carry_their_position) {
     const auto events = parsed("sierra-hd replay 1\n5 move 50 60\n9 down 120 150 3\n10 up 120 150\n12 key 27\n");
     SCI_CHECK(events.size() == 4);

@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace sci::vm {
@@ -20,6 +21,16 @@ namespace sci::vm {
 class Machine;
 
 using text::Synonym;
+
+// What the last kParse and kSaid calls did, as the lines of the parser file
+// (docs/formats/replay-and-trace.md) without tick and call number. The
+// interpreter writes them with the call's trace line; they are only kept
+// while recording.
+struct ParserRecord {
+    std::string parse; // Without the event's type and claimed flag,
+    Reg parse_event;   // which are read from it when the call returns.
+    std::string said;
+};
 
 class Parser {
 public:
@@ -64,6 +75,11 @@ public:
     // Menu::kernelSelect asks (a partial match counts).
     [[nodiscard]] bool said(Machine& machine, Reg spec) const;
 
+    void set_recording(bool on) { recording_ = on; }
+
+    // The record kParse and kSaid fill, or none when not recording.
+    [[nodiscard]] ParserRecord* record() { return recording_ ? &record_ : nullptr; }
+
 private:
     void load(Machine& machine, bool foreign);
 
@@ -72,6 +88,8 @@ private:
     Reg parser_event_;
     bool parser_valid_ = false;
     std::vector<Synonym> synonyms_;
+    bool recording_ = false;
+    ParserRecord record_;
 };
 
 } // namespace sci::vm

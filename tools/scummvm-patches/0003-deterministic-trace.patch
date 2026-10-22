@@ -10,7 +10,10 @@
 # 4b) it also writes the screen the player sees there, and (milestone 5) the
 # 1x priority and control maps at the same ticks. With SIERRA_HD_ACTORS=<file>
 # (milestone 5) every kAnimate call writes its cast there: position,
-# priority, view, loop, cel and signal of each entry in drawing order. Used by
+# priority, view, loop, cel and signal of each entry in drawing order. With
+# SIERRA_HD_PARSER=<file> (milestone 6a) every kParse call writes its input,
+# words, parse tree or unknown word and the event's flags there, and every
+# kSaid call its spec and match. Used by
 # tools/vm-trace to compare sci-vm with ScummVM
 # (engines/sci/sierra_hd_trace.cpp describes the details).
 diff -ruN a/engines/sci/engine/kevent.cpp b/engines/sci/engine/kevent.cpp
@@ -105,6 +108,87 @@ diff -ruN a/engines/sci/engine/kmisc.cpp b/engines/sci/engine/kmisc.cpp
  		// SCI0 late: Year since 1920 (0 = 1920, 1 = 1921, etc)
  		// SCI01 and newer: Year since 1980 (0 = 1980, 1 = 1981, etc)
  		// Atari ST SCI0 late versions use the newer base year.
+diff -ruN a/engines/sci/engine/kparse.cpp b/engines/sci/engine/kparse.cpp
+--- a/engines/sci/engine/kparse.cpp
++++ b/engines/sci/engine/kparse.cpp
+@@ -26,6 +26,7 @@
+ #include "sci/engine/selector.h"
+ #include "sci/engine/message.h"
+ #include "sci/engine/kernel.h"
++#include "sci/sierra_hd_trace.h"
+ 
+ //#define DEBUG_PARSER
+ 
+@@ -47,15 +48,22 @@
+ 	const int debug_parser = 0;
+ #endif
+ 
+-	if (!heap_said_block.getSegment())
++	if (!heap_said_block.getSegment()) {
++		if (sierraHdDeterministic())
++			sierraHdSaid(nullptr, 0, "null", -1);
+ 		return NULL_REG;
++	}
+ 
+ 	said_block = (byte *)s->_segMan->derefBulkPtr(heap_said_block, 0);
+ 
+ 	if (!said_block) {
++		if (sierraHdDeterministic())
++			sierraHdSaid(nullptr, 0, "invalid", -1);
+ 		warning("Said on non-string, pointer %04x:%04x", PRINT_REG(heap_said_block));
+ 		return NULL_REG;
+ 	}
++	// sierra-hd: the size of the spec's block, for the parser file.
++	const int saidSize = s->_segMan->dereference(heap_said_block).maxSize;
+ 
+ #ifdef DEBUG_PARSER
+ 		debugN("Said block: ");
+@@ -63,10 +71,17 @@
+ #endif
+ 
+ 	if (voc->parser_event.isNull() || (readSelectorValue(s->_segMan, voc->parser_event, SELECTOR(claimed)))) {
++		if (sierraHdDeterministic())
++			sierraHdSaid(said_block, saidSize, "skipped", voc->parser_event.isNull() ? -1 : 1);
+ 		return NULL_REG;
+ 	}
+ 
+ 	new_lastmatch = said(said_block, debug_parser);
++	// sierra-hd: the match and the claimed flag this call leaves.
++	if (sierraHdDeterministic()) {
++		const char *outcome = new_lastmatch == SAID_NO_MATCH ? "none" : new_lastmatch == SAID_PARTIAL_MATCH ? "partial" : "full";
++		sierraHdSaid(said_block, saidSize, outcome, new_lastmatch == SAID_FULL_MATCH ? 1 : 0);
++	}
+ 	if (new_lastmatch  != SAID_NO_MATCH) { /* Build and possibly display a parse tree */
+ 
+ #ifdef DEBUG_PARSER
+@@ -98,6 +113,9 @@
+ 	ResultWordListList words;
+ 	bool res = voc->tokenizeString(words, string.c_str(), &error);
+ 	voc->parserIsValid = false; /* not valid */
++	// sierra-hd: the input and its outcome, for the parser file.
++	if (sierraHdDeterministic())
++		sierraHdParseBegin(string.c_str(), event);
+ 
+ 	if (res && !words.empty()) {
+ 		voc->synonymizeTokens(words);
+@@ -119,6 +137,8 @@
+ 		voc->replacePronouns(words);
+ 
+ 		int syntax_fail = voc->parseGNF(words);
++		if (sierraHdDeterministic())
++			sierraHdParseWords(words, syntax_fail ? nullptr : voc->_parserNodes);
+ 
+ 		if (syntax_fail) {
+ 			s->r_acc = make_reg(0, 1);
+@@ -144,6 +164,8 @@
+ 		s->r_acc = make_reg(0, 0);
+ 		writeSelectorValue(segMan, event, SELECTOR(claimed), 1);
+ 
++		if (sierraHdDeterministic())
++			sierraHdParseUnknown(error);
+ 		if (error) {
+ 			s->_segMan->strcpy_(s->_segMan->getParserPtr(), error);
+ 			debugC(kDebugLevelParser, "Word unknown: %s", error);
 diff -ruN a/engines/sci/engine/state.cpp b/engines/sci/engine/state.cpp
 --- a/engines/sci/engine/state.cpp
 +++ b/engines/sci/engine/state.cpp
@@ -405,7 +489,7 @@ diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
 diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 --- a/engines/sci/sierra_hd_trace.cpp
 +++ b/engines/sci/sierra_hd_trace.cpp
-@@ -0,0 +1,403 @@
+@@ -0,0 +1,558 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -453,6 +537,27 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 + *   with the values GfxAnimate drew with (after fill() and
 + *   restoreAndDelete()), numbers in signed decimal and the signal as four
 + *   hex digits.
++ *
++ * Milestone 6a adds:
++ *
++ * - With SIERRA_HD_PARSER=<file>, every kParse and kSaid call writes one
++ *   line there, right after its trace line:
++ *     <tick> <call> parse "<input>" ok words=<words> tree=<tree> type=<n> claimed=<n>
++ *     <tick> <call> parse "<input>" syntax words=<words> type=<n> claimed=<n>
++ *     <tick> <call> parse "<input>" unknown word="<word>" type=<n> claimed=<n>
++ *     <tick> <call> parse "<input>" empty type=<n> claimed=<n>
++ *     <tick> <call> said <spec> <outcome> claimed=<n>
++ *   The input is quoted, with \", \\ and \xHH for other bytes outside 32 to
++ *   126. The words are those parseGNF got (after synonyms and pronouns),
++ *   separated by commas, each as <class>:<group> in hex (meanings separated
++ *   by |). The tree is _parserNodes from node 0: a branch as
++ *   (<left>,<right>), a leaf as its value in hex, a word as w<value>
++ *   followed by /<right> if it has one, a missing child as -. type and
++ *   claimed are the event's selectors when the call returns. The said spec
++ *   is its bytes in hex up to the 0xff that ends it (- if it cannot be
++ *   read); the outcome is null (no spec), invalid, skipped (no event or
++ *   already claimed), none, partial or full; claimed is the flag the call
++ *   leaves on the event (- without one).
 + */
 +
 +#define FORBIDDEN_SYMBOL_ALLOW_ALL
@@ -467,6 +572,9 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +#include "common/textconsole.h"
 +#include "graphics/paletteman.h"
 +#include "graphics/surface.h"
++#include "sci/engine/kernel.h"
++#include "sci/engine/selector.h"
++#include "sci/engine/state.h"
 +#include "sci/event.h"
 +#include "sci/graphics/screen.h"
 +#include "sci/sci.h"
@@ -514,9 +622,63 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	uint32 lastElapsedRead = 0;
 +	FILE *actors = nullptr;
 +	Common::Array<CastEntry> cast;
++	FILE *parser = nullptr;
++	// The parser line of the kParse call running, without the event's
++	// selectors, and that event; the line of the last kSaid call.
++	Common::String parse;
++	reg_t parseEvent;
++	Common::String said;
 +};
 +
 +State &state();
++
++// The input as a quoted string: \" and \\, and \xHH for bytes outside 32 to 126.
++Common::String quoted(const char *text) {
++	Common::String result = "\"";
++	for (const byte *p = (const byte *)text; *p; ++p) {
++		if (*p == '"' || *p == '\\')
++			result += Common::String::format("\\%c", *p);
++		else if (*p < 32 || *p > 126)
++			result += Common::String::format("\\x%02x", *p);
++		else
++			result += (char)*p;
++	}
++	return result + "\"";
++}
++
++// A parse tree node and its children (see the top of the file).
++void appendTree(Common::String &out, const ParseTreeNode *node, int depth) {
++	if (!node) {
++		out += "-";
++		return;
++	}
++	if (depth > 100) {
++		out += "?";
++		return;
++	}
++	switch (node->type) {
++	case kParseTreeLeafNode:
++		out += Common::String::format("%x", node->value);
++		break;
++	case kParseTreeWordNode:
++		out += Common::String::format("w%x", node->value);
++		if (node->right) {
++			out += "/";
++			appendTree(out, node->right, depth + 1);
++		}
++		break;
++	case kParseTreeBranchNode:
++		out += "(";
++		appendTree(out, node->left, depth + 1);
++		out += ",";
++		appendTree(out, node->right, depth + 1);
++		out += ")";
++		break;
++	default:
++		out += Common::String::format("?%d", (int)node->type);
++		break;
++	}
++}
 +
 +uint32 numberFrom(const char *name, uint32 fallback) {
 +	const char *value = getenv(name);
@@ -612,6 +774,12 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +				if (!s.actors)
 +					error("sierra-hd: cannot write the actors file %s", actors);
 +			}
++			const char *parser = getenv("SIERRA_HD_PARSER");
++			if (parser && *parser) {
++				s.parser = fopen(parser, "w");
++				if (!s.parser)
++					error("sierra-hd: cannot write the parser file %s", parser);
++			}
 +		}
 +	}
 +	return s;
@@ -627,6 +795,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +			fflush(s.trace);
 +		if (s.actors)
 +			fflush(s.actors);
++		if (s.parser)
++			fflush(s.parser);
 +		g_sci->quitGame();
 +	}
 +	// A script that never returns to the event loop would not see the quit:
@@ -637,6 +807,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +			fclose(s.trace);
 +		if (s.actors)
 +			fclose(s.actors);
++		if (s.parser)
++			fclose(s.parser);
 +		warning("sierra-hd: the game did not stop at the limit; ending the process");
 +		exit(0);
 +	}
@@ -762,6 +934,17 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +		}
 +		s.cast.clear();
 +	}
++	if (s.parser && strcmp(name, "Parse") == 0 && !s.parse.empty()) {
++		SegManager *segMan = g_sci->getEngineState()->_segMan;
++		fprintf(s.parser, "%u %u %s type=%u claimed=%u\n", currentTick(s), s.calls, s.parse.c_str(),
++		        (unsigned)readSelectorValue(segMan, s.parseEvent, SELECTOR(type)),
++		        (unsigned)readSelectorValue(segMan, s.parseEvent, SELECTOR(claimed)));
++		s.parse.clear();
++	}
++	if (s.parser && strcmp(name, "Said") == 0 && !s.said.empty()) {
++		fprintf(s.parser, "%u %u %s\n", currentTick(s), s.calls, s.said.c_str());
++		s.said.clear();
++	}
 +	++s.calls;
 +	checkStop(s);
 +}
@@ -808,11 +991,67 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	state().cast.push_back(entry);
 +}
 +
++void sierraHdParseBegin(const char *input, reg_t event) {
++	State &s = state();
++	if (!s.parser)
++		return;
++	s.parse = "parse " + quoted(input);
++	s.parseEvent = event;
++}
++
++void sierraHdParseWords(const ResultWordListList &words, const ParseTreeNode *tree) {
++	State &s = state();
++	if (!s.parser)
++		return;
++	s.parse += tree ? " ok words=" : " syntax words=";
++	for (ResultWordListList::const_iterator i = words.begin(); i != words.end(); ++i) {
++		if (i != words.begin())
++			s.parse += ",";
++		for (ResultWordList::const_iterator j = i->begin(); j != i->end(); ++j) {
++			if (j != i->begin())
++				s.parse += "|";
++			s.parse += Common::String::format("%03x:%03x", j->_class, j->_group);
++		}
++	}
++	if (tree) {
++		s.parse += " tree=";
++		appendTree(s.parse, tree, 0);
++	}
++}
++
++void sierraHdParseUnknown(const char *word) {
++	State &s = state();
++	if (!s.parser)
++		return;
++	if (word)
++		s.parse += " unknown word=" + quoted(word);
++	else
++		s.parse += " empty";
++}
++
++void sierraHdSaid(const byte *spec, int size, const char *outcome, int claimed) {
++	State &s = state();
++	if (!s.parser)
++		return;
++	s.said = "said ";
++	if (!spec) {
++		s.said += "-";
++	} else {
++		for (int i = 0; i < size; ++i) {
++			s.said += Common::String::format("%02x", spec[i]);
++			if (spec[i] == 0xff)
++				break;
++		}
++	}
++	s.said += Common::String::format(" %s claimed=", outcome);
++	s.said += claimed < 0 ? Common::String("-") : Common::String::format("%d", claimed);
++}
++
 +} // End of namespace Sci
 diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 --- a/engines/sci/sierra_hd_trace.h
 +++ b/engines/sci/sierra_hd_trace.h
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,68 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -821,7 +1060,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 + * (at your option) any later version.
 + *
 + * The deterministic mode and kernel-call trace of milestone 4, with the
-+ * cast positions and 1x maps of milestone 5 (see sierra_hd_trace.cpp).
++ * cast positions and 1x maps of milestone 5 and the parser results of
++ * milestone 6a (see sierra_hd_trace.cpp).
 + */
 +
 +#ifndef SCI_SIERRA_HD_TRACE_H
@@ -830,6 +1070,7 @@ diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 +#include "common/scummsys.h"
 +#include "common/rect.h"
 +#include "sci/engine/vm_types.h"
++#include "sci/parser/vocabulary.h"
 +
 +namespace Sci {
 +
@@ -863,6 +1104,18 @@ diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 +// to SIERRA_HD_ACTORS with the call's trace line.
 +void sierraHdCastBegin();
 +void sierraHdCastEntry(reg_t object, int16 x, int16 y, int16 z, int16 priority, int view, int16 loop, int16 cel, uint16 signal);
++// The parser (milestone 6a), written to SIERRA_HD_PARSER with the trace
++// line of the kParse or kSaid call. kParse: the input and its event when it
++// starts, then either the words (after synonyms and pronouns) with the parse
++// tree (null when the grammar rejects them), or the unknown word (null when
++// the input had no words).
++void sierraHdParseBegin(const char *input, reg_t event);
++void sierraHdParseWords(const ResultWordListList &words, const ParseTreeNode *tree);
++void sierraHdParseUnknown(const char *word);
++// kSaid: the spec (null when it cannot be read), how it matched (null,
++// invalid, skipped, none, partial or full) and the event's claimed flag the
++// call leaves (-1 without an event).
++void sierraHdSaid(const byte *spec, int size, const char *outcome, int claimed);
 +
 +} // End of namespace Sci
 +

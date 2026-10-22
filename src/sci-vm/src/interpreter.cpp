@@ -8,6 +8,7 @@
 #include "gfx_screen.hpp"
 #include "graphics.hpp"
 #include "machine.hpp"
+#include "parser.hpp"
 #include "subsystems.hpp"
 #include "timing.hpp"
 
@@ -48,6 +49,31 @@ std::string trace_line(const KernelCall& call, std::uint32_t number, std::uint32
     return line;
 }
 
+// The parser line of a kParse or kSaid call, after its trace line (when the
+// parser records); kParse's with the event's type and claimed flag as the
+// call leaves them.
+void report_parser(Machine& machine, Parser& parser, const KernelCall& call, std::uint32_t number, std::uint32_t tick,
+                   const RunOptions& options) {
+    ParserRecord* const recorded = parser.record();
+    if (recorded == nullptr) {
+        return;
+    }
+    ParserRecord& record = *recorded;
+    const std::string_view name = call.name;
+    if (name == "Parse" && !record.parse.empty()) {
+        const SelectorCache& selectors = machine.selector();
+        const Reg event = record.parse_event;
+        options.on_parser(number, tick,
+                          std::format("{} type={} claimed={}", record.parse,
+                                      machine.read_selector(event, selectors.type).to_uint16(),
+                                      machine.read_selector(event, selectors.claimed).to_uint16()));
+        record.parse.clear();
+    } else if (name == "Said" && !record.said.empty()) {
+        options.on_parser(number, tick, record.said);
+        record.said.clear();
+    }
+}
+
 } // namespace
 
 RunResult run_deterministic(const resource::ResourceManager& resources, const RunOptions& options) {
@@ -85,6 +111,7 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
         }
     });
     std::vector<CastEntry> cast;
+    subsystems.parser().set_recording(static_cast<bool>(options.on_parser));
     machine.set_kernel_log([&](const KernelCall& call) {
         if (options.trace) {
             const SegManager* callers = options.trace_callers ? &machine.segments() : nullptr;
@@ -107,6 +134,7 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
             }
             options.on_animate(calls, clock.ticks(), cast);
         }
+        report_parser(machine, subsystems.parser(), call, calls, clock.ticks(), options);
         ++calls;
         check_stop();
     });
