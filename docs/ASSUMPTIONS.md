@@ -1340,7 +1340,9 @@ made in the implementation" lists what changed while implementing it.
   saved bits, and the traces of all scenarios still match. **Decided.**
 - **Stopped and always-update views** (drawn by kAnimate before
   `draw_cels`) are part of the background layer, drawn as 1x blocks with
-  1x occlusion, as the design says. **Decided.**
+  1x occlusion, as the design says. **Decided**, and confirmed by the
+  customer on 2026-10-22 ("keep as is"), after the side-by-side images of
+  seated actors (rooms 44 and 45).
 - **Measured** (release build, 4 cores, `sci-hd-frames --timing`, room 37
   of `grounds.txt` with Laura walking down the stairs behind the banister,
   ticks 7180-7560; room 44 of `boot-and-bedroom.txt`, ticks 3800-4300):

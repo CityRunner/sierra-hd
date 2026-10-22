@@ -210,8 +210,8 @@ None from section 2.
 ## Open questions
 
 1. **Stopped and always-update views** are part of the background layer,
-   so they are hidden with 1x occlusion, as the design says. Is that
-   acceptable, or should they also get HD occlusion?
+   so they are hidden with 1x occlusion, as the design says. **Answered**
+   (2026-10-22): keep as is.
 2. **Rooms 290 and 353** draw picture overlays too, but no scenario
    reaches them yet. Their stacks are covered by golden hashes. Should I
    add scenarios that reach them, or leave that to the playthrough of
