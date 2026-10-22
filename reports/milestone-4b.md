@@ -1,7 +1,7 @@
 # Milestone 4b: kernel coverage
 
-Status: **for review**, but the gate's CI run is blocked: the account's
-Actions minutes are used up (see "CI minutes").
+Status: **approved** (2026-10-22). The gate matrix is green; the customer's
+"go ahead for next step" after it is taken as the approval.
 
 Exit criteria (spec section 12): every kernel function the game's scripts
 reference is implemented, and scenario recordings covering the main areas
@@ -161,18 +161,16 @@ qemu-user. All 57 comparisons are identical.
 
 ## CI minutes
 
-**The gate's full matrix has not run yet: the account's Actions minutes
-are used up.**
-- On the policy's first gate run (commit `ea2f1a4`), GitHub started no
-  job. It reported "recent account payments have failed or your spending
-  limit needs to be increased".
-- The last full run before the policy (commit `d84e97c`) was green on
-  Linux x86-64 and ARM64 in all presets, Windows x64 and ARM64, the
-  fuzzers and the lint.
-- Its Linux results do not count, though: the steps hid failures (see
-  "Tests and style"), and its lint passed a real clang-tidy finding.
-- Under the policy, the milestone needs a green full matrix before
-  approval. It will run once the budget allows.
+**The gate is green** (run 39733318155, commit `e0983a4`): style and
+static analysis; Linux x86-64 and ARM64 in release, ASan+UBSan and TSan;
+the fuzzers; Windows x64 (release and ASan) and ARM64 (release). macOS is
+optional and was not run.
+
+- **The two gate runs before it** found a macOS-only build problem:
+  `std::ranges::iota` is missing from Apple's libc++. It is fixed. Two
+  further macOS gaps are recorded for when macOS is wanted.
+- **The first gate under the policy** could not start, because the
+  account's minutes were used up. It ran once the repository was public.
 
 Under the CI cost policy (`docs/ASSUMPTIONS.md`, "CI cost policy"),
 introduced during this gate, measured with
@@ -180,12 +178,18 @@ introduced during this gate, measured with
 
 | Platform | Jobs | Minutes | Included minutes | List price |
 |---|---|---|---|---|
-| Linux x86-64 | 97 | 516 | 516 | $3.10 |
-| Linux ARM64 | 58 | 208 | 208 | $1.04 |
-| Windows x64 | 3 | 17 | 34 | $0.17 |
-| Windows ARM64 | 2 | 9 | 18 | $0.09 |
-| macOS | 0 | 0 | 0 | $0 |
-| **Total** (24 runs) | | **750** | **776** | **$4.40** |
+| Linux x86-64 | 118 | 630 | 630 | $3.78 |
+| Linux ARM64 | 67 | 239 | 239 | $1.20 |
+| Windows x64 | 6 | 36 | 72 | $0.36 |
+| Windows ARM64 | 5 | 19 | 38 | $0.19 |
+| macOS | 2 | 17 | 170 | $1.05 |
+| **Total** (29 runs) | | **941** | **1,149** | **$6.58** |
+
+- **The runs of 2026-10-22** (188 minutes) ran after the repository was
+  made public. Standard runners cost nothing for public repositories, so
+  these minutes were free.
+- **The two macOS jobs** (17 minutes) ran in the gate runs before macOS
+  became optional again.
 
 - Most of these minutes came before the policy: every push ran 8 Linux
   jobs, and 20 of the 4b push runs were cancelled part-way by the next

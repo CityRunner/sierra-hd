@@ -1282,6 +1282,14 @@ Scope:
   - A scene loads from its file in 4 ms, against 64 ms to analyse it.
   - The entries take 83 MB.
 
+## Milestone 4b approval (2026-10-22)
+
+- The gate matrix is green (Linux and Windows; macOS optional). The
+  customer accepted every point of the report and said to go ahead with
+  the next step: milestone 5. The pull request is merged by the customer,
+  as before.
+- Addendum A2 is scheduled as milestone SU, after milestone 6.
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with
