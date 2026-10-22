@@ -32,7 +32,8 @@ comparison" and "Milestone 5: the HD composition". The HD design is in
    - `stairs`: both staircases and the landing railing.
    - `lillian-walk`: Lillian walks into Laura and round her, and Laura
      walks into Lillian.
-   ATTIC_LINE
+   - `attic`: up into the attic stairway (room 74), which draws a picture
+     overlay, with the two palettes the room uses.
 3. **The HD composition** (spec sections 6.6, 6.8 and 6.9).
    - **Owner map.** The interpreter records what drew each 1x pixel:
      picture, addToPic, sprite, kernel line or box, or interface. It also
@@ -56,7 +57,23 @@ comparison" and "Milestone 5: the HD composition". The HD design is in
    - `tools/hd-frames` renders deterministic offscreen frames (original,
      HD and snapped) at chosen ticks of a replay, with timing.
    - `--stack` renders a picture stack without a run.
-5. GOLDEN_LINE
+5. **Golden hashes of the picture stacks the scripts draw** (spec section
+   5.3: "with overlays where a room uses them"). A disassembly of all 52
+   kDrawPic calls finds five that add to the picture. Their argument is
+   always a constant, so the full list of stacks is known. The evidence is
+   in `docs/ASSUMPTIONS.md`, "Milestone 5: the picture stacks":
+   - room 74 (the attic stairway): `174+74` and `174.palette1+74`;
+   - room 290: `282+182` and `282+382`, picked by the fight script's state;
+   - room 353: `42+162`, a stack the earlier list missed;
+   - restoring a game saved in room 74: `74+174` and
+     `74.palette1+174.palette1`. This needs saves (milestone 8); the hashes
+     are recorded now.
+
+   `tools/golden-hashes` hashes each stack in the same five kinds as the
+   single pictures: HD at N = 1, 2, 5 and 10, and original at N = 1. It
+   draws them on the same path as the analysis cache. The 35 new lines of
+   `tests/golden/pictures.txt` match on x86-64 and on ARM64 under qemu, and
+   the 440 earlier lines are unchanged.
 
 ## Results
 
@@ -65,7 +82,34 @@ comparison" and "Milestone 5: the HD composition". The HD design is in
 Every scenario of `tests/scenarios/scenarios.txt` was run in the reference
 and in sci-vm and compared on all four counts. Everything matched:
 
-SCENARIO_TABLE
+| Scenario | Stop tick | Seed | Kernel calls | Screens | Map frames | Actor frames |
+|---|---|---|---|---|---|---|
+| boot | 3,600 | 0 | 12,022 | 61 | 61 | 606 |
+| boot | 3,600 | 7 | 12,022 | 61 | 61 | 606 |
+| boot | 3,600 | 12345 | 12,022 | 61 | 61 | 606 |
+| boot | 18,000 | 0 | 57,622 | 301 | 301 | 3,006 |
+| mouse | 3,600 | 0 | 13,864 | 31 | 31 | 157 |
+| text | 3,600 | 0 | 34,624 | 61 | 61 | 111 |
+| copy-protection | 6,000 | 0 | 57,406 | 101 | 101 | 161 |
+| menu-keys | 3,600 | 0 | 29,745 | 61 | 61 | 224 |
+| intro | 30,000 | 0 | 227,303 | 501 | 501 | 4,759 |
+| mansion-walk | 11,000 | 0 | 81,728 | 184 | 184 | 1,723 |
+| menus | 9,030 | 0 | 67,952 | 151 | 151 | 1,107 |
+| bedroom-wait | 20,000 | 0 | 119,178 | 334 | 334 | 3,318 |
+| parser-look | 7,700 | 0 | 74,717 | 129 | 129 | 920 |
+| parser-verbs | 7,700 | 0 | 73,547 | 129 | 129 | 930 |
+| parser-errors | 7,700 | 0 | 73,875 | 129 | 129 | 920 |
+| mouse-walk | 12,600 | 0 | 109,769 | 211 | 211 | 1,400 |
+| grounds | 12,600 | 0 | 110,283 | 211 | 211 | 1,532 |
+| inventory-and-actions | 24,000 | 0 | 226,195 | 401 | 401 | 2,394 |
+| boot-and-bedroom | 5,000 | 7 | 39,019 | 84 | 84 | 730 |
+| **walls-keyboard** (new) | 9,300 | 0 | 61,779 | 156 | 156 | 1,522 |
+| **mouse-obstacles** (new) | 8,500 | 0 | 56,963 | 142 | 142 | 1,383 |
+| **stairs** (new) | 8,200 | 0 | 59,428 | 137 | 137 | 1,326 |
+| **lillian-walk** (new) | 17,400 | 0 | 107,135 | 291 | 291 | 2,865 |
+| **attic** (new) | 9,400 | 0 | 76,231 | 157 | 157 | 1,119 |
+
+24 runs: every trace, screen, map and actor frame identical.
 
 - **No port bug turned up.** The interpreter's behaviour is unchanged, and
   the HD composition changes no kernel call: traces and screens are the
@@ -126,7 +170,9 @@ Release build, 4 cores, `sci-hd-frames --timing`:
   - a golden hash of a synthetic composed frame, the same on x86-64 and
     ARM64.
 
-CI_SECTION
+## CI minutes
+
+GATE_PENDING
 
 ## Deviations from the spec
 
@@ -146,4 +192,7 @@ None from section 2.
 1. **Stopped and always-update views** are part of the background layer,
    so they are hidden with 1x occlusion, as the design says. Is that
    acceptable, or should they also get HD occlusion?
-2. **Room 290's overlay:** see "Golden hashes" above.
+2. **Rooms 290 and 353** draw picture overlays too, but no scenario
+   reaches them yet. Their stacks are covered by golden hashes. Should I
+   add scenarios that reach them, or leave that to the playthrough of
+   milestone 9?
