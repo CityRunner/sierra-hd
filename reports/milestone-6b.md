@@ -185,7 +185,26 @@ listed in its `README.txt`. Each shows original and HD side by side:
 
 ## CI minutes
 
-CI_MINUTES
+**The gate is green** (run 39932177249, commit `19b676c`). It ran style
+and static analysis; Linux x86-64 and ARM64 in release, ASan+UBSan and
+TSan; the fuzzers; and Windows x64 and ARM64. macOS is optional and was not
+run.
+
+Measured with `scripts/ci-minutes.py --branch milestone-6b`:
+
+| Platform | Jobs | Minutes | Included minutes | List price |
+|---|---|---|---|---|
+| Linux x86-64 | 6 | 51 | 51 | $0.31 |
+| Linux ARM64 | 3 | 20 | 20 | $0.10 |
+| Windows x64 | 1 | 6 | 12 | $0.06 |
+| Windows ARM64 | 1 | 4 | 8 | $0.04 |
+| **Total** (1 run) | | **81** | **91** | **$0.51** |
+
+- **Cost:** none. The repository is public, so standard runners are free.
+- **Runs:** one, the gate run of this pull request. Every check passed
+  locally first, so nothing had to be rerun. The commit that records the
+  rule of small tasks, and this report's own commit, change only
+  documentation and start no run.
 
 ## Deviations from the spec
 
