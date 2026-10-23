@@ -31,20 +31,20 @@ struct Write {
 // a two-operator FM voice, then key-on at F-number 0x241, block 4
 // (577 * 49716 / 2^16 = 437.7 Hz).
 constexpr std::array note_on = {
-    Write{0x01, 0x20}, // waveform select enable (OPL2 test register)
-    Write{0x20, 0x01}, // modulator: multiple 1
-    Write{0x40, 0x10}, // modulator: total level 16 (-12 dB)
-    Write{0x60, 0xf0}, // modulator: attack 15, decay 0
-    Write{0x80, 0x77}, // modulator: sustain level 7, release 7
-    Write{0x23, 0x01}, // carrier: multiple 1
-    Write{0x43, 0x00}, // carrier: total level 0
-    Write{0x63, 0xf0}, // carrier: attack 15, decay 0
-    Write{0x83, 0x77}, // carrier: sustain level 7, release 7
-    Write{0xc0, 0x08}, // channel 0: feedback 4, FM
-    Write{0xa0, 0x41}, // channel 0: F-number low byte
-    Write{0xb0, 0x32}, // channel 0: key on, block 4, F-number high bits 2
+    Write{.reg = 0x01, .value = 0x20}, // waveform select enable (OPL2 test register)
+    Write{.reg = 0x20, .value = 0x01}, // modulator: multiple 1
+    Write{.reg = 0x40, .value = 0x10}, // modulator: total level 16 (-12 dB)
+    Write{.reg = 0x60, .value = 0xf0}, // modulator: attack 15, decay 0
+    Write{.reg = 0x80, .value = 0x77}, // modulator: sustain level 7, release 7
+    Write{.reg = 0x23, .value = 0x01}, // carrier: multiple 1
+    Write{.reg = 0x43, .value = 0x00}, // carrier: total level 0
+    Write{.reg = 0x63, .value = 0xf0}, // carrier: attack 15, decay 0
+    Write{.reg = 0x83, .value = 0x77}, // carrier: sustain level 7, release 7
+    Write{.reg = 0xc0, .value = 0x08}, // channel 0: feedback 4, FM
+    Write{.reg = 0xa0, .value = 0x41}, // channel 0: F-number low byte
+    Write{.reg = 0xb0, .value = 0x32}, // channel 0: key on, block 4, F-number high bits 2
 };
-constexpr Write note_off{0xb0, 0x12};
+constexpr Write note_off{.reg = 0xb0, .value = 0x12};
 
 // About 82 ms at the native rate.
 constexpr std::size_t frame_count = 4096;
