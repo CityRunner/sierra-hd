@@ -3,7 +3,10 @@
 # The interface check of milestone 6b (sci-hd-frames --check-interface) on
 # the scenarios of tests/scenarios/scenarios.txt: every frame whose
 # interface changed, in original and HD mode, at every N of the range.
-# Prints one line per scenario; exits with 1 if any check failed.
+# Prints one line per scenario; exits with 1 if any check failed. Each
+# scenario's line is kept in build/interface-check/<scenario>-<N range>.ok
+# when it passes, and a later run prints it again instead of checking the
+# scenario again (delete the files to check everything anew).
 #
 #   tools/hd-frames/check-interface.sh [--jobs <n>] [--scales <from>-<to>] [scenario file...]
 #
@@ -31,6 +34,11 @@ cache="${SIERRA_HD_ANALYSIS_CACHE:-${root}/build/analysis-cache}"
 # A replay and its stop tick: runs the check, prints its summary line.
 check_one() {
     local file="$1" stop_tick="$2" seed="$3" result
+    local done_file="${root}/build/interface-check/${file%.txt}-${stop_tick}-${seed}-${scales}.ok"
+    if [[ -f "${done_file}" ]]; then
+        cat "${done_file}"
+        return 0
+    fi
     result="$("${frames}" /game "${root}/build/interface-check" --check-interface "${scales}" \
         --stop-tick "${stop_tick}" --seed "${seed}" --replay "${root}/tests/scenarios/${file}" \
         --hints "${root}/hints" --cache "${cache}" 2>&1)"
@@ -38,7 +46,7 @@ check_one() {
     local summary
     summary="$(grep -E '^interface check:' <<< "${result}")"
     if [[ ${code} -eq 0 ]]; then
-        echo "ok    ${file%.txt}-${stop_tick}-${seed}: ${summary}"
+        echo "ok    ${file%.txt}-${stop_tick}-${seed}: ${summary}" | tee "${done_file}"
     else
         echo "FAIL  ${file%.txt}-${stop_tick}-${seed}: ${summary:-no result}"
         grep -E '^tick [0-9]+, N = |stopped' <<< "${result}" | head -n 5 | sed 's/^/      /'

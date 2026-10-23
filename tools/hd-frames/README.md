@@ -42,7 +42,9 @@ run is deterministic: a replay file, a seed and virtual time.
   The frames are kept up to date as the program keeps them, one per mode
   and N. `check-interface.sh [--jobs <n>] [--scales <from>-<to>]
   [scenario file...]` runs it on the scenarios (each replay once, at its
-  longest stop tick) with the release build.
+  longest stop tick) with the release build; a scenario that passed is
+  kept in `build/interface-check/<scenario>-<N range>.ok` and skipped by
+  later runs.
 
 The run ends at the last tick asked for (or `--stop-tick`) with a quit
 event. The output is derived from the game art: write it only to
