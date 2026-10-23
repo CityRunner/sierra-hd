@@ -74,6 +74,24 @@ void report_parser(Machine& machine, Parser& parser, const KernelCall& call, std
     }
 }
 
+// The cast the kAnimate call just drew, in drawing order.
+void report_cast(const Animate& animate, std::vector<CastEntry>& cast) {
+    cast.clear();
+    for (const AnimateEntry& entry : animate.drawn_cast()) {
+        cast.push_back(CastEntry{
+            .object = entry.object,
+            .x = entry.x,
+            .y = entry.y,
+            .z = entry.z,
+            .priority = entry.priority,
+            .view = entry.view,
+            .loop = entry.loop,
+            .cel = entry.cel,
+            .signal = entry.signal,
+        });
+    }
+}
+
 } // namespace
 
 RunResult run_deterministic(const resource::ResourceManager& resources, const RunOptions& options) {
@@ -122,20 +140,7 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
             options.trace(trace_line(call, calls, clock.ticks(), callers));
         }
         if (options.on_animate && std::string_view(call.name) == "Animate") {
-            cast.clear();
-            for (const AnimateEntry& entry : subsystems.graphics().animate().drawn_cast()) {
-                cast.push_back(CastEntry{
-                    .object = entry.object,
-                    .x = entry.x,
-                    .y = entry.y,
-                    .z = entry.z,
-                    .priority = entry.priority,
-                    .view = entry.view,
-                    .loop = entry.loop,
-                    .cel = entry.cel,
-                    .signal = entry.signal,
-                });
-            }
+            report_cast(subsystems.graphics().animate(), cast);
             options.on_animate(calls, clock.ticks(), cast);
         }
         report_parser(machine, subsystems.parser(), call, calls, clock.ticks(), options);

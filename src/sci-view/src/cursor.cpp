@@ -26,6 +26,7 @@
 
 #include "sci/view/cursor.hpp"
 
+#include <array>
 #include <format>
 
 namespace sci::view {
@@ -33,6 +34,15 @@ namespace sci::view {
 namespace {
 
 constexpr std::size_t resource_size = 68; // SCI_CURSOR_SCI0_RESOURCESIZE
+
+// The colours of the masks' bit pairs: 0 black, 2 transparent, 1 and 3
+// white (the gray of SCI1 cursors is white in SCI0).
+constexpr std::array<CursorPixel, 4> pixel_of{
+    CursorPixel::Black,
+    CursorPixel::White,
+    CursorPixel::Transparent,
+    CursorPixel::White,
+};
 
 } // namespace
 
@@ -55,12 +65,8 @@ core::Result<Cursor> decode_cursor(std::span<const std::uint8_t> resource) {
             const unsigned color = (((mask_a << static_cast<unsigned>(x)) & 0x8000U) |
                                     (((mask_b << static_cast<unsigned>(x)) >> 1U) & 0x4000U)) >>
                                    14U;
-            // 0 black, 2 transparent, 1 and 3 white (the gray of SCI1 cursors
-            // is white in SCI0).
-            const CursorPixel pixel = color == 0   ? CursorPixel::Black
-                                      : color == 2 ? CursorPixel::Transparent
-                                                   : CursorPixel::White;
-            cursor.pixels[(static_cast<std::size_t>(y) * Cursor::size) + static_cast<std::size_t>(x)] = pixel;
+            cursor.pixels[(static_cast<std::size_t>(y) * Cursor::size) + static_cast<std::size_t>(x)] =
+                pixel_of.at(color);
         }
     }
     return cursor;

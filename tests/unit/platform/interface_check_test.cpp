@@ -31,7 +31,7 @@ namespace {
 
 // The fixture as the interpreter shows it.
 struct Shown {
-    explicit Shown(const CompositionFixture& fixture) {
+    explicit Shown(const CompositionFixture& fixture) : visual(fixture.visual()), owner(fixture.owner()) {
         sci::vm::SpriteList list{.generation = 1, .sprites = {}};
         for (const sci::render::ComposeSprite& sprite : fixture.sprites()) {
             list.sprites.push_back(sci::vm::ShownSprite{
@@ -52,8 +52,6 @@ struct Shown {
             });
         }
         lists = {list};
-        visual = fixture.visual();
-        owner = fixture.owner();
     }
 
     [[nodiscard]] sci::vm::ShownScreen screen(const CompositionFixture& fixture) const {
@@ -95,9 +93,11 @@ sci::render::RgbaImage hd_background(int scale) {
             const std::size_t i =
                 ((static_cast<std::size_t>(y) * static_cast<std::size_t>(image.width)) + static_cast<std::size_t>(x)) *
                 4;
-            image.pixels[i] = static_cast<std::uint8_t>((x * 7) & 0xFF);
-            image.pixels[i + 1] = static_cast<std::uint8_t>((y * 13) & 0xFF);
-            image.pixels[i + 2] = static_cast<std::uint8_t>((x ^ y) & 0xFF);
+            const auto ux = static_cast<unsigned>(x);
+            const auto uy = static_cast<unsigned>(y);
+            image.pixels[i] = static_cast<std::uint8_t>((ux * 7U) & 0xFFU);
+            image.pixels[i + 1] = static_cast<std::uint8_t>((uy * 13U) & 0xFFU);
+            image.pixels[i + 2] = static_cast<std::uint8_t>((ux ^ uy) & 0xFFU);
             image.pixels[i + 3] = 0xFF;
         }
     }

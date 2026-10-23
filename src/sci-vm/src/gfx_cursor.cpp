@@ -51,8 +51,17 @@ std::string layout_image(const view::Cursor& cursor) {
             image += '/';
         }
         for (int x = 0; x < view::Cursor::size; ++x) {
-            const view::CursorPixel pixel = cursor.at(x, y);
-            image += pixel == view::CursorPixel::Black ? '0' : pixel == view::CursorPixel::White ? 'f' : '.';
+            switch (cursor.at(x, y)) {
+            case view::CursorPixel::Black:
+                image += '0';
+                break;
+            case view::CursorPixel::White:
+                image += 'f';
+                break;
+            case view::CursorPixel::Transparent:
+                image += '.';
+                break;
+            }
         }
     }
     return image;

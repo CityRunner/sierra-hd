@@ -295,8 +295,7 @@ public:
     InterfaceCheck(sci::platform::AnalysisCache& analysis, sci::core::Executor& executor, std::pair<int, int> scales)
         : scales_(scales) {
         for (int scale = scales.first; scale <= scales.second; ++scale) {
-            Scale& entry = per_scale_.emplace_back(analysis, executor);
-            entry.scale = scale;
+            per_scale_.emplace_back(analysis, executor, scale);
         }
     }
 
@@ -322,26 +321,18 @@ public:
         sci::vm::ShownScreen recoloured = shown;
         recoloured.visual = recoloured_visual;
         for (Scale& entry : per_scale_) {
-            const auto source = [&entry](auto stack, auto lines, int scale) {
-                return entry.pictures.get(stack, lines, scale);
-            };
-            if (!entry.original) {
-                entry.original.emplace(source);
-                entry.hd.emplace(source);
-                entry.probe.emplace(source);
-            }
-            entry.original->update(shown, GraphicsMode::Original, entry.scale, false);
+            entry.original.update(shown, GraphicsMode::Original, entry.scale, false);
             report(entry.scale, "original",
-                   sci::tools::check_interface_blocks(shown, entry.original->frame(), entry.scale, false));
-            entry.hd->update(shown, GraphicsMode::Hd, entry.scale, false);
-            report(entry.scale, "HD", sci::tools::check_interface_blocks(shown, entry.hd->frame(), entry.scale, true));
+                   sci::tools::check_interface_blocks(shown, entry.original.frame(), entry.scale, false));
+            entry.hd.update(shown, GraphicsMode::Hd, entry.scale, false);
+            report(entry.scale, "HD", sci::tools::check_interface_blocks(shown, entry.hd.frame(), entry.scale, true));
             // The probe shows the screen, then the screen with the interface
             // recoloured: as in the program, the tiles that changed are
             // composed again.
-            entry.probe->update(shown, GraphicsMode::Hd, entry.scale, false);
-            entry.probe->update(recoloured, GraphicsMode::Hd, entry.scale, false);
+            entry.probe.update(shown, GraphicsMode::Hd, entry.scale, false);
+            entry.probe.update(recoloured, GraphicsMode::Hd, entry.scale, false);
             report(entry.scale, "HD, recoloured interface",
-                   sci::tools::check_isolation(shown, entry.hd->frame(), entry.probe->frame(), entry.scale));
+                   sci::tools::check_isolation(shown, entry.hd.frame(), entry.probe.frame(), entry.scale));
             ++checks_;
         }
     }
@@ -358,13 +349,26 @@ public:
 
 private:
     struct Scale {
-        Scale(sci::platform::AnalysisCache& analysis, sci::core::Executor& executor) : pictures(analysis, executor) {}
+        Scale(sci::platform::AnalysisCache& analysis, sci::core::Executor& executor, int n)
+            : scale(n), pictures(analysis, executor), original(source()), hd(source()), probe(source()) {}
 
-        int scale = 0;
+        // The frames' sources point to this Scale.
+        Scale(const Scale&) = delete;
+        Scale& operator=(const Scale&) = delete;
+        Scale(Scale&&) = delete;
+        Scale& operator=(Scale&&) = delete;
+        ~Scale() = default;
+
+        // The HD images at this N (each Scale stays where the list put it).
+        sci::platform::HdSource source() {
+            return [this](auto stack, auto lines, int at) { return pictures.get(stack, lines, at); };
+        }
+
+        int scale;
         sci::platform::HdPictures pictures;
-        std::optional<GameFrame> original;
-        std::optional<GameFrame> hd;
-        std::optional<GameFrame> probe;
+        GameFrame original;
+        GameFrame hd;
+        GameFrame probe;
     };
 
     // The interface's pixels and colours, to check each state once.
