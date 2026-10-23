@@ -533,6 +533,28 @@ pull request whose code would run on them).
   would remove the largest share of every gate: about 150 of 236 included
   minutes.
 
+## Small agent tasks (2026-10-23)
+
+The customer's rule, after two milestone 6b runs stopped at a usage limit
+for about three hours each: work is split into tasks small enough to
+finish between limits, so that each limit costs at most one small task.
+
+- **One task, one result.** An agent gets one part of a milestone (for
+  example the recording in sci-vm, one comparison, one set of scenarios,
+  one check), not the whole milestone. It ends with commits and a short
+  report; the next part is a new task that starts from those commits.
+- **Size.** A task should take well under an hour, checks included. A part
+  that would take longer is split again.
+- **Long checks are split too.** Scenario runs, the every-N check and the
+  pre-push checks run in pieces (a few scenarios, one N or one step of
+  `scripts/pre-push.sh` at a time), each writing its result to a file, so
+  an interruption loses one piece and a rerun skips the pieces done.
+- **Commit before checks.** Work is committed before a long check starts,
+  so a stop or a restart of the session never leaves it only in the
+  working tree.
+- **Unchanged:** the milestone gates, the checks they need and the CI cost
+  policy. Splitting changes how the work is scheduled, not what is checked.
+
 ## Third-party components (milestone 0)
 
 - SDL3, Nuked OPL3 and mt32emu are vendored when they are first needed:
