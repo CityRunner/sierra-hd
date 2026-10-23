@@ -30,12 +30,21 @@
 #include "music.hpp"
 
 #include "faults.hpp"
+#include "sci/audio/adlib.hpp"
 
 #include <algorithm>
 #include <format>
 #include <utility>
 
 namespace sci::vm {
+
+// The silent driver reports what the AdLib driver does, so the player makes
+// the same choices with either (docs/ASSUMPTIONS.md, "Milestone 7: the AdLib
+// driver").
+static_assert(adlib_play_id == audio::AdlibDriver::play_id);
+static_assert(adlib_polyphony == audio::AdlibDriver::polyphony);
+static_assert(adlib_has_rhythm_channel == audio::AdlibDriver::has_rhythm_channel);
+static_assert(adlib_base_tempo == audio::AdlibDriver::base_tempo);
 
 namespace {
 
@@ -154,9 +163,73 @@ Music::Music(Faults& faults) : faults_(&faults), global_reverb_(driver_reverb_) 
 }
 
 void Music::on_timer() {
+    // SciMusic::onTimer, then the rest of MidiDriver_AdLib::onTimer.
+    in_timer_ = true;
+    send_queued_commands();
     // The playlist does not change while the timer runs.
     for (const auto& sound : play_list_) {
         sound->on_timer();
+    }
+    in_timer_ = false;
+    if (device_ != nullptr) {
+        device_->on_timer();
+    }
+}
+
+void Music::send(std::uint32_t midi) {
+    if (device_ == nullptr) {
+        return;
+    }
+    if (in_timer_) {
+        device_->send(midi);
+    } else {
+        queued_commands_.push_back({.track_init = nullptr, .midi = midi});
+    }
+}
+
+void Music::init_track(MusicEntry& sound) {
+    if (device_ == nullptr || !sound.resource) {
+        return;
+    }
+    if (in_timer_) {
+        device_->init_track(sound.resource->data.first(sci0_header_size));
+    } else {
+        queued_commands_.push_back({.track_init = &sound, .midi = 0});
+    }
+}
+
+void Music::remove_track_inits(const MusicEntry& sound) {
+    std::erase_if(queued_commands_, [&](const QueuedCommand& command) { return command.track_init == &sound; });
+}
+
+void Music::send_queued_commands() {
+    // SciMusic::sendMidiCommandsFromQueue: a track init runs only if its
+    // sound is still in the playlist with a parser.
+    for (const QueuedCommand& command : queued_commands_) {
+        if (command.track_init == nullptr) {
+            device_->send(command.midi);
+            continue;
+        }
+        const auto found = std::ranges::find_if(play_list_, [&](const std::unique_ptr<MusicEntry>& entry) {
+            return entry.get() == command.track_init;
+        });
+        if (found != play_list_.end() && (*found)->parser) {
+            (*found)->parser->init_track();
+        }
+    }
+    queued_commands_.clear();
+}
+
+void Music::set_device_volume(std::uint8_t volume) {
+    if (device_ != nullptr) {
+        device_->set_volume(volume);
+    }
+}
+
+void Music::set_sound_on(bool on) {
+    sound_on_ = on;
+    if (device_ != nullptr) {
+        device_->play_switch(on);
     }
 }
 
@@ -305,6 +378,8 @@ void Music::sound_play(MusicEntry& sound, bool restoring) {
         if (sound.status != SoundStatus::Paused) {
             sound.parser->send_init_commands();
         }
+        // Always, also for a paused song (ScummVM bug #11476).
+        sound.parser->init_track();
         sound.parser->set_volume(static_cast<std::uint8_t>(sound.volume));
         const std::uint16_t previous_loop = sound.loop;
         const std::int16_t previous_hold = sound.hold;

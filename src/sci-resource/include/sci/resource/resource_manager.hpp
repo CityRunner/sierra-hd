@@ -14,6 +14,7 @@
 #include <map>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -49,6 +50,10 @@ public:
 
     // Reads and decompresses one resource. Resources are not cached here.
     [[nodiscard]] core::Result<Resource> load(ResourceId id) const;
+
+    // A file of the game folder by name, in any case (the AdLib driver reads
+    // its bank from ADL.DRV when there is no patch.003); null if missing.
+    [[nodiscard]] const GameFile* file(std::string_view name) const;
 
 private:
     struct Location {

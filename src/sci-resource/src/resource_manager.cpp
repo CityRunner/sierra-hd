@@ -84,6 +84,11 @@ std::vector<ResourceManager::VolumeFile> ResourceManager::find_volumes() const {
     return volumes;
 }
 
+const GameFile* ResourceManager::file(std::string_view name) const {
+    const std::optional<std::size_t> found = find_file(files_, name);
+    return found ? &files_[*found] : nullptr;
+}
+
 Result<ResourceManager> ResourceManager::open(std::vector<GameFile> files) {
     ResourceManager manager(std::move(files));
     const std::optional<std::size_t> map = find_file(manager.files_, "resource.map");

@@ -65,6 +65,7 @@ void write_delta(std::vector<std::uint8_t>& out, int& delta) {
 void MidiParser::load_music(std::span<const std::uint8_t> song, MusicEntry& sound, unsigned channel_mask) {
     unload_music();
     sound_ = &sound;
+    channel_used_.fill(false);
     // SCI0 has one data stream; the channels of other devices are filtered
     // out. The mask always holds the control channel, so it is never 0.
     filter_channels(song, channel_mask);
@@ -76,6 +77,9 @@ void MidiParser::load_music(std::span<const std::uint8_t> song, MusicEntry& soun
 void MidiParser::unload_music() {
     if (sound_ != nullptr) {
         position_ = Tracker{};
+        all_notes_off();
+        // Track inits still queued for the device would otherwise run.
+        music_->remove_track_inits(*sound_);
     }
     loaded_ = false;
     sound_ = nullptr;
@@ -167,6 +171,8 @@ void MidiParser::filter_channels(std::span<const std::uint8_t> song, unsigned ch
             last_command = command;
             continue;
         }
+        // The channels used, for the init commands.
+        channel_used_[command & 0x0FU] = true;
         if (last_command != command) {
             data_.push_back(command);
             last_command = command;
@@ -335,6 +341,11 @@ void MidiParser::on_timer() {
         // The event is copied: processing may parse the next one into
         // next_event_ (a jump does).
         const EventInfo event = info;
+        if (event.command() == 0x8) {
+            active_note(event.channel(), event.param1, false);
+        } else if (event.command() == 0x9) {
+            active_note(event.channel(), event.param1, true);
+        }
         if (!process_event(event)) {
             return;
         }
@@ -436,9 +447,12 @@ bool MidiParser::process_event(const EventInfo& info, bool fire_events) {
     return process_base_event(info, fire_events);
 }
 
-bool MidiParser::process_base_event(const EventInfo& info, bool /*fire_events*/) {
-    // MidiParser::processEvent. Messages and SysEx go to the silent driver,
-    // which takes no time for SysEx.
+bool MidiParser::process_base_event(const EventInfo& info, bool fire_events) {
+    // MidiParser::processEvent. SysEx is dropped: the AdLib driver ignores
+    // it and takes no time for it, so no SysEx delay arises.
+    if (info.event == 0xF0) {
+        return true;
+    }
     if (info.event == 0xFF) {
         if (info.param1 == 0x2F) {
             position_.play_pos.reset();
@@ -449,8 +463,67 @@ bool MidiParser::process_base_event(const EventInfo& info, bool /*fire_events*/)
             set_tempo((static_cast<std::uint32_t>(byte_at(info.data)) << 16U) |
                       (static_cast<std::uint32_t>(byte_at(info.data + 1)) << 8U) | byte_at(info.data + 2));
         }
+        return true; // Meta events are not sent to the SCI drivers.
+    }
+    if (fire_events) {
+        send_to_driver(info.event, info.param1, info.param2);
     }
     return true;
+}
+
+void MidiParser::send_to_driver(std::uint32_t midi) {
+    if ((midi & 0xFFF0U) == 0x07B0U) {
+        // Channel volume, scaled by the song's volume.
+        const std::uint32_t volume = ((midi >> 16U) & 0xFFU) * volume_ / 127U;
+        midi = (midi & 0xFFFFU) | ((volume & 0xFFU) << 16U);
+    }
+    music_->send(midi);
+}
+
+void MidiParser::active_note(std::uint8_t channel, std::uint8_t note, bool active) {
+    if (note >= 128 || channel >= 16) {
+        return;
+    }
+    const auto bit = static_cast<std::uint16_t>(1U << channel);
+    if (active) {
+        active_notes_[note] = static_cast<std::uint16_t>(active_notes_[note] | bit);
+    } else {
+        active_notes_[note] = static_cast<std::uint16_t>(active_notes_[note] & ~bit);
+    }
+}
+
+void MidiParser::all_notes_off() {
+    // MidiParser_SCI::allNotesOff: every channel is mapped in SCI0.
+    for (std::size_t note = 0; note < active_notes_.size(); ++note) {
+        for (unsigned channel = 0; channel < 16; ++channel) {
+            if ((active_notes_[note] & (1U << channel)) != 0) {
+                send_to_driver(static_cast<std::uint8_t>(0x80U | channel), static_cast<std::uint8_t>(note), 0);
+            }
+        }
+    }
+    for (unsigned channel = 0; channel < 16; ++channel) {
+        send_to_driver(static_cast<std::uint8_t>(0xB0U | channel), 0x7B, 0); // All notes off.
+        send_to_driver(static_cast<std::uint8_t>(0xB0U | channel), 0x40, 0); // Sustain off (ScummVM bug #5524).
+    }
+    active_notes_.fill(0);
+}
+
+void MidiParser::send_init_commands() {
+    volume_ = 127;
+    for (std::uint8_t channel = 0; channel < 16; ++channel) {
+        if (channel_used_[channel]) {
+            send_to_driver(static_cast<std::uint8_t>(0xB0U | channel), 0x07, 127); // Volume to the maximum.
+            send_to_driver(static_cast<std::uint8_t>(0xB0U | channel), 0x0A, 64);  // Panning to the centre.
+            send_to_driver(static_cast<std::uint8_t>(0xB0U | channel), 0x40, 0);   // Hold pedal off.
+            send_to_driver(static_cast<std::uint8_t>(0xE0U | channel), 0, 64);     // Pitch wheel to the centre.
+        }
+    }
+}
+
+void MidiParser::init_track() {
+    if (sound_ != nullptr && loaded_) {
+        music_->init_track(*sound_);
+    }
 }
 
 void MidiParser::stop_playing() {
@@ -458,13 +531,14 @@ void MidiParser::stop_playing() {
 }
 
 void MidiParser::pause() {
+    all_notes_off();
     if (reset_on_pause_) {
         jump_to_tick(0);
     }
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity,misc-no-recursion): kept close to MidiParser::jumpToTick.
-bool MidiParser::jump_to_tick(std::uint32_t tick, bool fire_events, bool /*stop_notes*/, bool dont_send_note_on) {
+bool MidiParser::jump_to_tick(std::uint32_t tick, bool fire_events, bool stop_notes, bool dont_send_note_on) {
     if (!loaded_) {
         return false;
     }
@@ -502,6 +576,9 @@ bool MidiParser::jump_to_tick(std::uint32_t tick, bool fire_events, bool /*stop_
             advance_position(event_tick);
         }
     }
+    if (stop_notes) {
+        all_notes_off();
+    }
     abort_parse_ = true;
     jumping_to_tick_ = false;
     return true;
@@ -513,8 +590,10 @@ void MidiParser::set_master_volume(std::uint8_t volume) {
 }
 
 void MidiParser::set_volume(std::uint8_t volume) {
-    // The SCI0 AdLib driver has one global volume: _volume * master / 127.
+    // The SCI0 AdLib driver has one global volume, set directly (not
+    // queued) from either thread.
     volume_ = volume;
+    music_->set_device_volume(static_cast<std::uint8_t>(volume_ * master_volume_ / music_volume_max));
 }
 
 } // namespace sci::vm

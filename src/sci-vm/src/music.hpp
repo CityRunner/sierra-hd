@@ -4,7 +4,9 @@
 // priorities and states, and the music timer that runs their MIDI parsers.
 // It plays through a silent stand-in for ScummVM's SCI0 AdLib driver, with
 // that driver's play mask, voice count and timer rate, so timing, signals
-// and cues are as in the reference (spec section 8). Ported from ScummVM
+// and cues are as in the reference (spec section 8); a device
+// (sci::audio::MidiDevice, such as the AdLib driver) may be attached to
+// hear it, which changes none of these. Ported from ScummVM
 // (https://www.scummvm.org) at revision
 // ed949213a23440447ea402e263daa871394b6bf9, from:
 //   engines/sci/sound/music.{h,cpp} (SciMusic, MusicEntry; SCI0 paths),
@@ -34,6 +36,7 @@
 #pragma once
 
 #include "midi_parser.hpp"
+#include "sci/audio/midi_device.hpp"
 #include "sci/vm/reg.hpp"
 
 #include <cstdint>
@@ -134,7 +137,25 @@ public:
 
     [[nodiscard]] bool sound_on() const { return sound_on_; }
 
-    void set_sound_on(bool on) { sound_on_ = on; }
+    // SciMusic::soundSetSoundOn: also the device's play switch.
+    void set_sound_on(bool on);
+
+    // The device the songs play on; null is the silent driver. It must
+    // outlive the player or be detached first.
+    void set_device(audio::MidiDevice* device) { device_ = device; }
+
+    [[nodiscard]] audio::MidiDevice* device() const { return device_; }
+
+    // From the parsers: a MIDI message for the device. Outside the music
+    // timer (from kDoSound, ScummVM's main thread) it waits in a queue for
+    // the next timer call, as ScummVM's putMidiCommandInQueue does.
+    void send(std::uint32_t midi);
+    // The sound's header for the device (MidiParser_SCI::initTrack), queued
+    // the same way.
+    void init_track(MusicEntry& sound);
+    void remove_track_inits(const MusicEntry& sound);
+    // MidiPlayer::setVolume, never queued.
+    void set_device_volume(std::uint8_t volume);
 
     [[nodiscard]] static int voices() { return adlib_polyphony; }
 
@@ -156,6 +177,14 @@ public:
     void set_driver_reverb(std::int8_t reverb) { driver_reverb_ = reverb; }
 
 private:
+    // A queued device command: a track init if `track_init` is set, else a
+    // MIDI message.
+    struct QueuedCommand {
+        MusicEntry* track_init = nullptr;
+        std::uint32_t midi = 0;
+    };
+
+    void send_queued_commands();
     void sort_play_list();
     void sort(std::size_t first, std::size_t last);
 
@@ -169,6 +198,9 @@ private:
     int global_pause_ = 0;
     bool needs_resume_ = false;
     int time_counter_ = 0;
+    audio::MidiDevice* device_ = nullptr;
+    std::vector<QueuedCommand> queued_commands_;
+    bool in_timer_ = false;
 };
 
 } // namespace sci::vm

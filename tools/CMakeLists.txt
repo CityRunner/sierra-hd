@@ -10,6 +10,7 @@ add_subdirectory(hd-report)
 add_subdirectory(hint-tool)
 add_subdirectory(resource-dump)
 add_subdirectory(room-viewer)
+add_subdirectory(sound-render)
 add_subdirectory(vm-trace)
 
 # The reference ScummVM (tools/reference-scummvm) is built by its own script
