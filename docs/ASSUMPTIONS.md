@@ -1612,6 +1612,20 @@ scripts' bytecode (after the script patches), not from runs:
 - The gate is approved as is and merged: the Linux and Windows matrix is
   green; macOS is optional.
 
+## Milestone SU deferred (2026-10-23)
+
+- The customer stopped milestone SU and asked to skip sprite undithering
+  for now and move on to the next milestone. Milestone 7 starts from main
+  without it. **Decided** by the customer.
+- The work done so far stays on the local branch `milestone-su`, not
+  merged: the detection (`sci::render::detect_dither`, with unit tests and
+  a fuzz target) and the threshold tuning on the game's cels with the
+  comparison with ScummVM's view undithering (`sci-undither-report`). The
+  override step (`hints/views/`) was stopped and not committed.
+- Until SU is resumed: sprites in HD mode stay as in milestone 6b (original
+  cels scaled N x N), and the milestone 9 playthrough requirement of A2
+  ("with sprite undithering on") is open.
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with
