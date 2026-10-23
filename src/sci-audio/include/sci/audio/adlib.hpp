@@ -129,13 +129,13 @@ public:
     void set_register_log(std::vector<RegisterWrite>* log) { register_log_ = log; }
 
 private:
-    enum Side : std::uint8_t { left_side = 1, right_side = 2, both_sides = left_side | right_side };
+    enum class Side : std::uint8_t { Left, Right, Both };
 
     struct Channel {
         std::uint8_t patch = 0;
-        std::uint8_t volume = 63;     // 0-63
-        std::uint8_t pan = 64;        // 0-127, 64 is the centre
-        std::uint8_t hold_pedal = 0;  // Any non-zero value holds.
+        std::uint8_t volume = 63;    // 0-63
+        std::uint8_t pan = 64;       // 0-127, 64 is the centre
+        std::uint8_t hold_pedal = 0; // Any non-zero value holds.
         std::uint16_t pitch_wheel = 8192;
         std::uint8_t last_voice = 0;
         bool enable_velocity = false; // Controller 0x4E (SCI0).
@@ -158,9 +158,9 @@ private:
     void set_patch(int voice, int patch);
     void set_note(int voice, int note, bool key);
     void set_velocity(int voice);
-    void set_operator(int reg, const AdlibOperator& op);
-    void set_register(int reg, int value, Side sides = both_sides);
-    void dual_write(int index, int reg, int value);
+    void set_operator(unsigned reg, const AdlibOperator& op);
+    void set_register(unsigned reg, unsigned value, Side sides = Side::Both);
+    void dual_write(bool right, unsigned reg, unsigned value);
     void renew_notes(int channel, bool key);
     void note_on(int channel, int note, int velocity);
     void note_off(int channel, int note);

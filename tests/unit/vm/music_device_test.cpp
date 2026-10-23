@@ -29,7 +29,6 @@ using sci::vm::Faults;
 using sci::vm::Music;
 using sci::vm::MusicEntry;
 using sci::vm::SoundResource;
-using sci::vm::SoundStatus;
 
 namespace {
 
@@ -48,9 +47,11 @@ std::vector<std::uint8_t> sci0_sound(std::initializer_list<int> adlib_channels,
 
 // Program 0 and a note at tick 0, the note off and a signal 5 at tick 30, a
 // cue at tick 60, the end at tick 90.
-const std::vector<std::uint8_t> one_note_song = sci0_sound(
-    {0}, {0x00, 0xC0, 0x00, 0x00, 0x90, 0x3C, 0x7F, 0x1E, 0x80, 0x3C, 0x00, 0x00, 0xCF, 0x05, 0x1E, 0xBF, 0x60, 0x02,
-          0x1E, 0xFC});
+const std::vector<std::uint8_t> one_note_song =
+    sci0_sound({0}, {
+                        0x00, 0xC0, 0x00, 0x00, 0x90, 0x3C, 0x7F, 0x1E, 0x80, 0x3C,
+                        0x00, 0x00, 0xCF, 0x05, 0x1E, 0xBF, 0x60, 0x02, 0x1E, 0xFC,
+                    });
 
 // Records what reaches the device, as text.
 class RecordingDevice final : public sci::audio::MidiDevice {
@@ -88,8 +89,8 @@ struct Player {
 // An audible instrument 0: a sine carrier with the fastest envelope.
 std::vector<sci::audio::AdlibPatch> audible_patches() {
     std::vector<std::uint8_t> bank(1344, 0);
-    bank[1] = 1;       // Modulator multiplier 1, total level 63 (silent).
-    bank[8] = 63;
+    bank[1] = 1;       // Modulator multiplier 1.
+    bank[8] = 63;      // Modulator total level 63 (silent).
     bank[3] = 15;      // Modulator attack.
     bank[13 + 1] = 1;  // Carrier multiplier 1.
     bank[13 + 3] = 15; // Carrier attack.
@@ -117,8 +118,10 @@ SCI_TEST(kdosound_sends_wait_for_the_next_timer_call) {
     device.calls.clear();
     player.music.on_timer();
     // Channel 15 counts as used: it carries the signal and the cue.
-    std::vector<std::string> expected{"send 7f07b0", "send 400ab0", "send 0040b0", "send 4000e0", "send 7f07bf",
-                                      "send 400abf", "send 0040bf", "send 4000ef", "init 33"};
+    std::vector<std::string> expected{
+        "send 7f07b0", "send 400ab0", "send 0040b0", "send 4000e0", "send 7f07bf",
+        "send 400abf", "send 0040bf", "send 4000ef", "init 33",
+    };
     for (int channel = 0; channel < 16; ++channel) {
         expected.push_back(std::format("send 007b{:02x}", 0xB0 + channel));
         expected.push_back(std::format("send 0040{:02x}", 0xB0 + channel));
@@ -180,8 +183,9 @@ SCI_TEST(signals_cues_and_ticks_do_not_depend_on_the_device) {
 SCI_TEST(a_synthetic_song_renders_until_its_end) {
     const auto render = [] {
         sci::audio::AdlibDriver driver(audible_patches());
-        return sci::vm::render_sound(one_note_song, 1, driver,
-                                     {.max_frames = 10 * sci::audio::Opl3::native_rate, .loop = 1, .master_volume = 15});
+        return sci::vm::render_sound(
+            one_note_song, 1, driver,
+            {.max_frames = 10 * sci::audio::Opl3::native_rate, .loop = 1, .master_volume = 15});
     };
     const auto first = render();
     SCI_CHECK(first.has_value());

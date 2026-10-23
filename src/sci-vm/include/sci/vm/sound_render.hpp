@@ -49,7 +49,7 @@ struct RenderedSound {
 
 // The same for sound resource `number` of a game, on a new AdLib driver
 // with the game's patches (audio::load_adlib_patches).
-[[nodiscard]] core::Result<RenderedSound> render_sound(const resource::ResourceManager& resources,
-                                                       std::uint16_t number, const SoundRenderOptions& options);
+[[nodiscard]] core::Result<RenderedSound> render_sound(const resource::ResourceManager& resources, std::uint16_t number,
+                                                       const SoundRenderOptions& options);
 
 } // namespace sci::vm

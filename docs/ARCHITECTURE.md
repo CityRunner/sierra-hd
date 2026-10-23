@@ -17,9 +17,9 @@ purpose and invariants:
 | sci-vector | Vector analysis of PIC (path 2): planar graph, gap closing, faces, fallbacks, curve fitting (done, milestone 3), hints (done, milestone 3a), stroke integrity (milestone 3b) | sci-core, sci-pic |
 | sci-view | View, loop and cel decoding (done, milestone 2); SCI0 cursors (milestone 6b) | sci-core, sci-resource |
 | sci-text | Fonts (done, milestone 2), messages, vocabulary, Said | sci-core, sci-resource |
-| sci-audio | Sound playback, silent driver, AdLib (the OPL core on Nuked OPL3, milestone 7), MT-32, mixer | sci-core, sci-resource; Nuked OPL3 (vendored) |
+| sci-audio | Sound playback, silent driver, AdLib (the OPL core on Nuked OPL3 and the SCI0 driver, milestone 7), MT-32, mixer | sci-core, sci-resource; Nuked OPL3 (vendored) |
 | sci-render | HD rasteriser (done, milestone 3), original mode, acceptance check, A1 checks (milestone 3b), composition of the game screen (milestone 5) | sci-core, sci-pic, sci-vector, sci-view |
-| sci-vm | Bytecode interpreter, objects, kernel functions, the 1x graphics they drive, the music player with a silent driver, events, virtual clock, random source (boot gate, milestone 4a) | sci-core, sci-resource, sci-pic, sci-view, sci-text |
+| sci-vm | Bytecode interpreter, objects, kernel functions, the 1x graphics they drive, the music player with a silent driver or a sci-audio device (milestone 7), events, virtual clock, random source (boot gate, milestone 4a) | sci-core, sci-resource, sci-pic, sci-view, sci-text, sci-audio |
 | sci-platform (in `src/app/platform`) | The parts of app without a window, shared with the tools: thread executor, game-folder reading, release identification, configuration file, hint loading (done, milestone 3a), analysis cache (milestone 4b), the HD images of the picture shown and the game's frame (milestone 5) | sci-core, sci-resource, sci-pic, sci-vector, sci-render, sci-vm |
 | app (`sierra-hd`) | Window, input, presentation (the room viewer at release v0.1), saves, cache | all libraries |
 
@@ -48,6 +48,8 @@ program:
   against the game, and turns review decisions into hint files.
 - `vm-trace`: runs the game in sci-vm's deterministic mode, writes the
   kernel-call trace and compares it with the reference's (milestone 4).
+- `sound-render`: plays sound resources through the music player and the
+  AdLib driver and prints a hash of the OPL output (milestone 7).
 - `hd-frames`: runs the game without a window on virtual time and writes
   the frames the program would show at chosen ticks, original and HD side
   by side, and measures the composition time (milestone 5).

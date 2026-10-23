@@ -123,9 +123,12 @@ private:
     // MidiParser_SCI::sendToDriver, SCI0: the channel volume follows the
     // song's volume; channels are not remapped.
     void send_to_driver(std::uint32_t midi);
+
     void send_to_driver(std::uint8_t status, std::uint8_t first, std::uint8_t second) {
-        send_to_driver(status | (static_cast<std::uint32_t>(first) << 8U) | (static_cast<std::uint32_t>(second) << 16U));
+        send_to_driver(status | (static_cast<std::uint32_t>(first) << 8U) |
+                       (static_cast<std::uint32_t>(second) << 16U));
     }
+
     // MidiParser::activeNote, without hanging notes: SCI notes have no
     // length and the parser makes no smart jumps.
     void active_note(std::uint8_t channel, std::uint8_t note, bool active);

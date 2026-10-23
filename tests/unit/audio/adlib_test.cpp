@@ -28,9 +28,10 @@ namespace {
 // multiplier, feedback, attack, sustain, envelope type, decay, release,
 // total level, AM, vibrato, KSR, inverted algorithm), then the waveforms.
 constexpr std::array<std::uint8_t, 28> test_instrument{
-    1, 2, 3, 4, 5, 1, 6, 7, 8, 1, 0, 1, 1, // Operator 0 (modulator); FM.
+    1, 2, 3, 4, 5,  1, 6,  7,  8,  1, 0, 1, 1, // Operator 0 (modulator); FM.
     2, 3, 0, 9, 10, 0, 11, 12, 20, 0, 1, 0, 0, // Operator 1 (carrier).
-    1, 2};
+    1, 2,
+};
 
 // A 48-instrument bank whose instrument 0 is test_instrument; instrument 1 is
 // the same in additive (AM) mode.
@@ -54,6 +55,11 @@ std::array<std::uint8_t, 0x21> header(int channel, std::uint8_t voices) {
 
 std::uint32_t midi(std::uint8_t status, std::uint8_t first, std::uint8_t second = 0) {
     return status | (static_cast<std::uint32_t>(first) << 8U) | (static_cast<std::uint32_t>(second) << 16U);
+}
+
+// A pitch wheel message on channel 0.
+std::uint32_t wheel(unsigned value) {
+    return midi(0xE0, static_cast<std::uint8_t>(value & 0x7FU), static_cast<std::uint8_t>(value >> 7U));
 }
 
 struct Driver {
@@ -205,14 +211,12 @@ SCI_TEST(the_pitch_wheel_moves_the_playing_note) {
     adlib.send(midi(0xC0, 0));
     adlib.send(midi(0x90, 60, 127));
     // 171 * 4 above the centre: one semitone, index 244, frequency 0x16B.
-    constexpr int up = 0x2000 + (171 * 4);
-    std::vector<Write> writes = adlib.send(midi(0xE0, up & 0x7F, up >> 7));
+    std::vector<Write> writes = adlib.send(wheel(0x2000 + (171 * 4)));
     SCI_CHECK(writes.size() == 6);
     SCI_CHECK((writes[0] == Write{.reg = 0xA0, .value = 0x6B}));
     SCI_CHECK((writes[2] == Write{.reg = 0xB0, .value = 0x31}));
     // A semitone down: index 236, frequency 0x287 in octave 3.
-    constexpr int down = 0x2000 - (171 * 4);
-    writes = adlib.send(midi(0xE0, down & 0x7F, down >> 7));
+    writes = adlib.send(wheel(0x2000 - (171 * 4)));
     SCI_CHECK((writes[0] == Write{.reg = 0xA0, .value = 0x87}));
     SCI_CHECK((writes[2] == Write{.reg = 0xB0, .value = 0x2E}));
     // Less than 171 from the centre does nothing to the frequency.
@@ -227,25 +231,25 @@ SCI_TEST(volume_velocity_and_pan_set_the_levels) {
     // Master volume 7: (7 + 3) * 43 / 15 = 28, so level 63 - 28 = 35.
     adlib.log.clear();
     adlib.driver->set_volume(7);
-    SCI_CHECK((levels(adlib.log, 0x43) == std::pair<int, int>{0x80 | 35, 0x80 | 35}));
+    SCI_CHECK((levels(adlib.log, 0x43) == std::pair<int, int>{0x80 + 35, 0x80 + 35}));
     // Master volume 0 silences: level 63.
     adlib.log.clear();
     adlib.driver->set_volume(0);
-    SCI_CHECK((levels(adlib.log, 0x43) == std::pair<int, int>{0x80 | 63, 0x80 | 63}));
+    SCI_CHECK((levels(adlib.log, 0x43) == std::pair<int, int>{0x80 + 63, 0x80 + 63}));
     adlib.driver->set_volume(15);
     // Controller 0x4E: the note velocity (100 / 2 = 50) instead of the
     // instrument's level: 15 * 50 / 15 = 50, so level 13.
     adlib.send(midi(0xB0, 0x4E, 1));
-    SCI_CHECK((levels(adlib.send(midi(0x90, 60, 100)), 0x43) == std::pair<int, int>{0x80 | 13, 0x80 | 13}));
+    SCI_CHECK((levels(adlib.send(midi(0x90, 60, 100)), 0x43) == std::pair<int, int>{0x80 + 13, 0x80 + 13}));
     // Pan right: the left side goes silent; pan left: the right side.
-    SCI_CHECK((levels(adlib.send(midi(0xB0, 0x0A, 127)), 0x43) == std::pair<int, int>{0x80 | 63, 0x80 | 13}));
-    SCI_CHECK((levels(adlib.send(midi(0xB0, 0x0A, 0)), 0x43) == std::pair<int, int>{0x80 | 13, 0x80 | 63}));
+    SCI_CHECK((levels(adlib.send(midi(0xB0, 0x0A, 127)), 0x43) == std::pair<int, int>{0x80 + 63, 0x80 + 13}));
+    SCI_CHECK((levels(adlib.send(midi(0xB0, 0x0A, 0)), 0x43) == std::pair<int, int>{0x80 + 13, 0x80 + 63}));
     // Pan 32: the right side at 50 * 32 / 64 = 25, level 38.
-    SCI_CHECK((levels(adlib.send(midi(0xB0, 0x0A, 32)), 0x43) == std::pair<int, int>{0x80 | 13, 0x80 | 38}));
+    SCI_CHECK((levels(adlib.send(midi(0xB0, 0x0A, 32)), 0x43) == std::pair<int, int>{0x80 + 13, 0x80 + 38}));
     // The play switch off zeroes the levels and keys off.
     adlib.log.clear();
     adlib.driver->play_switch(false);
-    SCI_CHECK((levels(adlib.log, 0x43) == std::pair<int, int>{0x80 | 63, 0x80 | 63}));
+    SCI_CHECK((levels(adlib.log, 0x43) == std::pair<int, int>{0x80 + 63, 0x80 + 63}));
     SCI_CHECK((keys(adlib.log) == std::vector<std::pair<int, bool>>{{0, false}}));
 }
 

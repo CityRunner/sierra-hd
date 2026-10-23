@@ -484,7 +484,7 @@ void MidiParser::active_note(std::uint8_t channel, std::uint8_t note, bool activ
     if (note >= 128 || channel >= 16) {
         return;
     }
-    const auto bit = static_cast<std::uint16_t>(1U << channel);
+    const unsigned bit = 1U << channel;
     if (active) {
         active_notes_[note] = static_cast<std::uint16_t>(active_notes_[note] | bit);
     } else {

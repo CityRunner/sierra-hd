@@ -1674,6 +1674,92 @@ scripts' bytecode (after the script patches), not from runs:
   that never had a key-on outputs exact zeros. **Decided** (behaviour of
   the emulator, tested).
 
+## Milestone 7: the AdLib driver (2026-10-23)
+
+- **Ported:** `MidiDriver_AdLib` and `MidiPlayer_AdLib`
+  (`engines/sci/sound/drivers/adlib.cpp`) as `sci::audio::AdlibDriver`,
+  with the dual OPL2 of ScummVM's Nuked wrapper (`OPL::init`, `OPL::write`,
+  `OPL::dualWrite` in `audio/softsynth/opl/nuked.cpp`); in sci-vm's player
+  the driver-facing parts of `MidiParser`, `MidiParser_SCI` and `SciMusic`
+  (`sendToDriver`, `allNotesOff`, `activeNote`, `sendInitCommands`,
+  `initTrack`, the command queue). **Decided.**
+- **SCI0 late, as for the player** (milestone 4a: ScummVM detects late SCI0
+  sound for this game): play mask 0x04, 9 voices (`_numVoiceMax`; 8 only in
+  SCI0 early), and the late `initTrack` header (per channel a voice count
+  and a play mask; channels with the AdLib bit 0x04 get their voices). The
+  early header and the SCI1 parts (velocity tables, channel volumes in the
+  velocity, extra and donated voices, the SCI1.1 rhythm key map with
+  `findVoiceLateSci11` and its voice queue, which nothing else reads) are
+  not ported. **Decided.**
+- **Device interface:** `sci::audio::MidiDevice` (send, init_track,
+  set_volume, play_switch, on_timer), the part of ScummVM's `MidiPlayer`
+  the SCI0 player calls. The silent driver is no device: the player drops
+  the calls. **Decided.**
+- **No device-dependent choice in the player.** ScummVM's player asks the
+  driver for its play mask, rhythm channel (the channel filter), polyphony
+  (kDoSound GetPolyphony), timer rate (the music timing) and reverb. The
+  silent driver already reports the AdLib driver's values (milestone 4a),
+  and `music.cpp` checks with static assertions that they equal
+  `AdlibDriver`'s, so timing, signals and cues are identical with and
+  without the device (tested, and the boot, intro and bedroom-wait
+  scenarios are unchanged). The MT-32 driver reports other values in
+  ScummVM (another play mask, a rhythm channel, more voices); the MT-32
+  task decides how the timing follows the device. **Decided** for AdLib.
+- **The command queue is kept.** As in ScummVM, MIDI messages and track
+  inits sent from kDoSound (ScummVM's main thread) wait until the next
+  music timer call, which sends them before it plays the songs; the
+  global volume and the play switch reach the device at once. In ScummVM
+  this is thread safety; here it gives the same order of device calls, a
+  pure function of the VM's timing. **Decided.**
+- **Parser behaviour towards the device:** the channel volume (controller
+  7) is scaled by the song's volume; all notes off sends a note off for
+  every note the parser started on the timer, then controllers 0x7B and
+  0x40 on all 16 channels (SCI0 maps every channel); init commands go to
+  the channels the song uses, the control channel 15 included; the track
+  init is sent on every play, also of a paused song (ScummVM bug #11476).
+  Not ported: state tracking and channel remapping (`remapChannels`
+  returns at once for SCI0), hanging notes (SCI notes have no length and
+  the parser makes no smart jumps, so none arise), SysEx (the AdLib driver
+  ignores it and reports no delay). **Decided.**
+- **Stereo:** ScummVM opens the driver on a dual OPL2 (`STEREO` true): the
+  left chip is bank 0 of the OPL3 with its channels on the left output
+  (0xC0-0xC8 ORed with 0x50), the right chip bank 1 on the right (0xA0);
+  0x105 = 1 is written at once (not through the bus delay) after the reset;
+  register 5 is never written and waveforms are masked to the four OPL2
+  ones. Panning lowers the level of one side, as the driver does.
+  **Decided.**
+- **Patches:** patch resource 3; without it the bank in ADL.DRV of the
+  early drivers (5684, 5720 or 5727 bytes, at 0x45A); neither is an error
+  (ScummVM: "Failed to initialize sound driver"). The game has patch.003
+  of 2690 bytes (96 instruments) in RESOURCE.001; its ADL.DRV (8997 bytes)
+  is not a size ScummVM reads. The SCI1.1 bank (5382 bytes) is refused as
+  not SCI0. `ResourceManager::file` gives the ADL.DRV bytes. **Decided.**
+- **Out-of-bounds reads of ScummVM are skipped:** a voice that never played
+  (channel -1) or has no patch yet (before the first track init) writes no
+  frequency or level, where ScummVM reads outside its arrays. No sound of
+  the game reaches these paths in the reference's normal flow (every play
+  starts with a track init). **Assumed.**
+- **Rhythm:** the SCI0 AdLib driver has no rhythm channel
+  (`hasRhythmChannel` false, the OPL rhythm register 0xBD stays 0); channel
+  9 plays only with its AdLib play mask bit, as a melodic channel.
+  **Decided.**
+- **Rendering for the golden hashes:** `sci::vm::render_sound` (sci-vm,
+  where the player is) plays one sound resource from its start on a new
+  driver: a music timer call, then the OPL frames up to the next call
+  (frame `floor(n * 49716 / 250)` starts call n), as ScummVM's OPL stream
+  calls its callback and then generates; ScummVM's fixed-point step at the
+  mixer rate is not reproduced (resampling is free). It stops when the
+  song ends (no release tail) or at the frame limit, with loop count 1 and
+  the game's start master volume 11. `tools/sound-render` prints the frames,
+  calls, peak and SHA-256 per sound; all 119 sound resources of the game
+  render, none silent (the quietest, sound 99, peaks at 35; 84 end within
+  20 seconds), the same twice. **Decided** (the next task picks the hashed
+  set).
+- **Open:** the device is not yet attached in the program (audio output,
+  mixer and device selection are later tasks); the register sequence is
+  checked by reading ScummVM's source, not by a register log of the
+  reference.
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with

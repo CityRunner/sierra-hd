@@ -210,9 +210,8 @@ void Music::send_queued_commands() {
             device_->send(command.midi);
             continue;
         }
-        const auto found = std::ranges::find_if(play_list_, [&](const std::unique_ptr<MusicEntry>& entry) {
-            return entry.get() == command.track_init;
-        });
+        const auto found = std::ranges::find_if(
+            play_list_, [&](const std::unique_ptr<MusicEntry>& entry) { return entry.get() == command.track_init; });
         if (found != play_list_.end() && (*found)->parser) {
             (*found)->parser->init_track();
         }

@@ -23,6 +23,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <print>
 #include <span>
@@ -33,8 +34,9 @@ namespace {
 
 std::optional<unsigned> parse_number(std::string_view text) {
     unsigned value = 0;
-    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
-    if (error != std::errc{} || end != text.data() + text.size()) {
+    const std::string_view::iterator end = text.end();
+    const auto [stop, error] = std::from_chars(std::to_address(text.begin()), std::to_address(end), value);
+    if (error != std::errc{} || stop != std::to_address(end)) {
         return std::nullopt;
     }
     return value;
@@ -54,7 +56,10 @@ std::vector<std::uint8_t> sample_bytes(std::span<const std::int16_t> samples) {
 bool render(const sci::resource::ResourceManager& resources, std::uint16_t number, std::uint32_t seconds,
             const char* raw) {
     const sci::vm::SoundRenderOptions options{
-        .max_frames = seconds * sci::audio::Opl3::native_rate, .loop = 1, .master_volume = 11};
+        .max_frames = seconds * sci::audio::Opl3::native_rate,
+        .loop = 1,
+        .master_volume = 11,
+    };
     const auto rendered = sci::vm::render_sound(resources, number, options);
     if (!rendered) {
         std::println(stderr, "sound {}: {}", number, rendered.error().message);
