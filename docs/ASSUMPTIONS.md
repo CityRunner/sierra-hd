@@ -1607,6 +1607,11 @@ scripts' bytecode (after the script patches), not from runs:
   clamping. **Decided.**
 - **run-all-scenarios.sh takes `--jobs <n>`.** **Decided.**
 
+## Milestone 6b approval (2026-10-23)
+
+- The gate is approved as is and merged: the Linux and Windows matrix is
+  green; macOS is optional.
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with

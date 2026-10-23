@@ -1,6 +1,6 @@
 # Milestone 6b: text windows, menus and the mouse cursor
 
-Status: **awaiting approval**.
+Status: **approved** (2026-10-23), as is.
 
 Exit criterion (spec section 12): window layout matches ScummVM in 1x
 coordinates, and windows render correctly at every N.
