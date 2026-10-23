@@ -66,6 +66,11 @@ and compares the traces; the reference side is the patch
   `--parser <file>` (sci-vm-trace), every kParse and kSaid call writes what
   the parser made of the input, in the format below.
   `tools/vm-trace/compare-parser.py` compares two such files.
+- **Layout** (milestone 6b). With `SIERRA_HD_LAYOUT=<file>` (reference) or
+  `--layout <file>` (sci-vm-trace), every window, text, control, menu,
+  saved box and cursor operation writes its layout in 1x screen
+  coordinates, in the format below. `tools/vm-trace/compare-layout.py`
+  compares two such files.
 
 ## Replay files
 
@@ -175,3 +180,47 @@ call's trace line:
   a string), `skipped` (no parsed event, or it is already claimed; the
   spec is not matched), `none`, `partial` or `full`; `claimed` is the
   event's flag as the call leaves it (`-` without an event).
+
+## Layout files
+
+One line per window, text, control, menu, saved box and cursor operation,
+written as it happens (milestone 6b):
+
+    <tick> <call> <kind> <fields>
+
+    3420 22864 window 3 port=10,20,308,181 dims=10,20,308,181 restore=10,20,308,181 style=0081 priority=-1 pen=15 back=8 title=""
+    4320 31185 window 3 port=40,34,279,175 dims=39,23,280,177 restore=39,23,280,177 style=0004 priority=15 pen=0 back=15 title="Save a Game"
+    4280 31574 text 70,34 width=69 font=0 pen=0 greyed=0 "Ask about..."
+    4280 31574 menu 3 61,9,180,75
+    601 2510 cursor pos 10,39
+
+- `tick` is the game tick when the line is written; `call` is the number
+  of the kernel call running (the call of the trace line that follows),
+  so a menu's lines all carry its kMenuSelect call.
+- A rectangle is `left,top,right,bottom` in screen coordinates (320 x
+  200), right and bottom exclusive. A port's coordinates are turned into
+  screen coordinates with the port's origin. Strings are quoted as in the
+  parser files.
+- Numbers are signed decimal, except `style` and `state` (four hex digits)
+  and objects (`<segment>:<offset>` in hex).
+
+| Kind | Fields | Written by |
+|---|---|---|
+| `window <id>` | `port=` the window's port, `dims=` its frame, `restore=` the area saved under it, `style=`, `priority=`, `pen=`, `back=`, `title=` (empty without a title bar) | kNewWindow, after drawing the window |
+| `dispose <id>` | `restore=` the area restored, `reanimate=` 0 or 1 | kDisposeWindow |
+| `picwindow` | `port=` the picture window | kSetPort with a rectangle |
+| `size "<text>"` | `font=`, `max=` the width asked for (-1: one line), `= <width>x<height>` | every text measured (kTextSize, kDisplay, ...) |
+| `box <rect>` | `align=` (-1 right, 0 left, 1 centre), `font=`, `show=`, the text | every text drawn in a rectangle (kDisplay, controls, window titles) |
+| `text <x>,<y>` | `width=` the width drawn, `font=`, `pen=`, `greyed=`, the characters | every line of text drawn: one per line of a box, every menu title and item |
+| `display <rect>` | `align=`, `font=`, `back=` (-1: none), `saved=` 0 or 1 | kDisplay, after drawing |
+| `display restore <rect>` | | kDisplay restoring what it saved |
+| `control <type> <object>` | `rect=`, `state=`, `font=`, `hilite=` 0 or 1 | kDrawControl, kHiliteControl |
+| `invert <rect>` | | a selection: a highlighted control, menu title or item, the edit cursor |
+| `menubar <rect>` | | the menu bar drawn; its titles are text lines |
+| `menu <id> <rect>` | | a menu drawn open (id 0: none, under the bar's empty end); its items are text lines |
+| `menu close`, `menubar close` | | kMenuSelect restoring what the menu and the bar covered |
+| `savebox <rect>` | `mask=` the maps saved; `-` for the rectangle when nothing was saved | kGraph SaveBox |
+| `restorebox <rect>` | | kGraph RestoreBox (`-` for a null handle) |
+| `cursor shape <id>` | `hotspot=`, `image=` 16 rows of 16 pixels separated by `/`: `0` black, `f` white, `.` transparent | kSetCursor with a cursor |
+| `cursor show`, `cursor hide` | | the cursor shown or hidden (kSetCursor, the menus) |
+| `cursor pos <x>,<y>` | | kSetCursor with a position, as the script gave it (in the current port) |

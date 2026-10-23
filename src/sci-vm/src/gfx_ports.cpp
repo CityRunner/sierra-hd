@@ -27,6 +27,7 @@
 #include "gfx_ports.hpp"
 
 #include "faults.hpp"
+#include "gfx_layout.hpp"
 #include "graphics.hpp"
 #include "machine.hpp"
 
@@ -129,6 +130,9 @@ void Ports::kernel_set_pic_window(const Rect& rect, std::int16_t pic_top, std::i
     if (init_bands) {
         kernel_init_priority_bands();
     }
+    if (graphics_->layout_logging()) {
+        graphics_->log_layout(std::format("picwindow port={}", layout_rect(pic_window_->rect, pic_window_)));
+    }
 }
 
 Reg Ports::kernel_new_window(const Rect& dims, const Rect& restore_rect, std::uint16_t style, int priority,
@@ -142,6 +146,15 @@ Reg Ports::kernel_new_window(const Rect& dims, const Rect& restore_rect, std::ui
     window->pen_color = static_cast<std::int16_t>(pen_color);
     window->back_color = static_cast<std::int16_t>(back_color);
     draw_window(window);
+    // The frame and the restored area are in the window manager port's
+    // coordinates.
+    if (graphics_->layout_logging()) {
+        graphics_->log_layout(
+            std::format("window {} port={} dims={} restore={} style={:04x} priority={} pen={} back={} title={}",
+                        window->id, layout_rect(window->rect, window), layout_rect(window->dims, wmgr_port_.get()),
+                        layout_rect(window->restore_rect, wmgr_port_.get()), window->style, priority, window->pen_color,
+                        window->back_color, quoted(window->title)));
+    }
     return make_reg(0, window->id);
 }
 
@@ -150,6 +163,10 @@ void Ports::kernel_dispose_window(std::uint16_t window_id, bool reanimate) {
     if (window == nullptr) {
         graphics_->faults().raise(std::format("kDisposeWindow: used unknown window id {}", window_id));
         return;
+    }
+    if (graphics_->layout_logging()) {
+        graphics_->log_layout(std::format("dispose {} restore={} reanimate={}", window_id,
+                                          layout_rect(window->restore_rect, wmgr_port_.get()), reanimate ? 1 : 0));
     }
     if (window->counter_till_free != 0) {
         graphics_->faults().raise(std::format("kDisposeWindow: used already disposed window id {}", window_id));

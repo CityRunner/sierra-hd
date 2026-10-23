@@ -28,7 +28,7 @@ sci_add_unit_test(NAME sci-pic-tests
     DEPENDS sci-pic)
 
 sci_add_unit_test(NAME sci-view-tests
-    SOURCES view/view_test.cpp
+    SOURCES view/cursor_test.cpp view/view_test.cpp
     DEPENDS sci-view)
 
 sci_add_unit_test(NAME sci-text-tests
@@ -53,10 +53,17 @@ sci_add_unit_test(NAME sci-render-tests
     DEPENDS sci-render sci-vector sci-pic)
 target_include_directories(sci-render-tests PRIVATE pic render)
 
+# The interface checks of sci-hd-frames are compiled from the tool's
+# sources (tools/common).
 sci_add_unit_test(NAME sci-platform-tests
-    SOURCES platform/analysis_cache_test.cpp platform/game_frame_test.cpp platform/platform_test.cpp
+    SOURCES
+        platform/analysis_cache_test.cpp
+        platform/game_frame_test.cpp
+        platform/interface_check_test.cpp
+        platform/platform_test.cpp
+        ${PROJECT_SOURCE_DIR}/tools/common/interface_check.cpp
     DEPENDS sci-platform)
-target_include_directories(sci-platform-tests PRIVATE pic render)
+target_include_directories(sci-platform-tests PRIVATE pic render ${PROJECT_SOURCE_DIR}/tools/common)
 
 sci_add_unit_test(NAME sci-vm-tests
     SOURCES

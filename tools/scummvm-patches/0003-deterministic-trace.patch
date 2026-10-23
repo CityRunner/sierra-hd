@@ -13,8 +13,10 @@
 # priority, view, loop, cel and signal of each entry in drawing order. With
 # SIERRA_HD_PARSER=<file> (milestone 6a) every kParse call writes its input,
 # words, parse tree or unknown word and the event's flags there, and every
-# kSaid call its spec and match. Used by
-# tools/vm-trace to compare sci-vm with ScummVM
+# kSaid call its spec and match. With SIERRA_HD_LAYOUT=<file> (milestone 6b)
+# every window, text line, text box and size, control, inverted rectangle,
+# menu, saved box and cursor change writes its layout there in 1x screen
+# coordinates. Used by tools/vm-trace to compare sci-vm with ScummVM
 # (engines/sci/sierra_hd_trace.cpp describes the details).
 diff -ruN a/engines/sci/engine/kevent.cpp b/engines/sci/engine/kevent.cpp
 --- a/engines/sci/engine/kevent.cpp
@@ -39,6 +41,28 @@ diff -ruN a/engines/sci/engine/kevent.cpp b/engines/sci/engine/kevent.cpp
  		}
  	}
  
+diff -ruN a/engines/sci/engine/kgraphics.cpp b/engines/sci/engine/kgraphics.cpp
+--- a/engines/sci/engine/kgraphics.cpp
++++ b/engines/sci/engine/kgraphics.cpp
+@@ -52,6 +52,7 @@
+ #include "sci/graphics/screen.h"
+ #include "sci/graphics/text16.h"
+ #include "sci/graphics/view.h"
++#include "sci/sierra_hd_trace.h"
+ #ifdef ENABLE_SCI32
+ #include "sci/graphics/text32.h"
+ #endif
+@@ -906,6 +907,10 @@
+ 	rect = kControlCreateRect(x, y,
+ 				readSelectorValue(s->_segMan, controlObject, SELECTOR(nsRight)),
+ 				readSelectorValue(s->_segMan, controlObject, SELECTOR(nsBottom)));
++	// sierra-hd: the control, for the layout file.
++	if (sierraHdLayoutOn())
++		sierraHdLayout("control %d %04x:%04x rect=%s state=%04x font=%d hilite=%d", type, PRINT_REG(controlObject),
++		               sierraHdRect(rect, g_sci->_gfxPorts->_curPort).c_str(), (uint16)style, fontId, hilite ? 1 : 0);
+ 
+ 	if (!textReference.isNull())
+ 		text = s->_segMan->getString(textReference);
 diff -ruN a/engines/sci/engine/kmisc.cpp b/engines/sci/engine/kmisc.cpp
 --- a/engines/sci/engine/kmisc.cpp
 +++ b/engines/sci/engine/kmisc.cpp
@@ -410,7 +434,44 @@ diff -ruN a/engines/sci/graphics/cursor.cpp b/engines/sci/graphics/cursor.cpp
  #include "sci/graphics/maciconbar.h"
  
  namespace Sci {
-@@ -276,6 +277,9 @@
+@@ -80,11 +81,16 @@
+ }
+ 
+ void GfxCursor::kernelShow() {
++	// sierra-hd: the cursor, for the layout file.
++	if (sierraHdLayoutOn())
++		sierraHdLayout("cursor show");
+ 	CursorMan.showMouse(true);
+ 	_isVisible = true;
+ }
+ 
+ void GfxCursor::kernelHide() {
++	if (sierraHdLayoutOn())
++		sierraHdLayout("cursor hide");
+ 	CursorMan.showMouse(false);
+ 	_isVisible = false;
+ }
+@@ -175,6 +181,19 @@
+ 				resourceId, hotspot.x, hotspot.y, heightWidth, heightWidth);
+ 	}
+ 
++	// sierra-hd: the shape, row by row: 0 black, f white, . transparent.
++	if (sierraHdLayoutOn()) {
++		Common::String image;
++		const byte *pixel = rawBitmap->getUnsafeDataAt(0, heightWidth * heightWidth);
++		for (int16 y = 0; y < heightWidth; y++) {
++			if (y)
++				image += "/";
++			for (int16 x = 0; x < heightWidth; x++, pixel++)
++				image += *pixel == 0 ? '0' : *pixel == SCI_CURSOR_SCI0_TRANSPARENCYCOLOR ? '.' : 'f';
++		}
++		sierraHdLayout("cursor shape %d hotspot=%d,%d image=%s", resourceId, hotspot.x, hotspot.y, image.c_str());
++	}
++
+ 	_screen->gfxDriver()->replaceCursor(rawBitmap->getUnsafeDataAt(0, heightWidth * heightWidth), heightWidth, heightWidth, hotspot.x, hotspot.y, SCI_CURSOR_SCI0_TRANSPARENCYCOLOR);
+ 
+ 	kernelShow();
+@@ -276,6 +295,9 @@
  	if (!_isVisible)
  		return;
  
@@ -420,7 +481,7 @@ diff -ruN a/engines/sci/graphics/cursor.cpp b/engines/sci/graphics/cursor.cpp
  	if (!_upscaledHires) {
  		_screen->gfxDriver()->setMousePos(pos);
  	} else {
-@@ -320,7 +324,7 @@
+@@ -320,7 +342,7 @@
  }
  
  Common::Point GfxCursor::getPosition() {
@@ -429,6 +490,230 @@ diff -ruN a/engines/sci/graphics/cursor.cpp b/engines/sci/graphics/cursor.cpp
  
  	if (_upscaledHires)
  		_screen->adjustBackUpscaledCoordinates(mousePos.y, mousePos.x);
+@@ -460,6 +482,8 @@
+ }
+ 
+ void GfxCursor::kernelSetPos(Common::Point pos) {
++	if (sierraHdLayoutOn())
++		sierraHdLayout("cursor pos %d,%d", pos.x, pos.y);
+ 	_coordAdjuster->setCursorPos(pos);
+ 	kernelMoveCursor(pos);
+ }
+diff -ruN a/engines/sci/graphics/menu.cpp b/engines/sci/graphics/menu.cpp
+--- a/engines/sci/graphics/menu.cpp
++++ b/engines/sci/graphics/menu.cpp
+@@ -36,6 +36,7 @@
+ #include "sci/graphics/text16.h"
+ #include "sci/graphics/screen.h"
+ #include "sci/graphics/menu.h"
++#include "sci/sierra_hd_trace.h"
+ 
+ namespace Sci {
+ 
+@@ -384,6 +385,9 @@
+ 
+ 		listIterator++;
+ 	}
++	// sierra-hd: the bar, for the layout file (its titles are text lines).
++	if (sierraHdLayoutOn())
++		sierraHdLayout("menubar %s", sierraHdRect(_ports->_menuBarRect, _ports->_curPort).c_str());
+ }
+ 
+ // This helper calculates all text widths for all menus (only)
+@@ -521,6 +525,8 @@
+ 	}
+ 
+ 	if (!_menuSaveHandle.isNull()) {
++		if (sierraHdLayoutOn())
++			sierraHdLayout("menu close");
+ 		_paint16->bitsRestore(_menuSaveHandle);
+ 		// Display line inbetween menubar and actual menu
+ 		Common::Rect menuLine = _menuRect;
+@@ -530,6 +536,8 @@
+ 		_menuSaveHandle = NULL_REG;
+ 	}
+ 	if (!_barSaveHandle.isNull()) {
++		if (sierraHdLayoutOn())
++			sierraHdLayout("menubar close");
+ 		_paint16->bitsRestore(_barSaveHandle);
+ 		_paint16->bitsShow(_ports->_menuRect);
+ 		_barSaveHandle = NULL_REG;
+@@ -723,6 +731,9 @@
+ 	}
+ 	_menuRect.bottom++;
+ 	_paint16->bitsShow(_menuRect);
++	// sierra-hd: the open menu, for the layout file (its items are text lines).
++	if (sierraHdLayoutOn())
++		sierraHdLayout("menu %d %s", newMenuId, sierraHdRect(_menuRect, _ports->_curPort).c_str());
+ }
+ 
+ void GfxMenu::invertMenuSelection(uint16 itemId) {
+diff -ruN a/engines/sci/graphics/paint16.cpp b/engines/sci/graphics/paint16.cpp
+--- a/engines/sci/graphics/paint16.cpp
++++ b/engines/sci/graphics/paint16.cpp
+@@ -38,6 +38,7 @@
+ #include "sci/graphics/portrait.h"
+ #include "sci/graphics/text16.h"
+ #include "sci/graphics/transitions.h"
++#include "sci/sierra_hd_trace.h"
+ 
+ #include "sci/graphics/scifx.h"
+ 
+@@ -194,6 +195,9 @@
+ }
+ 
+ void GfxPaint16::invertRect(const Common::Rect &rect) {
++	// sierra-hd: a selection or the edit cursor, for the layout file.
++	if (sierraHdLayoutOn())
++		sierraHdLayout("invert %s", sierraHdRect(rect, _ports->_curPort).c_str());
+ 	int16 oldpenmode = _ports->_curPort->penMode;
+ 	_ports->_curPort->penMode = 2;
+ 	fillRect(rect, GFX_SCREEN_MASK_VISUAL, _ports->_curPort->penClr, _ports->_curPort->backClr);
+@@ -435,10 +439,22 @@
+ }
+ 
+ reg_t GfxPaint16::kernelGraphSaveBox(const Common::Rect &rect, uint16 screenMask, bool hiresFlag) {
+-	return bitsSave(rect, screenMask, hiresFlag);
++	const reg_t handle = bitsSave(rect, screenMask, hiresFlag);
++	// sierra-hd: the area saved (in screen coordinates), for the layout file.
++	if (sierraHdLayoutOn()) {
++		Common::Rect saved;
++		bitsGetRect(handle, &saved);
++		sierraHdLayout("savebox %s mask=%d", handle.isNull() ? "-" : sierraHdRect(saved).c_str(), screenMask);
++	}
++	return handle;
+ }
+ 
+ void GfxPaint16::kernelGraphRestoreBox(reg_t handle) {
++	if (sierraHdLayoutOn()) {
++		Common::Rect saved;
++		bitsGetRect(handle, &saved);
++		sierraHdLayout("restorebox %s", handle.isNull() ? "-" : sierraHdRect(saved).c_str());
++	}
+ 	bitsRestore(handle);
+ }
+ 
+@@ -528,6 +544,8 @@
+ 			break;
+ 		case SCI_DISPLAY_RESTOREUNDER:
+ 			bitsGetRect(argv[0], &rect);
++			if (sierraHdLayoutOn())
++				sierraHdLayout("display restore %s", sierraHdRect(rect).c_str());
+ 			rect.translate(-_ports->getPort()->left, -_ports->getPort()->top);
+ 			bitsRestore(argv[0]);
+ 			kernelGraphRedrawBox(rect);
+@@ -597,6 +615,10 @@
+ 		bitsShow(rect);
+ 
+ 	_text16->Box(text, languageSplitter, needCJKFix, rect, alignment, -1);
++	// sierra-hd: the text's rectangle, for the layout file.
++	if (sierraHdLayoutOn())
++		sierraHdLayout("display %s align=%d font=%d back=%d saved=%d", sierraHdRect(rect, _ports->getPort()).c_str(),
++		               alignment, _text16->GetFontId(), colorBack, doSaveUnder ? 1 : 0);
+ 
+ 	// See comment above.
+ 	if (!needCJKFix && _screen->_picNotValid == 0 && bRedraw)
+diff -ruN a/engines/sci/graphics/ports.cpp b/engines/sci/graphics/ports.cpp
+--- a/engines/sci/graphics/ports.cpp
++++ b/engines/sci/graphics/ports.cpp
+@@ -34,6 +34,7 @@
+ #include "sci/graphics/animate.h"
+ #include "sci/graphics/text16.h"
+ #include "sci/graphics/ports.h"
++#include "sci/sierra_hd_trace.h"
+ 
+ namespace Sci {
+ 
+@@ -219,6 +220,8 @@
+ 	_picWind->left = picLeft;
+ 	if (initPriorityBandsFlag)
+ 		kernelInitPriorityBands();
++	if (sierraHdLayoutOn())
++		sierraHdLayout("picwindow port=%s", sierraHdRect(_picWind->rect, _picWind).c_str());
+ }
+ 
+ reg_t GfxPorts::kernelGetActive() {
+@@ -235,6 +238,13 @@
+ 	wnd->penClr = colorPen;
+ 	wnd->backClr = colorBack;
+ 	drawWindow(wnd);
++	// sierra-hd: the window's layout, for the layout file (the frame and
++	// the restored area are in the window manager port's coordinates).
++	if (sierraHdLayoutOn())
++		sierraHdLayout("window %d port=%s dims=%s restore=%s style=%04x priority=%d pen=%d back=%d title=%s", wnd->id,
++		               sierraHdRect(wnd->rect, wnd).c_str(), sierraHdRect(wnd->dims, _wmgrPort).c_str(),
++		               sierraHdRect(wnd->restoreRect, _wmgrPort).c_str(), wnd->wndStyle, priority, wnd->penClr,
++		               wnd->backClr, sierraHdQuoted(wnd->title.c_str()).c_str());
+ 
+ 	return make_reg(0, wnd->id);
+ }
+@@ -242,6 +252,9 @@
+ void GfxPorts::kernelDisposeWindow(uint16 windowId, bool reanimate) {
+ 	Window *wnd = (Window *)getPortById(windowId);
+ 	if (wnd) {
++		if (sierraHdLayoutOn())
++			sierraHdLayout("dispose %d restore=%s reanimate=%d", windowId,
++			               sierraHdRect(wnd->restoreRect, _wmgrPort).c_str(), reanimate ? 1 : 0);
+ 		if (!wnd->counterTillFree) {
+ 			removeWindow(wnd, reanimate);
+ 		} else {
+diff -ruN a/engines/sci/graphics/text16.cpp b/engines/sci/graphics/text16.cpp
+--- a/engines/sci/graphics/text16.cpp
++++ b/engines/sci/graphics/text16.cpp
+@@ -36,6 +36,7 @@
+ #include "sci/graphics/scifont.h"
+ #include "sci/graphics/screen.h"
+ #include "sci/graphics/text16.h"
++#include "sci/sierra_hd_trace.h"
+ 
+ namespace Sci {
+ 
+@@ -495,6 +496,10 @@
+ 		rect.bottom = totalHeight;
+ 		rect.right = maxWidth ? maxWidth : MIN(rect.right, maxTextWidth);
+ 	}
++	// sierra-hd: the size, for the layout file.
++	if (sierraHdLayoutOn())
++		sierraHdLayout("size %s font=%d max=%d = %dx%d", sierraHdQuoted(text).c_str(), fontId, maxWidth, rect.width(),
++		               rect.height());
+ 	SetFont(previousFontId);
+ 	_ports->penColor(previousPenColor);
+ 	return rect.right;
+@@ -510,6 +515,10 @@
+ 	rect.top = _ports->_curPort->curTop;
+ 	rect.bottom = rect.top + _ports->_curPort->fontHeight;
+ 	text += from;
++	// sierra-hd: the text drawn, for the layout file.
++	const char *sierraHdText = text;
++	const int16 sierraHdLen = len;
++	const int16 sierraHdLeft = _ports->_curPort->curLeft;
+ 	bool escapedNewLine = false;
+ 	while (len--) {
+ 		uint16 curChar = (*(const byte *)text++);
+@@ -551,6 +560,11 @@
+ 		}
+ 		}
+ 	}
++	if (sierraHdLayoutOn())
++		sierraHdLayout("text %d,%d width=%d font=%d pen=%d greyed=%d %s", _ports->_curPort->left + sierraHdLeft,
++		               _ports->_curPort->top + rect.top, _ports->_curPort->curLeft - sierraHdLeft, GetFontId(),
++		               _ports->_curPort->penClr, _ports->_curPort->greyedOutput ? 1 : 0,
++		               sierraHdQuoted(sierraHdText, sierraHdLen).c_str());
+ }
+ 
+ void GfxText16::Show(const char *text, int16 from, int16 len, GuiResourceId orgFontId, int16 orgPenColor) {
+@@ -592,6 +606,11 @@
+ 	_codeRefRects.clear();
+ 	_codeRefTempRect.left = _codeRefTempRect.top = -1;
+ 
++	// sierra-hd: the text's box, for the layout file.
++	if (sierraHdLayoutOn())
++		sierraHdLayout("box %s align=%d font=%d show=%d %s", sierraHdRect(rect, _ports->_curPort).c_str(), alignment,
++		               fontId, show ? 1 : 0, sierraHdQuoted(text).c_str());
++
+ 	maxTextWidth = 0;
+ 	while (*curTextPos) {
+ 		//  We need to check for Shift-JIS every line. Police Quest 2 PC-9801 often draws English + Japanese text into the same box.
 diff -ruN a/engines/sci/module.mk b/engines/sci/module.mk
 --- a/engines/sci/module.mk
 +++ b/engines/sci/module.mk
@@ -489,7 +774,7 @@ diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
 diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 --- a/engines/sci/sierra_hd_trace.cpp
 +++ b/engines/sci/sierra_hd_trace.cpp
-@@ -0,0 +1,558 @@
+@@ -0,0 +1,608 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -558,6 +843,17 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 + *   read); the outcome is null (no spec), invalid, skipped (no event or
 + *   already claimed), none, partial or full; claimed is the flag the call
 + *   leaves on the event (- without one).
++ *
++ * Milestone 6b adds:
++ *
++ * - With SIERRA_HD_LAYOUT=<file>, the window layout in 1x screen
++ *   coordinates: one line per window, text, control, menu and cursor
++ *   operation, as it happens, keyed by the tick and the number of the
++ *   kernel call running:
++ *     <tick> <call> <kind> <fields>
++ *   Rectangles are left,top,right,bottom (right and bottom exclusive),
++ *   strings are quoted as the parser's input. The kinds are listed in
++ *   docs/formats/replay-and-trace.md of sierra-hd, "Layout files".
 + */
 +
 +#define FORBIDDEN_SYMBOL_ALLOW_ALL
@@ -576,10 +872,12 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +#include "sci/engine/selector.h"
 +#include "sci/engine/state.h"
 +#include "sci/event.h"
++#include "sci/graphics/helpers.h"
 +#include "sci/graphics/screen.h"
 +#include "sci/sci.h"
 +#include "sci/sound/music.h"
 +
++#include <stdarg.h>
 +#include <stdio.h>
 +#include <stdlib.h>
 +#include <string.h>
@@ -628,14 +926,15 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	Common::String parse;
 +	reg_t parseEvent;
 +	Common::String said;
++	FILE *layout = nullptr;
 +};
 +
 +State &state();
 +
 +// The input as a quoted string: \" and \\, and \xHH for bytes outside 32 to 126.
-+Common::String quoted(const char *text) {
++Common::String quoted(const char *text, int len = -1) {
 +	Common::String result = "\"";
-+	for (const byte *p = (const byte *)text; *p; ++p) {
++	for (const byte *p = (const byte *)text; *p && (len < 0 || p < (const byte *)text + len); ++p) {
 +		if (*p == '"' || *p == '\\')
 +			result += Common::String::format("\\%c", *p);
 +		else if (*p < 32 || *p > 126)
@@ -774,6 +1073,12 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +				if (!s.actors)
 +					error("sierra-hd: cannot write the actors file %s", actors);
 +			}
++			const char *layout = getenv("SIERRA_HD_LAYOUT");
++			if (layout && *layout) {
++				s.layout = fopen(layout, "w");
++				if (!s.layout)
++					error("sierra-hd: cannot write the layout file %s", layout);
++			}
 +			const char *parser = getenv("SIERRA_HD_PARSER");
 +			if (parser && *parser) {
 +				s.parser = fopen(parser, "w");
@@ -797,6 +1102,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +			fflush(s.actors);
 +		if (s.parser)
 +			fflush(s.parser);
++		if (s.layout)
++			fflush(s.layout);
 +		g_sci->quitGame();
 +	}
 +	// A script that never returns to the event loop would not see the quit:
@@ -809,6 +1116,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +			fclose(s.actors);
 +		if (s.parser)
 +			fclose(s.parser);
++		if (s.layout)
++			fclose(s.layout);
 +		warning("sierra-hd: the game did not stop at the limit; ending the process");
 +		exit(0);
 +	}
@@ -1047,11 +1356,37 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	s.said += claimed < 0 ? Common::String("-") : Common::String::format("%d", claimed);
 +}
 +
++bool sierraHdLayoutOn() {
++	return state().layout != nullptr;
++}
++
++void sierraHdLayout(const char *format, ...) {
++	State &s = state();
++	if (!s.layout)
++		return;
++	fprintf(s.layout, "%u %u ", currentTick(s), s.calls);
++	va_list arguments;
++	va_start(arguments, format);
++	vfprintf(s.layout, format, arguments);
++	va_end(arguments);
++	fputc('\n', s.layout);
++}
++
++Common::String sierraHdRect(const Common::Rect &rect, const Port *port) {
++	const int16 left = port ? port->left : 0;
++	const int16 top = port ? port->top : 0;
++	return Common::String::format("%d,%d,%d,%d", rect.left + left, rect.top + top, rect.right + left, rect.bottom + top);
++}
++
++Common::String sierraHdQuoted(const char *text, int len) {
++	return quoted(text ? text : "", len);
++}
++
 +} // End of namespace Sci
 diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 --- a/engines/sci/sierra_hd_trace.h
 +++ b/engines/sci/sierra_hd_trace.h
-@@ -0,0 +1,68 @@
+@@ -0,0 +1,80 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -1060,8 +1395,9 @@ diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 + * (at your option) any later version.
 + *
 + * The deterministic mode and kernel-call trace of milestone 4, with the
-+ * cast positions and 1x maps of milestone 5 and the parser results of
-+ * milestone 6a (see sierra_hd_trace.cpp).
++ * cast positions and 1x maps of milestone 5, the parser results of
++ * milestone 6a and the window layout of milestone 6b (see
++ * sierra_hd_trace.cpp).
 + */
 +
 +#ifndef SCI_SIERRA_HD_TRACE_H
@@ -1069,12 +1405,14 @@ diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 +
 +#include "common/scummsys.h"
 +#include "common/rect.h"
++#include "common/str.h"
 +#include "sci/engine/vm_types.h"
 +#include "sci/parser/vocabulary.h"
 +
 +namespace Sci {
 +
 +class SciMusic;
++struct Port;
 +struct SciEvent;
 +
 +// Whether the deterministic mode is on (SIERRA_HD_TRACE is set).
@@ -1116,6 +1454,15 @@ diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 +// invalid, skipped, none, partial or full) and the event's claimed flag the
 +// call leaves (-1 without an event).
 +void sierraHdSaid(const byte *spec, int size, const char *outcome, int claimed);
++// The window layout (milestone 6b): whether SIERRA_HD_LAYOUT is set, and one
++// line for it, after the tick and the number of the kernel call running
++// (printf-style). A rectangle in screen coordinates, as left,top,right,bottom
++// (offset by the port's origin when a port is given), and a quoted string
++// (len bytes, or up to its end).
++bool sierraHdLayoutOn();
++void sierraHdLayout(const char *format, ...) GCC_PRINTF(1, 2);
++Common::String sierraHdRect(const Common::Rect &rect, const Port *port = nullptr);
++Common::String sierraHdQuoted(const char *text, int len = -1);
 +
 +} // End of namespace Sci
 +

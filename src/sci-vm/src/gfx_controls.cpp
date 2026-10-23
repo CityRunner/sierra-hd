@@ -27,6 +27,7 @@
 
 #include "gfx_controls.hpp"
 
+#include "gfx_layout.hpp"
 #include "graphics.hpp"
 #include "machine.hpp"
 #include "subsystems.hpp"
@@ -84,6 +85,11 @@ void Controls::draw_control(Reg control, bool hilite) {
     std::string text;
     if (!text_pointer.is_null()) {
         text = segments.get_string(text_pointer);
+    }
+    if (graphics_->layout_logging()) {
+        graphics_->log_layout(std::format("control {} {:04x}:{:04x} rect={} state={:04x} font={} hilite={}", type,
+                                          control.segment, control.offset, layout_rect(rect, graphics_->ports().port()),
+                                          style, font_id, hilite ? 1 : 0));
     }
     switch (type) {
     case control_type_button:

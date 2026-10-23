@@ -2,10 +2,12 @@
 //
 // The window layer's input and cursor, made neutral of SDL: key presses as
 // SCI key events (ScummVM's EventManager::getScummVMEvent, keyMappings and
-// altify in engines/sci/event.cpp) and SCI0 cursor resources as RGBA images
-// (GfxCursor::kernelSetShape in engines/sci/graphics/cursor.cpp).
+// altify in engines/sci/event.cpp), the cursor scaled N x N (spec section
+// 6.9) and how the system shows it, and the mouse from window coordinates
+// to 1x and back, with letterbox and display scaling.
 
 #include "game_screen.hpp"
+#include "sci/view/cursor.hpp"
 #include "sci/vm/events.hpp"
 #include "sci_test.hpp"
 
@@ -14,10 +16,17 @@
 #include <cstdint>
 #include <optional>
 
+using sci::app::cursor_mode;
 using sci::app::CursorImage;
-using sci::app::decode_cursor;
+using sci::app::CursorMode;
+using sci::app::FrameGeometry;
 using sci::app::KeyPress;
+using sci::app::scale_cursor;
 using sci::app::sci_key_event;
+using sci::app::window_from_1x;
+using sci::app::window_to_1x;
+using sci::app::WindowPoint;
+using sci::view::CursorPixel;
 using Key = sci::app::KeyPress::Key;
 
 namespace {
@@ -146,88 +155,133 @@ SCI_TEST(keypad_keys_follow_num_lock) {
 
 namespace {
 
-// A cursor resource: 4 header bytes, then 16 words of mask A (transparency)
-// and 16 of mask B (colour), little endian, the leftmost pixel in bit 15.
-std::array<std::uint8_t, 68> cursor_resource(std::uint8_t hotspot_flag) {
-    std::array<std::uint8_t, 68> data{};
-    data[3] = hotspot_flag;
-    const auto set_row = [&](std::size_t mask, std::size_t y, std::uint16_t bits) {
-        const std::size_t at = 4 + (mask * 32) + (y * 2);
-        data[at] = static_cast<std::uint8_t>(bits & 0xFFU);
-        data[at + 1] = static_cast<std::uint8_t>(bits >> 8U);
-    };
-    // Row 0: A+B (white), B (white), neither (black), A (transparent).
-    set_row(0, 0, 0x9000);
-    set_row(1, 0, 0xC000);
-    // Row 1 is all transparent, row 2 has a white pixel at the right.
-    set_row(0, 1, 0xFFFF);
-    set_row(0, 2, 0xFFFE);
-    set_row(1, 2, 0x0001);
-    return data;
+// A cursor with a different pixel at each place: transparent, black and
+// white in turn, the hotspot at (8, 8) as SCI0's centred flag sets it.
+sci::view::Cursor sample_cursor() {
+    sci::view::Cursor cursor;
+    for (int y = 0; y < sci::view::Cursor::size; ++y) {
+        for (int x = 0; x < sci::view::Cursor::size; ++x) {
+            cursor.pixels[(static_cast<std::size_t>(y) * 16) + static_cast<std::size_t>(x)] =
+                static_cast<CursorPixel>(((x * 3) + y) % 3);
+        }
+    }
+    cursor.hotspot_x = 8;
+    cursor.hotspot_y = 8;
+    return cursor;
 }
 
-struct Pixel {
+struct Rgba {
     std::uint8_t r;
     std::uint8_t g;
     std::uint8_t b;
     std::uint8_t a;
 
-    bool operator==(const Pixel&) const = default;
+    bool operator==(const Rgba&) const = default;
 };
 
-Pixel pixel(const CursorImage& image, int x, int y) {
-    const auto i = static_cast<std::size_t>((y * 16) + x) * 4;
-    return Pixel{
-        .r = image.pixels[i],
-        .g = image.pixels[i + 1],
-        .b = image.pixels[i + 2],
-        .a = image.pixels[i + 3],
-    };
+Rgba pixel(const CursorImage& image, int x, int y) {
+    const auto i =
+        ((static_cast<std::size_t>(y) * static_cast<std::size_t>(image.size)) + static_cast<std::size_t>(x)) * 4;
+    return Rgba{.r = image.pixels[i], .g = image.pixels[i + 1], .b = image.pixels[i + 2], .a = image.pixels[i + 3]};
 }
 
-constexpr Pixel black{.r = 0, .g = 0, .b = 0, .a = 0xFF};
-constexpr Pixel white{.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF};
-
-bool transparent(const CursorImage& image, int x, int y) {
-    return pixel(image, x, y).a == 0;
+Rgba expected(CursorPixel source) {
+    switch (source) {
+    case CursorPixel::Black:
+        return Rgba{.r = 0, .g = 0, .b = 0, .a = 0xFF};
+    case CursorPixel::White:
+        return Rgba{.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF};
+    case CursorPixel::Transparent:
+        break;
+    }
+    return Rgba{.r = 0, .g = 0, .b = 0, .a = 0};
 }
 
 } // namespace
 
-SCI_TEST(cursor_masks_give_black_white_and_transparent) {
-    const auto data = cursor_resource(0);
-    const auto image = decode_cursor(data);
-    SCI_CHECK(image.has_value());
-    if (!image) {
-        return;
+SCI_TEST(the_cursor_at_n_is_the_resource_scaled_n_by_n) {
+    const sci::view::Cursor cursor = sample_cursor();
+    for (int scale = 1; scale <= 16; ++scale) {
+        const CursorImage image = scale_cursor(cursor, scale);
+        SCI_CHECK(image.size == 16 * scale);
+        SCI_CHECK(image.pixels.size() ==
+                  static_cast<std::size_t>(image.size) * static_cast<std::size_t>(image.size) * 4);
+        SCI_CHECK(image.hotspot_x == 8 * scale && image.hotspot_y == 8 * scale);
+        bool all = true;
+        for (int y = 0; y < image.size; ++y) {
+            for (int x = 0; x < image.size; ++x) {
+                all = all && pixel(image, x, y) == expected(cursor.at(x / scale, y / scale));
+            }
+        }
+        SCI_CHECK(all);
     }
-    SCI_CHECK(pixel(*image, 0, 0) == white); // Colour 3 is white in SCI0.
-    SCI_CHECK(pixel(*image, 1, 0) == white); // Colour 1.
-    SCI_CHECK(pixel(*image, 2, 0) == black); // Colour 0.
-    SCI_CHECK(transparent(*image, 3, 0));    // Colour 2.
-    SCI_CHECK(pixel(*image, 15, 0) == black);
-    for (int x = 0; x < 16; ++x) {
-        SCI_CHECK(transparent(*image, x, 1));
-    }
-    SCI_CHECK(transparent(*image, 0, 2) && transparent(*image, 14, 2));
-    SCI_CHECK(pixel(*image, 15, 2) == white);
-    SCI_CHECK(pixel(*image, 7, 15) == black);
+    // A top-left hotspot stays at 0.
+    sci::view::Cursor top_left = cursor;
+    top_left.hotspot_x = top_left.hotspot_y = 0;
+    const CursorImage image = scale_cursor(top_left, 7);
+    SCI_CHECK(image.hotspot_x == 0 && image.hotspot_y == 0);
 }
 
-SCI_TEST(cursor_hotspot_is_centred_when_byte_3_is_set) {
-    const auto top_left = decode_cursor(cursor_resource(0));
-    SCI_CHECK(top_left && top_left->hotspot_x == 0 && top_left->hotspot_y == 0);
-    const auto centred = decode_cursor(cursor_resource(1));
-    SCI_CHECK(centred && centred->hotspot_x == 8 && centred->hotspot_y == 8);
-    // kernelSetShape tests the whole byte, not only bit 0.
-    const auto other = decode_cursor(cursor_resource(2));
-    SCI_CHECK(other && other->hotspot_x == 8 && other->hotspot_y == 8);
+SCI_TEST(the_system_shows_the_cursor_only_at_its_own_pixel_size) {
+    SCI_CHECK(cursor_mode(1.0, 16) == CursorMode::System);
+    SCI_CHECK(cursor_mode(1.0, 16 * 16) == CursorMode::System);
+    // Windows cursor files hold at most 256 pixels per side.
+    SCI_CHECK(cursor_mode(1.0, 16 * 17) == CursorMode::Drawn);
+    // Where SDL takes cursor pixels as points, they would be scaled again.
+    SCI_CHECK(cursor_mode(2.0, 16 * 5) == CursorMode::Drawn);
+    SCI_CHECK(cursor_mode(1.25, 16 * 5) == CursorMode::Drawn);
+    SCI_CHECK(cursor_mode(1.5, 16) == CursorMode::Drawn);
 }
 
-SCI_TEST(cursor_resources_of_another_size_are_refused) {
-    const std::array<std::uint8_t, 67> short_data{};
-    SCI_CHECK(!decode_cursor(short_data).has_value());
-    const std::array<std::uint8_t, 69> long_data{};
-    SCI_CHECK(!decode_cursor(long_data).has_value());
-    SCI_CHECK(!decode_cursor({}).has_value());
+SCI_TEST(the_mouse_maps_to_1x_minus_the_letterbox_divided_by_n) {
+    // N = 5 in a 1920 x 1080 output: the frame of 1600 x 1000 starts at
+    // (160, 40).
+    const FrameGeometry geometry{.scale = 5, .offset_x = 160, .offset_y = 40, .pixel_density = 1.0};
+    SCI_CHECK(window_to_1x(160, 40, geometry) == (sci::vm::Point{.x = 0, .y = 0}));
+    SCI_CHECK(window_to_1x(164.9, 44.9, geometry) == (sci::vm::Point{.x = 0, .y = 0}));
+    SCI_CHECK(window_to_1x(165, 45, geometry) == (sci::vm::Point{.x = 1, .y = 1}));
+    SCI_CHECK(window_to_1x(160 + 1599, 40 + 999, geometry) == (sci::vm::Point{.x = 319, .y = 199}));
+    SCI_CHECK(window_to_1x(160 + (5 * 123) + 2, 40 + (5 * 77) + 4, geometry) == (sci::vm::Point{.x = 123, .y = 77}));
+    // In the letterbox: clamped to the screen's edge.
+    SCI_CHECK(window_to_1x(0, 0, geometry) == (sci::vm::Point{.x = 0, .y = 0}));
+    SCI_CHECK(window_to_1x(159.5, 39.5, geometry) == (sci::vm::Point{.x = 0, .y = 0}));
+    SCI_CHECK(window_to_1x(1919, 1079, geometry) == (sci::vm::Point{.x = 319, .y = 199}));
+    SCI_CHECK(window_to_1x(-30, 2000, geometry) == (sci::vm::Point{.x = 0, .y = 199}));
+}
+
+SCI_TEST(display_scaling_maps_window_coordinates_to_physical_pixels) {
+    // 150 %: a window coordinate is 1.5 physical pixels. N = 4 in 1500 x
+    // 900 physical pixels: the frame of 1280 x 800 starts at (110, 50).
+    const FrameGeometry scaled{.scale = 4, .offset_x = 110, .offset_y = 50, .pixel_density = 1.5};
+    // The physical pixel (110, 50) is at window (73.33, 33.33).
+    SCI_CHECK(window_to_1x(73.34, 33.34, scaled) == (sci::vm::Point{.x = 0, .y = 0}));
+    SCI_CHECK(window_to_1x(73.3, 33.3, scaled) == (sci::vm::Point{.x = 0, .y = 0})); // Letterbox, clamped.
+    SCI_CHECK(window_to_1x((110 + 4.0) / 1.5, (50 + 8.0) / 1.5, scaled) == (sci::vm::Point{.x = 1, .y = 2}));
+    SCI_CHECK(window_to_1x((110 + 3.9) / 1.5, (50 + 7.9) / 1.5, scaled) == (sci::vm::Point{.x = 0, .y = 1}));
+    // 125 % and Retina's 2.
+    const FrameGeometry quarter{.scale = 3, .offset_x = 0, .offset_y = 0, .pixel_density = 1.25};
+    SCI_CHECK(window_to_1x(100, 100, quarter) == (sci::vm::Point{.x = 41, .y = 41})); // Pixel 125.
+    const FrameGeometry retina{.scale = 6, .offset_x = 20, .offset_y = 0, .pixel_density = 2.0};
+    SCI_CHECK(window_to_1x(10, 0, retina) == (sci::vm::Point{.x = 0, .y = 0}));
+    SCI_CHECK(window_to_1x(13, 3, retina) == (sci::vm::Point{.x = 1, .y = 1})); // Pixel (26, 6).
+}
+
+SCI_TEST(the_game_mouse_goes_to_the_centre_of_its_block_and_back) {
+    for (const double density : {1.0, 1.25, 1.5, 2.0}) {
+        for (const int scale : {1, 2, 3, 5, 10, 16}) {
+            const FrameGeometry geometry{.scale = scale, .offset_x = 37, .offset_y = 11, .pixel_density = density};
+            bool all = true;
+            for (int y = 0; y < 200; y += 7) {
+                for (int x = 0; x < 320; x += 3) {
+                    const sci::vm::Point point{.x = static_cast<std::int16_t>(x), .y = static_cast<std::int16_t>(y)};
+                    const WindowPoint window = window_from_1x(point, geometry);
+                    all = all && window_to_1x(window.x, window.y, geometry) == point;
+                }
+            }
+            SCI_CHECK(all);
+        }
+    }
+    const FrameGeometry geometry{.scale = 4, .offset_x = 10, .offset_y = 20, .pixel_density = 1.0};
+    const WindowPoint centre = window_from_1x(sci::vm::Point{.x = 2, .y = 3}, geometry);
+    SCI_CHECK(centre.x == 20.0 && centre.y == 34.0);
 }

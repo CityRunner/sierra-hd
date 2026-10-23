@@ -8,13 +8,14 @@
 //   sci-vm-trace <game folder> <trace file> [--replay <file>] [--seed <n>]
 //                [--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]
 //                [--screens <folder>] [--screen-every <ticks>] [--actors <file>]
-//                [--parser <file>]
+//                [--parser <file>] [--layout <file>]
 //   sci-vm-trace --scan-kernel <game folder> <output file>
 //   sci-vm-trace --vocabulary <game folder> <output file>
 //
 // --screens writes the screen the player sees and the 1x priority and
 // control maps; --actors writes the cast of every kAnimate call; --parser
-// what kParse and kSaid made of the input (docs/formats/replay-and-trace.md).
+// what kParse and kSaid made of the input; --layout the windows, text,
+// controls, menus and cursor in 1x (docs/formats/replay-and-trace.md).
 //
 // --vocabulary lists the parser's vocabulary as sci-text reads it: every
 // word of vocab.000 ("word <spelling> <class> <group>", in hex), the
@@ -78,7 +79,7 @@ int usage() {
     std::println(stderr, "usage: sci-vm-trace <game folder> <trace file> [--replay <file>] [--seed <n>] "
                          "[--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]\n"
                          "                    [--screens <folder>] [--screen-every <ticks>] [--actors <file>] "
-                         "[--parser <file>]\n"
+                         "[--parser <file>] [--layout <file>]\n"
                          "       sci-vm-trace --scan-kernel <game folder> <output file>\n"
                          "       sci-vm-trace --vocabulary <game folder> <output file>");
     return 2;
@@ -245,6 +246,7 @@ int main(int argc, char** argv) {
     std::filesystem::path screens;
     std::filesystem::path actors;
     std::filesystem::path parser;
+    std::filesystem::path layout;
     std::uint32_t screen_every = 60;
     for (std::size_t i = 3; i < args.size(); i += 2) {
         const std::string_view flag = args[i];
@@ -288,6 +290,10 @@ int main(int argc, char** argv) {
         }
         if (flag == "--parser") {
             parser = value;
+            continue;
+        }
+        if (flag == "--layout") {
+            layout = value;
             continue;
         }
         const auto parsed = parse_number(value);
@@ -352,6 +358,17 @@ int main(int argc, char** argv) {
             parser_file << tick << ' ' << call << ' ' << line << '\n';
         };
     }
+    std::ofstream layout_file;
+    if (!layout.empty()) {
+        layout_file.open(layout);
+        if (!layout_file) {
+            std::println(stderr, "cannot write {}", layout.string());
+            return 1;
+        }
+        options.on_layout = [&](std::uint32_t call, std::uint32_t tick, std::string_view line) {
+            layout_file << tick << ' ' << call << ' ' << line << '\n';
+        };
+    }
     // The game folder's files for kFOpen to read, under lower-case names,
     // and nothing written yet: the reference starts with an empty save folder.
     std::map<std::string, std::vector<std::uint8_t>> game_files;
@@ -373,10 +390,13 @@ int main(int argc, char** argv) {
     trace.close();
     actor_file.close();
     parser_file.close();
+    layout_file.close();
     std::println(stderr, "{} kernel calls in {} ticks", result.calls, result.ticks);
     if (result.fault) {
         std::println(stderr, "stopped: {}", *result.fault);
         return 1;
     }
-    return trace && (actors.empty() || actor_file) && (parser.empty() || parser_file) ? 0 : 1;
+    return trace && (actors.empty() || actor_file) && (parser.empty() || parser_file) && (layout.empty() || layout_file)
+               ? 0
+               : 1;
 }

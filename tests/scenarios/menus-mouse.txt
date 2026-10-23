@@ -1,0 +1,129 @@
+sierra-hd replay 1
+# Every menu and item of the menu bar chosen with the mouse, in Laura's
+# bedroom (room 44), with seed 0. The start is that of menus.txt (copy
+# protection, then "Yes" to "Have you previously attended?"). A press on
+# the bar opens the menu under the mouse; the menu follows the mouse while
+# the button is down, and the release chooses the item under it. Bar: the
+# Sierra menu at x 8-26, File 27-61, Action 62-109, Speed 110-155, Sound
+# 156-201; items are 8 rows high from row 10.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 key 13
+# Sierra > About Bequest, closed with Enter.
+3400 down 15 5
+3410 move 15 14
+3420 up 15 14
+3600 key 13
+# Sierra > Help, closed with Enter.
+3700 down 15 5
+3710 move 15 22
+3720 up 15 22
+3900 key 13
+# Across the whole bar with the button down: each menu opens in turn, then
+# past the last title nothing is open, and the release chooses nothing.
+4000 down 15 5
+4010 move 44 5
+4020 move 85 5
+4030 move 132 5
+4040 move 178 5
+4050 move 178 22
+4060 move 132 22
+4070 move 250 5
+4080 move 250 60
+4090 up 250 60
+# A release on the separator line of File chooses nothing.
+4200 down 44 5
+4210 move 44 30
+4220 up 44 30
+# File > Save: the save dialog, cancelled with Escape.
+4300 down 44 5
+4310 move 44 14
+4320 up 44 14
+4500 key 27
+# File > Restore: the restore dialog, with no saved games.
+4600 down 44 5
+4610 move 44 22
+4620 up 44 22
+4800 key 13
+# The restore button with no game chosen: a message, closed with Enter.
+4900 key 13
+# File > Restart, answered with Escape (continue).
+5000 down 44 5
+5010 move 44 38
+5020 up 44 38
+5200 key 27
+# File > Quit, answered with Escape (continue).
+5300 down 44 5
+5310 move 44 46
+5320 up 44 46
+5500 key 27
+# Action > Pause, closed with Enter.
+5600 down 85 5
+5610 move 85 14
+5620 up 85 14
+5800 key 13
+# Action > Inventory, closed with Escape.
+5900 down 85 5
+5910 move 85 22
+5920 up 85 22
+6100 key 27
+# Action > Retype, Ask about, Tell about, Show, Give and Look at open the
+# input line with their words; Escape closes it.
+6200 down 85 5
+6210 move 85 30
+6220 up 85 30
+6350 key 27
+6400 down 85 5
+6410 move 85 38
+6420 up 85 38
+6550 key 27
+6600 down 85 5
+6610 move 85 46
+6620 up 85 46
+6750 key 27
+6800 down 85 5
+6810 move 85 54
+6820 up 85 54
+6950 key 27
+7000 down 85 5
+7010 move 85 62
+7020 up 85 62
+7150 key 27
+7200 down 85 5
+7210 move 85 70
+7220 up 85 70
+7350 key 27
+# Speed > Faster, Slower, Normal.
+7400 down 132 5
+7410 move 132 14
+7420 up 132 14
+7500 down 132 5
+7510 move 132 30
+7520 up 132 30
+7600 down 132 5
+7610 move 132 22
+7620 up 132 22
+# Sound > Volume, closed with Escape; Sound > Turn Off, then on again.
+7700 down 178 5
+7710 move 178 14
+7720 up 178 14
+7900 key 27
+8000 down 178 5
+8010 move 178 22
+8020 up 178 22
+8100 down 178 5
+8110 move 178 22
+8120 up 178 22
+# A click below the bar and a short walk, to see the game goes on.
+8300 down 200 150
+8302 up 200 150

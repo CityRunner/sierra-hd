@@ -27,9 +27,11 @@
 #include "gfx_text.hpp"
 
 #include "faults.hpp"
+#include "gfx_layout.hpp"
 #include "graphics.hpp"
 
 #include <algorithm>
+#include <format>
 
 namespace sci::vm {
 
@@ -191,6 +193,11 @@ Rect Text::size(std::string_view text, int font_id, int max_width) {
         rect.bottom = static_cast<std::int16_t>(total_height);
         rect.right = static_cast<std::int16_t>(max_width != 0 ? max_width : std::min<int>(rect.right, max_text_width));
     }
+    if (graphics_->layout_logging()) {
+        graphics_->log_layout(std::format("size {} font={} max={} = {}x{}", quoted(text),
+                                          font_id != -1 ? font_id : previous_font, max_width, rect.width(),
+                                          rect.height()));
+    }
     set_font(previous_font);
     ports.pen_color(previous_pen);
     return rect;
@@ -202,6 +209,8 @@ void Text::draw(std::string_view text, std::size_t from, int length) {
     Rect rect;
     rect.top = port->cur_top;
     rect.bottom = static_cast<std::int16_t>(rect.top + port->font_height);
+    const std::int16_t start_left = port->cur_left;
+    const int drawn_length = length;
     std::size_t position = from;
     while (length-- > 0) {
         const std::uint16_t chr = char_at(text, position++);
@@ -217,6 +226,13 @@ void Text::draw(std::string_view text, std::size_t from, int length) {
         current.draw(graphics_->screen(), chr, port->top + port->cur_top, port->left + port->cur_left,
                      static_cast<std::uint8_t>(port->pen_color), port->greyed_output);
         port->cur_left = static_cast<std::int16_t>(port->cur_left + char_width);
+    }
+    if (graphics_->layout_logging()) {
+        const std::string_view drawn =
+            from < text.size() ? text.substr(from, static_cast<std::size_t>(drawn_length)) : std::string_view{};
+        graphics_->log_layout(std::format("text {},{} width={} font={} pen={} greyed={} {}", port->left + start_left,
+                                          port->top + rect.top, port->cur_left - start_left, font_id(), port->pen_color,
+                                          port->greyed_output ? 1 : 0, quoted(drawn.substr(0, drawn.find('\0')))));
     }
 }
 
@@ -237,6 +253,11 @@ void Text::box(std::string_view text, bool show, const Rect& rect, int alignment
     const int previous_pen = ports.port()->pen_color;
     if (font_id != -1) {
         set_font(font_id);
+    }
+    if (graphics_->layout_logging()) {
+        graphics_->log_layout(std::format("box {} align={} font={} show={} {}", layout_rect(rect, ports.port()),
+                                          alignment, font_id != -1 ? font_id : previous_font, show ? 1 : 0,
+                                          quoted(text)));
     }
     int text_width = 0;
     int text_height = 0;

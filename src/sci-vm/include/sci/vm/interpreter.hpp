@@ -5,7 +5,8 @@
 // as the reference ScummVM traces it (docs/formats/replay-and-trace.md).
 // Milestone 5 adds the cast of every kAnimate call and the 1x priority and
 // control maps, compared with the reference's as well; milestone 6a what
-// the parser made of each typed command and each Said spec.
+// the parser made of each typed command and each Said spec; milestone 6b
+// the layout of windows, text, controls, menus and the cursor.
 
 #pragma once
 
@@ -76,6 +77,11 @@ struct RunOptions {
     // docs/formats/replay-and-trace.md): `parse "<input>" ...` or
     // `said <spec> ...`, without the line break.
     std::function<void(std::uint32_t call, std::uint32_t tick, std::string_view)> on_parser;
+    // Called for every window, text, control, menu and cursor operation as
+    // it happens, with the number of the kernel call running, the tick and
+    // a line of the layout file after its tick and call number (milestone
+    // 6b, docs/formats/replay-and-trace.md), without the line break.
+    std::function<void(std::uint32_t call, std::uint32_t tick, std::string_view)> on_layout;
 };
 
 struct RunResult {

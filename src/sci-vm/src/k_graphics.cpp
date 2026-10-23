@@ -24,6 +24,7 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
+#include "gfx_layout.hpp"
 #include "graphics.hpp"
 #include "kernel_functions.hpp"
 #include "machine.hpp"
@@ -129,12 +130,25 @@ Reg k_graph_draw_line(Machine& machine, std::span<Reg> args) {
 }
 
 Reg k_graph_save_box(Machine& machine, std::span<Reg> args) {
+    Graphics& graphics = gfx(machine);
     const auto mask = static_cast<std::uint8_t>(args[4].to_uint16() & mask_all);
-    return gfx(machine).paint().bits_save(graph_rect(args), mask);
+    const Reg handle = graphics.paint().bits_save(graph_rect(args), mask);
+    // The area saved, in screen coordinates.
+    if (graphics.layout_logging()) {
+        graphics.log_layout(std::format("savebox {} mask={}",
+                                        handle.is_null() ? "-" : layout_rect(graphics.paint().bits_rect(handle)),
+                                        args[4].to_uint16() & mask_all));
+    }
+    return handle;
 }
 
 Reg k_graph_restore_box(Machine& machine, std::span<Reg> args) {
-    gfx(machine).paint().bits_restore(args[0]);
+    Graphics& graphics = gfx(machine);
+    if (graphics.layout_logging()) {
+        graphics.log_layout(
+            std::format("restorebox {}", args[0].is_null() ? "-" : layout_rect(graphics.paint().bits_rect(args[0]))));
+    }
+    graphics.paint().bits_restore(args[0]);
     return machine.acc();
 }
 

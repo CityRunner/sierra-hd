@@ -23,6 +23,7 @@
 #include "sci/platform/hd_pictures.hpp"
 #include "sci/platform/identify.hpp"
 #include "sci/platform/thread_executor.hpp"
+#include "sci/view/cursor.hpp"
 #include "sci/vm/events.hpp"
 #include "sci/vm/game.hpp"
 #include "viewer.hpp"
@@ -32,6 +33,7 @@
 #include <array>
 #include <charconv>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
@@ -46,6 +48,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -172,10 +175,13 @@ struct SdlDeleter {
     void operator()(SDL_Renderer* renderer) const { SDL_DestroyRenderer(renderer); }
 
     void operator()(SDL_Texture* texture) const { SDL_DestroyTexture(texture); }
+
+    void operator()(SDL_Cursor* cursor) const { SDL_DestroyCursor(cursor); }
 };
 
 // Presents the viewer's frame: uploads the changed rectangles to the
-// texture and draws it centred, letterboxed, at 1:1 in physical pixels.
+// texture and draws it centred, letterboxed, at 1:1 in physical pixels;
+// and the game's cursor over it where the program draws the cursor.
 class Presenter {
 public:
     explicit Presenter(SDL_Renderer* renderer) : renderer_(renderer) {}
@@ -207,6 +213,16 @@ public:
                 SDL_UpdateTexture(texture_.get(), &rect, std::span(frame).subspan(offset).data(), width * 4);
             }
         }
+        redraw();
+    }
+
+    // Draws the frame (and the cursor) again, without uploading anything.
+    void redraw() {
+        if (!texture_) {
+            return;
+        }
+        const int width = width_;
+        const int height = height_;
         int output_width = 0;
         int output_height = 0;
         SDL_GetCurrentRenderOutputSize(renderer_, &output_width, &output_height);
@@ -223,9 +239,51 @@ public:
         };
         SDL_SetRenderViewport(renderer_, &target);
         SDL_RenderTexture(renderer_, texture_.get(), nullptr, nullptr);
+        if (cursor_) {
+            // The cursor, already N x N, at 1:1 with its hotspot on the
+            // mouse's physical pixel.
+            SDL_SetRenderViewport(renderer_, nullptr);
+            const SDL_Rect at{
+                .x = cursor_x_ - cursor_hotspot_x_,
+                .y = cursor_y_ - cursor_hotspot_y_,
+                .w = cursor_size_,
+                .h = cursor_size_,
+            };
+            SDL_FRect at_f{};
+            SDL_RectToFRect(&at, &at_f);
+            SDL_RenderTexture(renderer_, cursor_.get(), nullptr, &at_f);
+        }
         SDL_RenderPresent(renderer_);
         offset_x_ = target.x;
         offset_y_ = target.y;
+    }
+
+    // The cursor to draw over the frame (sci::app::CursorMode::Drawn), or
+    // none.
+    void set_cursor(const sci::app::CursorImage* image) {
+        cursor_.reset();
+        if (image == nullptr || image->size == 0) {
+            return;
+        }
+        cursor_.reset(
+            SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, image->size, image->size));
+        if (!cursor_) {
+            return;
+        }
+        SDL_SetTextureBlendMode(cursor_.get(), SDL_BLENDMODE_BLEND);
+        SDL_SetTextureScaleMode(cursor_.get(), SDL_SCALEMODE_NEAREST);
+        SDL_UpdateTexture(cursor_.get(), nullptr, image->pixels.data(), image->size * 4);
+        cursor_size_ = image->size;
+        cursor_hotspot_x_ = image->hotspot_x;
+        cursor_hotspot_y_ = image->hotspot_y;
+    }
+
+    [[nodiscard]] bool draws_cursor() const { return static_cast<bool>(cursor_); }
+
+    // Where the drawn cursor's hotspot is, in physical pixels of the output.
+    void move_cursor(int x, int y) {
+        cursor_x_ = x;
+        cursor_y_ = y;
     }
 
     // Where the frame starts in the output, in physical pixels.
@@ -236,6 +294,12 @@ public:
 private:
     SDL_Renderer* renderer_;
     std::unique_ptr<SDL_Texture, SdlDeleter> texture_;
+    std::unique_ptr<SDL_Texture, SdlDeleter> cursor_;
+    int cursor_size_ = 0;
+    int cursor_hotspot_x_ = 0;
+    int cursor_hotspot_y_ = 0;
+    int cursor_x_ = 0;
+    int cursor_y_ = 0;
     int width_ = 0;
     int height_ = 0;
     int offset_x_ = 0;
@@ -608,12 +672,15 @@ private:
             break;
         }
         case SDL_EVENT_MOUSE_MOTION:
-            last_mouse_ = to_1x(event.motion.x, event.motion.y);
+            last_mouse_ = sci::app::window_to_1x(static_cast<double>(event.motion.x),
+                                                 static_cast<double>(event.motion.y), geometry());
             game.move_mouse(last_mouse_);
+            pointer_moved_ = true;
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         case SDL_EVENT_MOUSE_BUTTON_UP: {
-            last_mouse_ = to_1x(event.button.x, event.button.y);
+            last_mouse_ = sci::app::window_to_1x(static_cast<double>(event.button.x),
+                                                 static_cast<double>(event.button.y), geometry());
             std::uint16_t modifiers = sci::vm::modifier_none;
             const SDL_Keymod keys = SDL_GetModState();
             if ((keys & SDL_KMOD_ALT) != 0) {
@@ -645,16 +712,13 @@ private:
         }
     }
 
-    // A window position in 1x screen coordinates: the screen pixel minus the
-    // letterbox, divided by N (spec section 6.9).
-    [[nodiscard]] sci::vm::Point to_1x(SdlCoordinate x, SdlCoordinate y) const {
-        const auto density = static_cast<double>(SDL_GetWindowPixelDensity(window_));
-        const int scale = std::max(screen_.scale(), 1);
-        const int px = static_cast<int>(static_cast<double>(x) * density) - presenter_.offset_x();
-        const int py = static_cast<int>(static_cast<double>(y) * density) - presenter_.offset_y();
-        return sci::vm::Point{
-            .x = static_cast<std::int16_t>(std::clamp(px / scale, 0, sci::app::screen_width - 1)),
-            .y = static_cast<std::int16_t>(std::clamp(py / scale, 0, sci::app::screen_height - 1)),
+    // Where the frame is in the window.
+    [[nodiscard]] sci::app::FrameGeometry geometry() const {
+        return sci::app::FrameGeometry{
+            .scale = std::max(screen_.scale(), 1),
+            .offset_x = presenter_.offset_x(),
+            .offset_y = presenter_.offset_y(),
+            .pixel_density = static_cast<double>(SDL_GetWindowPixelDensity(window_)),
         };
     }
 
@@ -663,6 +727,10 @@ private:
         const int scale = scale_for_window();
         if (!redraw_ && shown.serial == last_serial_ && scale == screen_.scale()) {
             update_cursor(shown, scale);
+            // A drawn cursor that moved is drawn again.
+            if (presenter_.draws_cursor() && std::exchange(pointer_moved_, false)) {
+                presenter_.redraw();
+            }
             return;
         }
         screen_.update(shown, config_->mode, scale, config_->priority_snap);
@@ -674,6 +742,9 @@ private:
         redraw_ = false;
         last_serial_ = shown.serial;
         update_cursor(shown, scale);
+        if (presenter_.draws_cursor() && std::exchange(pointer_moved_, false)) {
+            presenter_.redraw();
+        }
     }
 
     [[nodiscard]] std::vector<sci::app::Rect> full_frame() const {
@@ -687,60 +758,68 @@ private:
         };
     }
 
-    // The game's cursor as the window's cursor, scaled N x N, so it moves
-    // smoothly; and where the game put the mouse, the pointer goes too.
+    // The game's cursor scaled N x N (spec section 6.9): the window's cursor
+    // where the system shows it at that size, else drawn over the frame
+    // (sci::app::cursor_mode); and where the game put the mouse, the
+    // pointer goes too.
     void update_cursor(const sci::vm::ShownScreen& shown, int scale) {
+        const sci::app::FrameGeometry where = geometry();
         if (shown.mouse != last_mouse_) {
-            const auto density = static_cast<double>(SDL_GetWindowPixelDensity(window_));
-            const double x = (presenter_.offset_x() + (shown.mouse.x * scale) + (scale / 2.0)) / density;
-            const double y = (presenter_.offset_y() + (shown.mouse.y * scale) + (scale / 2.0)) / density;
-            SDL_WarpMouseInWindow(window_, static_cast<SdlCoordinate>(x), static_cast<SdlCoordinate>(y));
+            const sci::app::WindowPoint point = sci::app::window_from_1x(shown.mouse, where);
+            SDL_WarpMouseInWindow(window_, static_cast<SdlCoordinate>(point.x), static_cast<SdlCoordinate>(point.y));
             last_mouse_ = shown.mouse;
+            pointer_moved_ = true;
         }
-        if (shown.cursor == cursor_shape_ && scale == cursor_scale_) {
+        if (presenter_.draws_cursor()) {
+            SdlCoordinate x = 0;
+            SdlCoordinate y = 0;
+            SDL_GetMouseState(&x, &y);
+            presenter_.move_cursor(static_cast<int>(std::floor(static_cast<double>(x) * where.pixel_density)),
+                                   static_cast<int>(std::floor(static_cast<double>(y) * where.pixel_density)));
+        }
+        if (shown.cursor == cursor_shape_ && scale == cursor_scale_ && where.pixel_density == cursor_density_) {
             return;
         }
         cursor_shape_ = shown.cursor;
         cursor_scale_ = scale;
-        if (shown.cursor < 0) {
+        cursor_density_ = where.pixel_density;
+        cursor_.reset();
+        presenter_.set_cursor(nullptr);
+        pointer_moved_ = true;
+        std::optional<sci::view::Cursor> decoded;
+        if (shown.cursor >= 0) {
+            const auto resource = manager_->load(sci::resource::ResourceId{
+                .type = sci::resource::ResourceType::Cursor,
+                .number = static_cast<std::uint16_t>(shown.cursor),
+            });
+            if (resource) {
+                if (auto cursor = sci::view::decode_cursor(resource->data)) {
+                    decoded = *cursor;
+                }
+            }
+        }
+        if (!decoded) {
             SDL_HideCursor();
             return;
         }
-        const auto resource = manager_->load(sci::resource::ResourceId{
-            .type = sci::resource::ResourceType::Cursor,
-            .number = static_cast<std::uint16_t>(shown.cursor),
-        });
-        const auto image = resource ? sci::app::decode_cursor(resource->data) : std::nullopt;
-        if (!image) {
-            SDL_HideCursor();
-            return;
-        }
-        const int size = 16 * scale;
-        SDL_Surface* surface = SDL_CreateSurface(size, size, SDL_PIXELFORMAT_RGBA32);
-        if (surface == nullptr) {
-            return;
-        }
-        const std::span<std::uint8_t> pixels(static_cast<std::uint8_t*>(surface->pixels),
-                                             static_cast<std::size_t>(surface->pitch) * static_cast<std::size_t>(size));
-        for (int y = 0; y < size; ++y) {
-            for (int x = 0; x < size; ++x) {
-                const std::size_t from =
-                    ((static_cast<std::size_t>(y / scale) * 16) + static_cast<std::size_t>(x / scale)) * 4;
-                const std::size_t to = (static_cast<std::size_t>(y) * static_cast<std::size_t>(surface->pitch)) +
-                                       (static_cast<std::size_t>(x) * 4);
-                std::ranges::copy(std::span(image->pixels).subspan(from, 4), pixels.subspan(to, 4).begin());
+        const sci::app::CursorImage image = sci::app::scale_cursor(*decoded, scale);
+        if (sci::app::cursor_mode(where.pixel_density, image.size) == sci::app::CursorMode::System) {
+            SDL_Surface* surface = SDL_CreateSurfaceFrom(image.size, image.size, SDL_PIXELFORMAT_RGBA32,
+                                                         const_cast<std::uint8_t*>(image.pixels.data()), // NOLINT
+                                                         image.size * 4);
+            if (surface != nullptr) {
+                cursor_.reset(SDL_CreateColorCursor(surface, image.hotspot_x, image.hotspot_y));
+                SDL_DestroySurface(surface);
+            }
+            if (cursor_) {
+                SDL_SetCursor(cursor_.get());
+                SDL_ShowCursor();
+                return;
             }
         }
-        SDL_Cursor* cursor = SDL_CreateColorCursor(surface, image->hotspot_x * scale, image->hotspot_y * scale);
-        SDL_DestroySurface(surface);
-        if (cursor != nullptr) {
-            SDL_SetCursor(cursor);
-            if (cursor_ != nullptr) {
-                SDL_DestroyCursor(cursor_);
-            }
-            cursor_ = cursor;
-            SDL_ShowCursor();
-        }
+        // Drawn over the frame: also where the system cannot make the cursor.
+        SDL_HideCursor();
+        presenter_.set_cursor(&image);
     }
 
     SDL_Window* window_;
@@ -754,9 +833,11 @@ private:
     std::uint64_t last_serial_ = ~std::uint64_t{0};
     bool redraw_ = true;
     sci::vm::Point last_mouse_{.x = 160, .y = 100};
+    bool pointer_moved_ = true;
     int cursor_shape_ = -2;
     int cursor_scale_ = 0;
-    SDL_Cursor* cursor_ = nullptr;
+    double cursor_density_ = 0;
+    std::unique_ptr<SDL_Cursor, SdlDeleter> cursor_;
 };
 
 struct Options {

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Decodes arbitrary view and font data, checking the decoded sizes.
+// Decodes arbitrary view, font and cursor data, checking the decoded sizes.
 
 #include "sci/core/assert.hpp"
 #include "sci/text/font.hpp"
+#include "sci/view/cursor.hpp"
 #include "sci/view/view.hpp"
 
 #include <cstddef>
@@ -24,6 +25,9 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size
         for (const sci::text::Glyph& glyph : font->glyphs) {
             SCI_ASSERT(glyph.pixels.size() == std::size_t{glyph.width} * glyph.height);
         }
+    }
+    if (const auto cursor = sci::view::decode_cursor(input)) {
+        SCI_ASSERT(size == 68 && cursor->hotspot_x == cursor->hotspot_y && cursor->hotspot_x % 8 == 0);
     }
     return 0;
 }

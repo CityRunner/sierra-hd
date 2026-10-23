@@ -533,6 +533,28 @@ pull request whose code would run on them).
   would remove the largest share of every gate: about 150 of 236 included
   minutes.
 
+## Small agent tasks (2026-10-23)
+
+The customer's rule, after two milestone 6b runs stopped at a usage limit
+for about three hours each: work is split into tasks small enough to
+finish between limits, so that each limit costs at most one small task.
+
+- **One task, one result.** An agent gets one part of a milestone (for
+  example the recording in sci-vm, one comparison, one set of scenarios,
+  one check), not the whole milestone. It ends with commits and a short
+  report; the next part is a new task that starts from those commits.
+- **Size.** A task should take well under an hour, checks included. A part
+  that would take longer is split again.
+- **Long checks are split too.** Scenario runs, the every-N check and the
+  pre-push checks run in pieces (a few scenarios, one N or one step of
+  `scripts/pre-push.sh` at a time), each writing its result to a file, so
+  an interruption loses one piece and a rerun skips the pieces done.
+- **Commit before checks.** Work is committed before a long check starts,
+  so a stop or a restart of the session never leaves it only in the
+  working tree.
+- **Unchanged:** the milestone gates, the checks they need and the CI cost
+  policy. Splitting changes how the work is scheduled, not what is checked.
+
 ## Third-party components (milestone 0)
 
 - SDL3, Nuked OPL3 and mt32emu are vendored when they are first needed:
@@ -1514,6 +1536,78 @@ scripts' bytecode (after the script patches), not from runs:
   reader above.
 
 ## Milestone 6a approval (2026-10-22)
+
+- The gate is approved as is and merged: the Linux and Windows matrix is
+  green; macOS is optional.
+
+## Milestone 6b: text windows, menus and the mouse cursor (2026-10-23)
+
+- **The window layout is compared directly, in 1x.** Both engines write a
+  layout file: one line per window (its port, frame, saved area, style,
+  priority, colours and title), disposed window, picture window, measured
+  text (kTextSize and every other size), text box (rectangle, alignment,
+  font), drawn text line (position, width, font, colour, greyed),
+  kDisplay rectangle and saved area, control (type, object, rectangle,
+  state, font, highlight), inverted rectangle (selections and the edit
+  cursor), menu bar, open menu, kGraph saved and restored box, and cursor
+  change (shape with hotspot and all 256 pixels, shown, hidden, position
+  set by the game), in screen coordinates, keyed by tick and kernel call
+  (`docs/formats/replay-and-trace.md`, "Layout files"). The reference
+  writes it from hooks in GfxPorts, GfxText16, GfxPaint16, GfxMenu,
+  GfxCursor and `_k_GenericDrawControl` (patch 0003); sci-vm from the
+  same places in its port, through `RunOptions::on_layout`. The scenario
+  gate compares it as a sixth item (`tools/vm-trace/compare-layout.py`).
+  **Decided.**
+- **Text is compared line by line, not glyph by glyph.** Each drawn line
+  gives its start, width and characters; the glyphs themselves are
+  checked by the screens (and milestone 2). Line breaks show as the lines
+  of a box. **Decided.**
+- **kGraph SaveBox and RestoreBox are written with the rectangle actually
+  saved** (clipped to the port, in screen coordinates), not every saved
+  rectangle: kAnimate's saves under the sprites are left out, as the actor
+  positions and the maps already cover them. **Decided.**
+- **Scenarios** (`tests/scenarios/README.md`): `menus-mouse.txt` chooses
+  every item of the menu bar with the mouse, `menus-keys-2.txt` the items
+  the keyboard scenarios left out, mouse presses in a menu opened with the
+  keyboard, and every shortcut key. The save, restore, restart and quit
+  dialogs are opened and cancelled; nothing is saved (milestone 8). With
+  the earlier scenarios they cover 3169 windows in 123 sizes, 1 to 18
+  rows of text, titled windows, windows at the screen's edges and over
+  sprites, every control type, the three cursors, hiding and showing, and
+  15 cursor positions set by the game. **Decided.**
+- **Windows at every N are checked on the frames of the scenarios.**
+  `sci-hd-frames --check-interface 1-16` runs a replay and checks every
+  frame whose interface (or picture) changed, at every N from 1 to 16
+  (the largest N, `max_scale`) in original and HD mode: original mode is
+  the 1x screen in blocks; in HD every interface pixel is its 1x colour in
+  an N x N block; with the interface recoloured, the frame changes in
+  those blocks and nowhere else; the menu bar's rows are interface. The
+  frames are the program's own (`GameFrame`, kept up to date as the
+  program keeps them). Unit tests run the same checks on a synthetic
+  screen with an HD background that differs in every sub-pixel, and show
+  that they catch a wrong sub-pixel, a block that follows a window and a
+  menu bar pixel that is not interface. **Decided.**
+- **The cursor.** The program decodes the cursor with sci-view (the
+  decoder the interpreter uses for the layout file) and scales it N x N,
+  hotspot N times. It uses the system's cursor only where the system
+  shows it pixel for pixel: a window pixel density of 1 and at most 256
+  pixels a side. Elsewhere (macOS Retina and scaled Wayland, where SDL
+  takes cursor pixels as points; a failed SDL_CreateColorCursor) the
+  presenter draws the scaled cursor over the frame, 1:1, its hotspot on
+  the mouse's physical pixel; the GPU only places the finished image.
+  Windows' cursors stay pixel for pixel (SDL scales them only with
+  SDL_HINT_MOUSE_DPI_SCALE_CURSORS, which the program does not set; the
+  cursor file format holds 256 pixels a side, N = 16). **Decided.**
+- **The mouse mapping** is one tested function: the window coordinate
+  times the pixel density, rounded down to the physical pixel, minus the
+  letterbox, divided by N rounding down, clamped to 320 x 200. Where the
+  game sets the mouse, the pointer goes to the centre of the block, which
+  maps back to the same 1x pixel at every density and N. The old code
+  rounded towards zero, which gave the same results only thanks to the
+  clamping. **Decided.**
+- **run-all-scenarios.sh takes `--jobs <n>`.** **Decided.**
+
+## Milestone 6b approval (2026-10-23)
 
 - The gate is approved as is and merged: the Linux and Windows matrix is
   green; macOS is optional.

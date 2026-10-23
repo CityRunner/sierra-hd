@@ -1,0 +1,111 @@
+sierra-hd replay 1
+# The menu items menus.txt does not choose with the keyboard, in Laura's
+# bedroom (room 44), with seed 0 and the start of menus.txt: File (Save,
+# Restore, Restart, Quit, each cancelled with Escape), Action (Retype, Ask
+# about, Tell about, Show, Give, Look at, each closed with Escape) and
+# Sound > Turn Off (and on again). Escape opens the menu on the item last
+# chosen; Left and Right go to the first item of the next menu, Up and
+# Down skip the separator line and wrap. Then a mouse press while the
+# keyboard has the menu open, and every item's shortcut key.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 key 13
+# Sierra > About Bequest is selected; Right: File > Save.
+3400 key 27
+3440 key 19712
+3480 key 13
+3600 key 27
+# File > Restore.
+3700 key 27
+3740 key 20480
+3780 key 13
+3900 key 27
+# File > Restart, past the separator line.
+4000 key 27
+4040 key 20480
+4080 key 13
+4200 key 27
+# File > Quit.
+4300 key 27
+4340 key 20480
+4380 key 13
+4500 key 27
+# Down wraps to File > Save; Right: Action > Pause; Down twice: Retype.
+4600 key 27
+4640 key 20480
+4680 key 19712
+4720 key 20480
+4760 key 20480
+4800 key 13
+4900 key 27
+# Action > Ask about, Tell about, Show, Give, Look at.
+5000 key 27
+5040 key 20480
+5080 key 13
+5200 key 27
+5300 key 27
+5340 key 20480
+5380 key 13
+5500 key 27
+5600 key 27
+5640 key 20480
+5680 key 13
+5800 key 27
+5900 key 27
+5940 key 20480
+5980 key 13
+6100 key 27
+6200 key 27
+6240 key 20480
+6280 key 13
+6400 key 27
+# Right twice: Sound > Volume; Down: Turn Off. Then on again.
+6500 key 27
+6540 key 19712
+6580 key 19712
+6620 key 20480
+6660 key 13
+6800 key 27
+6840 key 13
+# Escape, then the mouse: a press on Speed opens it, a press on Slower
+# chooses it; then Escape and a press on Normal.
+7000 key 27
+7040 down 132 5
+7042 up 132 5
+7080 down 132 30
+7082 up 132 30
+7200 key 27
+7240 down 132 22
+7242 up 132 22
+# The shortcuts: F5 save, F7 restore, F9 restart, Ctrl+Q quit, F3 retype,
+# Ctrl+A ask, Ctrl+T tell, Ctrl+S show, Ctrl+G give, Ctrl+L look at.
+7400 key 16128
+7550 key 27
+7600 key 16640
+7750 key 27
+7800 key 17152
+7950 key 27
+8000 key 17 4
+8150 key 27
+8200 key 15616
+8350 key 27
+8400 key 1 4
+8550 key 27
+8600 key 20 4
+8750 key 27
+8800 key 19 4
+8950 key 27
+9000 key 7 4
+9150 key 27
+9200 key 12 4
+9350 key 27

@@ -41,6 +41,7 @@ Inside (`src/`), by ScummVM origin:
 | `files.*`, `k_files.cpp`, `path_match.hpp` | `engine/file`, `engine/kfile`, `common/str` (matchString) |
 | `parser.hpp`, `k_parse.cpp` | `parser/vocabulary` (the game side; the parser itself is in sci-text) |
 | `gfx_controls.*` | `graphics/controls16` |
+| `gfx_layout.*` | none: how the layout and parser files write rectangles and strings, as patch 0003 does |
 
 ## Invariants
 

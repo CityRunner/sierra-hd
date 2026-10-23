@@ -39,9 +39,8 @@ class Cursor {
 public:
     explicit Cursor(Graphics& graphics) : graphics_(&graphics) {}
 
-    void kernel_show() { visible_ = true; }
-
-    void kernel_hide() { visible_ = false; }
+    void kernel_show();
+    void kernel_hide();
 
     [[nodiscard]] bool visible() const { return visible_; }
 
