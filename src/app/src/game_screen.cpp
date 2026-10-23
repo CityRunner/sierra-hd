@@ -3,7 +3,6 @@
 // Ported from ScummVM (https://www.scummvm.org) at revision
 // ed949213a23440447ea402e263daa871394b6bf9, from:
 //   engines/sci/event.cpp (getScummVMEvent: the key translation, altify),
-//   engines/sci/graphics/cursor.cpp (kernelSetShape: the SCI0 cursor format)
 // and translated into this project's style, types and error handling.
 //
 // ScummVM - Graphic Adventure Engine
@@ -30,11 +29,17 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <string_view>
 
 namespace sci::app {
 
 namespace {
+
+constexpr int screen_width = 320; // The screen in 1x pixels.
+constexpr int screen_height = 200;
 
 constexpr std::uint16_t key_shift_tab = 15U << 8U;
 constexpr std::uint16_t key_home = 71U << 8U;
@@ -185,35 +190,56 @@ std::optional<vm::SciEvent> sci_key_event(const KeyPress& key) {
     return vm::SciEvent{.type = vm::event_key_down, .modifiers = modifiers, .character = character, .mouse = {}};
 }
 
-std::optional<CursorImage> decode_cursor(std::span<const std::uint8_t> resource) {
-    constexpr int size = 16;
-    if (resource.size() != 68) {
-        return std::nullopt;
-    }
+CursorImage scale_cursor(const view::Cursor& cursor, int scale) {
+    scale = std::max(scale, 1);
     CursorImage image;
-    // SCI0: the hotspot is centred if bit 0 of byte 3 is set, else top left.
-    image.hotspot_x = image.hotspot_y = resource[3] != 0 ? size / 2 : 0;
-    const auto word = [&](std::size_t at) {
-        return static_cast<unsigned>(resource[at]) | (static_cast<unsigned>(resource[at + 1]) << 8U);
-    };
-    for (int y = 0; y < size; ++y) {
-        const unsigned mask_a = word(4 + (static_cast<std::size_t>(y) * 2));
-        const unsigned mask_b = word(4 + 32 + (static_cast<std::size_t>(y) * 2));
-        for (int x = 0; x < size; ++x) {
-            const unsigned color = (((mask_a << static_cast<unsigned>(x)) & 0x8000U) |
-                                    (((mask_b << static_cast<unsigned>(x)) >> 1U) & 0x4000U)) >>
-                                   14U;
-            const std::size_t i = ((static_cast<std::size_t>(y) * size) + static_cast<std::size_t>(x)) * 4;
-            // 0 black, 1 and 3 white, 2 transparent.
-            const bool transparent = color == 2;
-            const std::uint8_t value = color == 0 ? 0 : 0xFF;
+    image.size = view::Cursor::size * scale;
+    image.hotspot_x = cursor.hotspot_x * scale;
+    image.hotspot_y = cursor.hotspot_y * scale;
+    image.pixels.resize(static_cast<std::size_t>(image.size) * static_cast<std::size_t>(image.size) * 4);
+    for (int y = 0; y < image.size; ++y) {
+        for (int x = 0; x < image.size; ++x) {
+            const view::CursorPixel pixel = cursor.at(x / scale, y / scale);
+            const std::size_t i =
+                ((static_cast<std::size_t>(y) * static_cast<std::size_t>(image.size)) + static_cast<std::size_t>(x)) *
+                4;
+            const std::uint8_t value = pixel == view::CursorPixel::White ? 0xFF : 0;
             image.pixels[i] = value;
             image.pixels[i + 1] = value;
             image.pixels[i + 2] = value;
-            image.pixels[i + 3] = transparent ? 0 : 0xFF;
+            image.pixels[i + 3] = pixel == view::CursorPixel::Transparent ? 0 : 0xFF;
         }
     }
     return image;
+}
+
+CursorMode cursor_mode(double pixel_density, int size) {
+    constexpr int largest_system_cursor = 256;
+    return pixel_density == 1.0 && size <= largest_system_cursor ? CursorMode::System : CursorMode::Drawn;
+}
+
+vm::Point window_to_1x(double x, double y, const FrameGeometry& geometry) {
+    const int scale = std::max(geometry.scale, 1);
+    // The physical pixel under the position (rounded down, also left of
+    // and above the window), then its 1x pixel (rounded down as well).
+    const auto pixel = [&](double coordinate, int offset) {
+        return static_cast<int>(std::floor(coordinate * geometry.pixel_density)) - offset;
+    };
+    const auto to_1x = [scale](int physical) {
+        return physical >= 0 ? physical / scale : -(((-physical) + scale - 1) / scale);
+    };
+    return vm::Point{
+        .x = static_cast<std::int16_t>(std::clamp(to_1x(pixel(x, geometry.offset_x)), 0, screen_width - 1)),
+        .y = static_cast<std::int16_t>(std::clamp(to_1x(pixel(y, geometry.offset_y)), 0, screen_height - 1)),
+    };
+}
+
+WindowPoint window_from_1x(vm::Point point, const FrameGeometry& geometry) {
+    const int scale = std::max(geometry.scale, 1);
+    const auto centre = [&](int coordinate, int offset) {
+        return (offset + (coordinate * scale) + (scale / 2.0)) / geometry.pixel_density;
+    };
+    return WindowPoint{.x = centre(point.x, geometry.offset_x), .y = centre(point.y, geometry.offset_y)};
 }
 
 } // namespace sci::app
