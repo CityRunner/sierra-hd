@@ -112,6 +112,10 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
     });
     std::vector<CastEntry> cast;
     subsystems.parser().set_recording(static_cast<bool>(options.on_parser));
+    if (options.on_layout) {
+        subsystems.graphics().set_layout_log(
+            [&](std::string_view line) { options.on_layout(calls, clock.ticks(), line); });
+    }
     machine.set_kernel_log([&](const KernelCall& call) {
         if (options.trace) {
             const SegManager* callers = options.trace_callers ? &machine.segments() : nullptr;

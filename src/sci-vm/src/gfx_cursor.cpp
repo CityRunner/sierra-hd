@@ -29,18 +29,34 @@
 #include "events.hpp"
 #include "graphics.hpp"
 #include "machine.hpp"
+#include "sci/view/cursor.hpp"
 #include "subsystems.hpp"
 #include "timing.hpp"
 
 #include <algorithm>
 #include <array>
 #include <format>
+#include <string>
 
 namespace sci::vm {
 
 namespace {
 
-constexpr std::size_t cursor_resource_size = 68; // SCI_CURSOR_SCI0_RESOURCESIZE
+// The cursor's shape in the layout file: rows separated by /, a pixel as 0
+// (black), f (white) or . (transparent).
+std::string layout_image(const view::Cursor& cursor) {
+    std::string image;
+    for (int y = 0; y < view::Cursor::size; ++y) {
+        if (y != 0) {
+            image += '/';
+        }
+        for (int x = 0; x < view::Cursor::size; ++x) {
+            const view::CursorPixel pixel = cursor.at(x, y);
+            image += pixel == view::CursorPixel::Black ? '0' : pixel == view::CursorPixel::White ? 'f' : '.';
+        }
+    }
+    return image;
+}
 
 constexpr int transition_fade_palette = 10;
 constexpr int transition_none = 100;
@@ -110,6 +126,16 @@ const TransitionEntry* translate(int number, const std::array<TransitionEntry, N
 
 } // namespace
 
+void Cursor::kernel_show() {
+    graphics_->log_layout("cursor show");
+    visible_ = true;
+}
+
+void Cursor::kernel_hide() {
+    graphics_->log_layout("cursor hide");
+    visible_ = false;
+}
+
 void Cursor::kernel_set_shape(int resource) {
     if (resource == -1) {
         kernel_hide();
@@ -120,15 +146,23 @@ void Cursor::kernel_set_shape(int resource) {
         graphics_->faults().raise(std::format("cursor resource {} not found", resource));
         return;
     }
-    if (data->size() != cursor_resource_size) {
+    const auto cursor = view::decode_cursor(*data);
+    if (!cursor) {
         graphics_->faults().raise(std::format("cursor resource {} has invalid size", resource));
         return;
+    }
+    if (graphics_->layout_logging()) {
+        graphics_->log_layout(std::format("cursor shape {} hotspot={},{} image={}", resource, cursor->hotspot_x,
+                                          cursor->hotspot_y, layout_image(*cursor)));
     }
     shape_ = resource;
     kernel_show();
 }
 
 void Cursor::kernel_set_pos(GPoint position) {
+    if (graphics_->layout_logging()) {
+        graphics_->log_layout(std::format("cursor pos {},{}", position.x, position.y));
+    }
     // GfxCoordAdjuster16::setCursorPos: relative to the current port.
     const Port* port = graphics_->ports().port();
     position.y = static_cast<std::int16_t>(position.y + port->top);

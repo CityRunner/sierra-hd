@@ -27,6 +27,7 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
+#include "gfx_layout.hpp"
 #include "kernel_functions.hpp"
 #include "machine.hpp"
 #include "parser.hpp"
@@ -52,24 +53,6 @@ constexpr int vocab_words = 0;
 constexpr int vocab_branches = 900;
 constexpr int vocab_suffixes = 901;
 constexpr int foreign_offset = 10;
-
-// The parser file (docs/formats/replay-and-trace.md) quotes the input with
-// \", \\ and \xHH for bytes outside 32 to 126.
-std::string quoted(std::string_view text) {
-    std::string result = "\"";
-    for (const char c : text) {
-        const auto byte = static_cast<std::uint8_t>(c);
-        if (c == '"' || c == '\\') {
-            result += '\\';
-            result += c;
-        } else if (byte < 32 || byte > 126) {
-            std::format_to(std::back_inserter(result), "\\x{:02x}", byte);
-        } else {
-            result += c;
-        }
-    }
-    return result + "\"";
-}
 
 // A parse tree node and its children, as the reference writes them: a branch
 // as (<left>,<right>), a leaf as its value, a word as w<value>[/<right>], a

@@ -19,9 +19,11 @@
 #include "gfx_text.hpp"
 #include "sci/vm/reg.hpp"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace sci::vm {
@@ -74,6 +76,19 @@ public:
 
     [[nodiscard]] std::vector<Reg> engine_hunks() const;
 
+    // The layout file of milestone 6b (docs/formats/replay-and-trace.md):
+    // its lines, without tick and call, go to `log` while a run records
+    // them. The drawing code formats a line only when `layout_logging()`.
+    void set_layout_log(std::function<void(std::string_view)> log) { layout_log_ = std::move(log); }
+
+    [[nodiscard]] bool layout_logging() const { return static_cast<bool>(layout_log_); }
+
+    void log_layout(std::string_view line) const {
+        if (layout_log_) {
+            layout_log_(line);
+        }
+    }
+
     // SciEngine::strSplit: the text up to a marker of another language
     // (%F, #G and so on), with the subtitle language after `separator`.
     [[nodiscard]] std::string str_split(std::string_view text, const char* separator);
@@ -93,6 +108,7 @@ private:
     std::unique_ptr<Cursor> cursor_;
     std::unique_ptr<Menu> menu_;
     std::unique_ptr<Transitions> transitions_;
+    std::function<void(std::string_view)> layout_log_;
 };
 
 } // namespace sci::vm

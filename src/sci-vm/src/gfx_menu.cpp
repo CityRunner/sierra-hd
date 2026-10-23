@@ -27,6 +27,7 @@
 #include "gfx_menu.hpp"
 
 #include "events.hpp"
+#include "gfx_layout.hpp"
 #include "graphics.hpp"
 #include "machine.hpp"
 #include "music.hpp"
@@ -325,6 +326,10 @@ void Menu::draw_bar() {
     for (const MenuEntry& entry : list_) {
         graphics_->text().draw_string(entry.text_split);
     }
+    // The titles are text lines of the layout file.
+    if (graphics_->layout_logging()) {
+        graphics_->log_layout(std::format("menubar {}", layout_rect(ports.menu_bar_rect(), ports.port())));
+    }
 }
 
 void Menu::calculate_menu_width() {
@@ -443,10 +448,12 @@ Reg Menu::kernel_select(Reg event_object, bool pause_sound) {
         }
     }
     if (!menu_save_handle_.is_null()) {
+        graphics_->log_layout("menu close");
         remove_menu();
         menu_save_handle_ = null_reg;
     }
     if (!bar_save_handle_.is_null()) {
+        graphics_->log_layout("menubar close");
         paint.bits_restore(bar_save_handle_);
         paint.bits_show(ports.menu_rect());
         bar_save_handle_ = null_reg;
@@ -588,6 +595,10 @@ void Menu::draw_menu(std::uint16_t old_menu_id, std::uint16_t new_menu_id) {
     ++menu_rect_.right;
     ++menu_rect_.bottom;
     paint.bits_show(menu_rect_);
+    // The items are text lines of the layout file.
+    if (graphics_->layout_logging()) {
+        graphics_->log_layout(std::format("menu {} {}", new_menu_id, layout_rect(menu_rect_, ports.port())));
+    }
 }
 
 void Menu::invert_menu_selection(std::uint16_t item_id) {
