@@ -2,14 +2,15 @@
 
 Replays (docs/formats/replay-and-trace.md) that are run in the reference
 ScummVM and in sci-vm and must give the same kernel-call trace, screens,
-1x priority and control maps, actor positions and parser results:
+1x priority and control maps, actor positions, parser results and window
+layout:
 
     SIERRA_HD_MOUNTS=/path/to/game:/game docker/run.sh \
         tools/vm-trace/run-scenario.sh tests/scenarios/<name>.txt <stop tick> build/scenarios/<name>
 
 `scenarios.txt` lists every run with its stop tick and seed;
-`tools/vm-trace/run-all-scenarios.sh` runs them all. The table lists the
-recordings made by hand; all use seed 0.
+`tools/vm-trace/run-all-scenarios.sh [--jobs <n>]` runs them all. The
+table lists the recordings made by hand; all use seed 0.
 
 | Scenario | Stop tick | What it covers |
 | --- | --- | --- |
@@ -20,6 +21,8 @@ recordings made by hand; all use seed 0.
 | `mouse-obstacles.txt` | 8500 | Mouse walks into furniture and round it, turns mid-walk, rooms 44, 45 and 43. |
 | `stairs.txt` | 8200 | Both grand staircases of rooms 47 and 37, down and up, turned mid-flight. |
 | `lillian-walk.txt` | 17400 | Lillian comes in while Laura is in her way; Laura walks into her and round her. |
+| `menus-mouse.txt` | 8700 | Every menu and item of the bar with the mouse in Laura's room: About and Help; the whole bar crossed with the button down; a release on nothing and on a separator line; the save and restore dialogs (titled windows, edit field, list, buttons) cancelled, restore with no game chosen; restart and quit answered Continue; Pause, Inventory; Retype, Ask about, Tell about, Show, Give and Look at (the input line with their words) closed; the three speeds; Volume; sound off and on. |
+| `menus-keys-2.txt` | 9500 | The items `menus.txt` leaves out, with the keyboard: File's four (past the separator), Action's six, Sound > Turn Off and On; Left, Right, Up and Down in the menu, with wrapping; mouse presses in a menu opened with Escape; every shortcut key (F3, F5, F7, F9, Ctrl+Q, A, T, S, G, L). |
 | `attic.txt` | 9400 | Up to the attic stairway (room 74) and into Fifi's room: both of the room's picture stacks, 174 with EGA palette 1 then 74 over it, and 174 with palette 0 then 74 (kDrawPic with add-to and a palette). |
 
 ## The parser corpus (milestone 6a)
@@ -43,3 +46,25 @@ word's class.
 | `parser-words-kitchen.txt` | 39803 | 35, the kitchen | The commands of `inventory-and-actions.txt` on the way; the room's synonym (kitchen); the last adjectives; every adverb; indicative verbs alone and with an object; conjunctions and the linking words (with, about, for); every pronoun after a noun; nouns. |
 | `parser-words-bedroom.txt` | 24024 | 44, Laura's room | Nouns. Stops before tick 24400, when Lillian and Ethel come in and their conversation's messages would take the keys typed. |
 | `parser-words-downstairs.txt` | 22057 | 37, the front downstairs hallway | The last nouns, the wildcard words (any, anyword, noword) and one typed form per suffix of vocab.901 (plurals, -ing, -ed, -er, -est, -ly, -y, -ish). |
+
+## Windows, menus and the cursor (milestone 6b)
+
+Together the scenarios cover (counts from their layout files, sci-vm side):
+
+- every menu and item of the bar, opened by mouse (`menus-mouse.txt`) and
+  by keyboard (`menus.txt`, `menu-keys.txt`, `menus-keys-2.txt`), and the
+  dialogs they open: About, Help, Pause, Inventory, the input line,
+  Volume, and the save, restore, restart and quit dialogs, opened and
+  cancelled (nothing is saved: saves are milestone 8);
+- 3169 windows in 123 frame sizes (32 to 298 pixels wide, 17 to 170
+  high), with 1 to 18 rows of text; 22 reach the left edge (x 10 or
+  less), 12 the right (308 or more), 9 the bottom (185 or more), and all
+  but a few the top of the window manager's port;
+- windows with a title bar (the save and restore dialogs, 8);
+- every control type the game draws: text, buttons, edit fields (the
+  input line), icons (the inventory) and lists (save and restore);
+- windows over sprites (the input line and the inventory over Laura);
+- the cursor: the arrow (999), the wait cursor (997) and the copy
+  protection's cursor (1), hidden and shown, and 15 positions set by the
+  game (kSetCursor with x and y; 320,200 puts it in the bottom right
+  corner).

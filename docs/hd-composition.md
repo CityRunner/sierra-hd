@@ -111,6 +111,44 @@ priority decides whole blocks.
 Original mode draws every pixel as the N x N block of its shown EGA colour,
 unchanged.
 
+## The interface at every N (milestone 6b)
+
+Windows, text, controls, menus and the menu bar are `Interface` pixels:
+step 1 above draws each as the N x N block of its shown 1x colour, and
+nothing else draws there. So at every N, in both modes:
+
+- every interface pixel is its 1x colour scaled N x N: no HD background
+  and no sprite reaches into a window;
+- the blocks around the interface depend only on their own pixels: what a
+  window shows does not change the picture next to it;
+- the menu bar's rows (0 to 9) are interface from the start (the owner
+  map starts as `Interface`, and nothing else draws above the picture
+  window).
+
+The interpreter lays out windows and text in 1x, with the original fonts'
+metrics; `sci-vm-trace --layout` and the reference's layout file show
+that the layout matches ScummVM's (`docs/formats/replay-and-trace.md`).
+`sci-hd-frames --check-interface` checks the three points on the frames
+of the scenarios at N = 1 to 16, the unit tests on a synthetic screen.
+
+## The cursor
+
+The game's cursor is not part of the frame. The program shows the cursor
+resource's 16 x 16 pixels scaled N x N, with the hotspot scaled N times,
+at the mouse's position on screen (spec section 6.9):
+
+- as the system's cursor where the system shows it pixel for pixel: the
+  window's pixel density is 1 and the cursor is at most 256 pixels a side
+  (N up to 16);
+- else drawn by the presenter over the frame, at 1:1, its hotspot on the
+  mouse's physical pixel (a pixel density other than 1, as on macOS or
+  scaled Wayland, where SDL would size the cursor in points; or when the
+  system cannot make the cursor).
+
+The game gets the mouse in 1x: the physical pixel under it, minus the
+letterbox, divided by N, clamped to the screen. Where the game sets the
+mouse, the pointer goes to the centre of that N x N block.
+
 ## Caching
 
 - The HD background and the HD priority map are rendered once per picture

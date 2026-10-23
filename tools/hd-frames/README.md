@@ -12,6 +12,9 @@ run is deterministic: a replay file, a seed and virtual time.
                   [--timing <from>-<to>] [--stop-tick <n>]
     sci-hd-frames <game folder> <output folder> --stack <n>[+<n>...]
                   [--scale <n>] [--snap] [--hints <directory>] [--cache <directory>]
+    sci-hd-frames <game folder> <output folder> --check-interface <from>-<to>
+                  --stop-tick <n> [--replay <file>] [--seed <n>]
+                  [--hints <directory>] [--cache <directory>]
 
 - `--at` writes `<output>/<tick>.png` once the virtual time reaches each
   tick (60 per second): original | HD, and with `--snap` a third panel, HD
@@ -25,6 +28,21 @@ run is deterministic: a replay file, a seed and virtual time.
 - `--stack 174+74` writes the picture stack (a picture with overlays drawn
   over it) as the interpreter would show it with nothing else on screen,
   through the analysis cache's variant of the stack.
+
+- `--check-interface 1-16` (milestone 6b) checks every frame of the run
+  whose interface changed (or whose picture did), in original and HD mode
+  at every N of the range, and prints a summary; it exits with 1 if a
+  check failed (`docs/hd-composition.md`, "The interface at every N"):
+  - original mode: every pixel is the N x N block of its shown colour;
+  - HD mode: every interface pixel is that block, and with the
+    interface's colours changed the frame changes in those blocks and
+    nowhere else;
+  - the menu bar's rows belong to the interface.
+
+  The frames are kept up to date as the program keeps them, one per mode
+  and N. `check-interface.sh [--jobs <n>] [--scales <from>-<to>]
+  [scenario file...]` runs it on the scenarios (each replay once, at its
+  longest stop tick) with the release build.
 
 The run ends at the last tick asked for (or `--stop-tick`) with a quit
 event. The output is derived from the game art: write it only to
