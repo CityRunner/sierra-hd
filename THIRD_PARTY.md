@@ -9,13 +9,24 @@ together with its licence file.
 | Component | Version | Licence | Directory | Used by |
 |---|---|---|---|---|
 | SDL3 | 3.4.18 (`release-3.4.18`, commit `829a65d769d935c4852f8159e964312c0957260a`) | zlib | `third_party/SDL3` | app: window, input, presentation |
+| Nuked OPL3 | 1.8 (commit `765ec962e473aeb767e4cba74ffdc8f588ffbfe8`, 2026-08-24; no release tags upstream) | LGPL 2.1 or later | `third_party/nuked-opl3` | sci-audio: the OPL core of the AdLib device |
+
+The SHA-256 of each vendored file is in the component's `VENDORED.md`.
+
+Licence compatibility: the program is GPL v3 or later. LGPL 2.1 section 3
+lets LGPL code be used under the GPL (v2 or, by its "or later" clause, any
+later version), and LGPL 2.1 or later also permits LGPL 3, which is GPL v3
+plus permissions; Nuked OPL3 linked statically into the GPL v3 program is
+therefore covered by the GPL v3 as a whole, with its LGPL notices kept and
+its licence text shipped in the release archives (`licenses/`). The full
+source of the program, Nuked OPL3 included, is in this repository, which
+meets LGPL 2.1 section 6 as well.
 
 Planned, with the pin recorded when each is added (docs/ASSUMPTIONS.md,
 "Third-party components"):
 
 | Component | Licence | Needed from |
 |---|---|---|
-| Nuked OPL3 | LGPL 2.1 or later | milestone 7 |
 | mt32emu (Munt) | LGPL 2.1 or later | milestone 7 |
 
 ## Ported code

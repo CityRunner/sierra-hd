@@ -560,7 +560,8 @@ finish between limits, so that each limit costs at most one small task.
 - SDL3, Nuked OPL3 and mt32emu are vendored when they are first needed:
   SDL3 at the end of milestone 3a (the window layer), Nuked OPL3 and mt32emu
   at milestone 7. Their pins are recorded here and in THIRD_PARTY.md at that
-  point. Milestone 0 has no third-party code: its exit criterion is about
+  point. Done for SDL3 (3.4.18) and Nuked OPL3 (commit `765ec96`, see
+  "Milestone 7: the OPL core"); mt32emu follows. Milestone 0 has no third-party code: its exit criterion is about
   empty libraries, and vendoring early would only add unused code.
   **Assumed:** this does not change the fixed decision itself (spec section 2).
 - `LICENSE` is the GPL v3 text from ScummVM's `COPYING` at the pinned
@@ -1625,6 +1626,53 @@ scripts' bytecode (after the script patches), not from runs:
 - Until SU is resumed: sprites in HD mode stay as in milestone 6b (original
   cels scaled N x N), and the milestone 9 playthrough requirement of A2
   ("with sprite undithering on") is open.
+
+## Milestone 7: the OPL core (2026-10-23)
+
+- **Nuked OPL3 is vendored at commit
+  `765ec962e473aeb767e4cba74ffdc8f588ffbfe8`** (2026-08-24, version 1.8 in
+  the source), the head of `master`: upstream has no tags, and this commit
+  carries the 2026 fixes for 4-op channels. Only `opl3.c`, `opl3.h` and
+  `LICENSE` exist upstream; they are copied unchanged into
+  `third_party/nuked-opl3/`, with their SHA-256 in its `VENDORED.md`.
+  The reference ScummVM carries a speed-optimised fork of the older commit
+  `cfedb09` (`audio/softsynth/opl/nuked.cpp`, "1.8-fast.2"); the two later
+  commits change only 4-op channels (set up through register 0x104 of the
+  second bank), which an AdLib driver never writes.
+  ScummVM's output is resampled to its mixer rate, so it is compared by
+  ear, not sample by sample (spec section 12). **Decided.**
+- **Licence:** LGPL 2.1 or later, compatible with the program's GPL v3 or
+  later (LGPL 2.1 section 3, and LGPL 3 being GPL v3 plus permissions); the
+  licence text goes into the release archives. Recorded in THIRD_PARTY.md.
+  **Decided.**
+- **Build:** a static C99 library `sci_nuked_opl3`
+  (`cmake/SciThirdParty.cmake`), built in every configuration including the
+  ARM64 test build without app (the C compiler is now named in the aarch64
+  toolchain file too). Like SDL3 it gets the global floating-point and
+  sanitizer flags but not the project's warning set, so its warnings never
+  fail the build; its header is included as a system header, only in
+  `src/sci-audio/src/opl3.cpp`. Only sci-audio links it. **Decided.**
+- **Determinism:** with `OPL_ENABLE_STEREOEXT=0` (the default, set
+  explicitly) the core has no floating point: the only `sin` and `double`
+  in `opl3.c` are in the stereo extension's panning table, which is also
+  its only mutable global. Everything else is constant tables and state in
+  `opl3_chip`, so instances are independent. The core relies on the
+  arithmetic right shift of negative values (implementation-defined in C),
+  which Clang does on every target. Golden hashes are taken at the native
+  rate (49716 Hz) with `OPL3_Generate`, not `OPL3_GenerateResampled`:
+  resampling is free under spec section 8 and belongs to the mixer.
+  **Decided.**
+- **Register writes** go through Nuked's write buffer
+  (`OPL3_WriteRegBuffered`), as in ScummVM's Nuked wrapper: a write applies
+  at the next sample but at least 2 samples (about 40 us) after the
+  previous one, close to the real bus delays a driver's wait loops honour,
+  and still a pure function of the write and sample sequence. An immediate
+  write is kept for tests. **Assumed:** the AdLib driver (next task) checks
+  this against ScummVM's output by ear.
+- The released-note floor: an operator at full attenuation whose phase
+  still runs outputs -1 on its negative half-wave, as on the chip; a chip
+  that never had a key-on outputs exact zeros. **Decided** (behaviour of
+  the emulator, tested).
 
 ## Spec items carried forward
 

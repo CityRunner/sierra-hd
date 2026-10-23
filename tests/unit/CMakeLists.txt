@@ -48,6 +48,10 @@ sci_add_unit_test(NAME sci-vector-tests
 # The fitting tests reach into sci-vector's internals.
 target_include_directories(sci-vector-tests PRIVATE pic ${PROJECT_SOURCE_DIR}/src/sci-vector/src)
 
+sci_add_unit_test(NAME sci-audio-tests
+    SOURCES audio/opl3_test.cpp
+    DEPENDS sci-audio)
+
 sci_add_unit_test(NAME sci-render-tests
     SOURCES render/compose_test.cpp render/render_test.cpp
     DEPENDS sci-render sci-vector sci-pic)

@@ -5,8 +5,8 @@
 #   libraries declared before them, so the graph is acyclic by construction,
 #   and DEPENDS accepts project libraries only. Public headers live in
 #   <dir>/include, the implementation in <dir>/src, which other libraries
-#   cannot include. External dependencies (SDL3, at milestone 3a) will get a
-#   separate helper that admits them for app and sci-audio only.
+#   cannot include. External dependencies are linked by name only where
+#   spec section 4.2 allows them (cmake/SciThirdParty.cmake).
 #
 # sci_target_defaults(<target>)
 #   Applies the language level and warning set to a project target.

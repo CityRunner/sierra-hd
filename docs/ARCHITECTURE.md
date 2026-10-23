@@ -17,7 +17,7 @@ purpose and invariants:
 | sci-vector | Vector analysis of PIC (path 2): planar graph, gap closing, faces, fallbacks, curve fitting (done, milestone 3), hints (done, milestone 3a), stroke integrity (milestone 3b) | sci-core, sci-pic |
 | sci-view | View, loop and cel decoding (done, milestone 2); SCI0 cursors (milestone 6b) | sci-core, sci-resource |
 | sci-text | Fonts (done, milestone 2), messages, vocabulary, Said | sci-core, sci-resource |
-| sci-audio | Sound playback, silent driver, AdLib, MT-32, mixer | sci-core, sci-resource |
+| sci-audio | Sound playback, silent driver, AdLib (the OPL core on Nuked OPL3, milestone 7), MT-32, mixer | sci-core, sci-resource; Nuked OPL3 (vendored) |
 | sci-render | HD rasteriser (done, milestone 3), original mode, acceptance check, A1 checks (milestone 3b), composition of the game screen (milestone 5) | sci-core, sci-pic, sci-vector, sci-view |
 | sci-vm | Bytecode interpreter, objects, kernel functions, the 1x graphics they drive, the music player with a silent driver, events, virtual clock, random source (boot gate, milestone 4a) | sci-core, sci-resource, sci-pic, sci-view, sci-text |
 | sci-platform (in `src/app/platform`) | The parts of app without a window, shared with the tools: thread executor, game-folder reading, release identification, configuration file, hint loading (done, milestone 3a), analysis cache (milestone 4b), the HD images of the picture shown and the game's frame (milestone 5) | sci-core, sci-resource, sci-pic, sci-vector, sci-render, sci-vm |
@@ -60,9 +60,11 @@ program:
   cycle, or an unknown target, fails at configure time.
 - Each library's `include/` directory is public and its `src/` directory is
   private. Another library cannot include another library's internals.
-- External dependencies are not accepted by `sci_add_library` at all. When
-  SDL3 arrives (milestone 3a), a separate helper will admit it for app and
-  the audio output only (spec section 4.2).
+- External dependencies are not accepted by `sci_add_library` at all. The
+  vendored libraries (`cmake/SciThirdParty.cmake`) are linked by name only
+  where spec section 4.2 allows them: SDL3 by app (and, later, the audio
+  output), Nuked OPL3 privately by sci-audio, whose public headers do not
+  include it.
 - The dependencies listed above are the planned edges that are already
   needed. Edges such as sci-vm to sci-audio (sound kernel calls) are added
   when the code needs them, and the declaration order keeps the graph
