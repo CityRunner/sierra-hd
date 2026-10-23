@@ -7,7 +7,7 @@ trace, in the format of the reference ScummVM's trace patch
     sci-vm-trace <game folder> <trace file> [--replay <file>] [--seed <n>]
                  [--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]
                  [--screens <folder>] [--screen-every <ticks>] [--actors <file>]
-                 [--parser <file>]
+                 [--parser <file>] [--layout <file>]
     sci-vm-trace --scan-kernel <game folder> <output file>
     sci-vm-trace --vocabulary <game folder> <output file>
 
@@ -26,6 +26,12 @@ does.
   word, the event's flags) and every kSaid call (the spec and how it
   matched), keyed by tick and call number
   (`docs/formats/replay-and-trace.md`).
+- `--layout` writes the window layout in 1x screen coordinates: every
+  window (its port, frame, saved area, style and title), text line, text
+  box and measured size, control, inverted rectangle, menu bar and open
+  menu, saved box and cursor change (shape and hotspot, shown or hidden,
+  position set by the game), keyed by tick and kernel call
+  (`docs/formats/replay-and-trace.md`, "Layout files").
 - `--vocabulary` lists the parser's vocabulary as sci-text reads it:
   `word <spelling> <class> <group>` for every word of vocab.000,
   `suffix <typed> <stored> <class mask> <class>` for vocab.901 and
@@ -45,6 +51,7 @@ The reference side, with the same options as environment variables:
         SIERRA_HD_TRACE=build/traces/ref.txt SIERRA_HD_STOP_TICK=3600 \
         [SIERRA_HD_SEED=<n>] [SIERRA_HD_REPLAY=<file>] \
         [SIERRA_HD_SCREENS=<folder>] [SIERRA_HD_ACTORS=<file>] [SIERRA_HD_PARSER=<file>] \
+        [SIERRA_HD_LAYOUT=<file>] \
         xvfb-run -a env SDL_AUDIODRIVER=dummy \
         tools/reference-scummvm/run.sh build/reference-scummvm /game --music-driver=adlib
 
@@ -63,13 +70,16 @@ positions and prints the first difference (tick, call, object and field)
 or `actors match: <frames> frames`. `compare-parser.py <reference file>
 <sci-vm file>` compares the parser results and prints the first difference
 (tick, call, input or spec, and the fields that differ) or `parser match:
-<n> parses, <m> said calls (...)`.
+<n> parses, <m> said calls (...)`. `compare-layout.py <reference file>
+<sci-vm file>` compares the layout files and prints the first difference
+(tick, call, kind and the fields that differ; `#n` is the n-th word after
+the kind) or `layout match: <n> lines (...)` with the lines of each kind.
 
 `run-scenario.sh <replay> <stop tick> <output folder> [seed]` runs a replay
-in both engines and compares traces, screens, maps, actor positions and
-parser results;
-`run-all-scenarios.sh` does so for every run listed in
-`tests/scenarios/scenarios.txt`, one line per run.
+in both engines and compares traces, screens, maps, actor positions,
+parser results and layout; `run-all-scenarios.sh [--jobs <n>]` does so
+for every run listed in `tests/scenarios/scenarios.txt`, one line per run,
+n runs at a time (four on four cores take about 10 minutes for all).
 
 `make-parser-scenarios.py <vocabulary file> tests/scenarios [--words <file>]`
 writes the parser scenarios of milestone 6a (`tests/scenarios/parser-forms*.txt`

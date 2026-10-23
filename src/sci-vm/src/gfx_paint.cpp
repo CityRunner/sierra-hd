@@ -26,6 +26,7 @@
 
 #include "gfx_paint.hpp"
 
+#include "gfx_layout.hpp"
 #include "graphics.hpp"
 #include "machine.hpp"
 #include "sci/pic/draw_pic.hpp"
@@ -129,6 +130,10 @@ void Paint::clear_screen(std::uint8_t color) {
 
 void Paint::invert_rect(const Rect& rect) {
     Port* port = graphics_->ports().port();
+    // A selection or the edit cursor.
+    if (graphics_->layout_logging()) {
+        graphics_->log_layout(std::format("invert {}", layout_rect(rect, port)));
+    }
     const std::int16_t old_mode = port->pen_mode;
     port->pen_mode = 2;
     fill_rect(rect, mask_visual, static_cast<std::uint8_t>(port->pen_color),
@@ -382,6 +387,9 @@ Reg Paint::kernel_display(const std::string& text, std::span<Reg> args) {
             break;
         case display_restore_under: {
             rect = bits_rect(arg(i));
+            if (graphics_->layout_logging()) {
+                graphics_->log_layout(std::format("display restore {}", layout_rect(rect)));
+            }
             rect.translate(-ports.port()->left, -ports.port()->top);
             bits_restore(arg(i));
             kernel_graph_redraw_box(rect);
@@ -407,6 +415,11 @@ Reg Paint::kernel_display(const std::string& text, std::span<Reg> args) {
         fill_rect(rect, mask_visual, static_cast<std::uint8_t>(color_back), 0, 0);
     }
     text16.box(text, false, rect, alignment, -1);
+    if (graphics_->layout_logging()) {
+        graphics_->log_layout(std::format("display {} align={} font={} back={} saved={}",
+                                          layout_rect(rect, ports.port()), alignment, text16.font_id(), color_back,
+                                          save_under ? 1 : 0));
+    }
     if (graphics_->screen().pic_not_valid() == 0 && redraw) {
         bits_show(rect);
     }

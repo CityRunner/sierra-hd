@@ -15,7 +15,7 @@ purpose and invariants:
 | sci-resource | RESOURCE.MAP, volumes, patch files, LZW and Huffman decompression (done, milestone 1) | sci-core |
 | sci-pic | PIC parsing and the exact 1x rasteriser (path 1) (done, milestone 2) | sci-core, sci-resource |
 | sci-vector | Vector analysis of PIC (path 2): planar graph, gap closing, faces, fallbacks, curve fitting (done, milestone 3), hints (done, milestone 3a), stroke integrity (milestone 3b) | sci-core, sci-pic |
-| sci-view | View, loop and cel decoding (done, milestone 2) | sci-core, sci-resource |
+| sci-view | View, loop and cel decoding (done, milestone 2); SCI0 cursors (milestone 6b) | sci-core, sci-resource |
 | sci-text | Fonts (done, milestone 2), messages, vocabulary, Said | sci-core, sci-resource |
 | sci-audio | Sound playback, silent driver, AdLib, MT-32, mixer | sci-core, sci-resource |
 | sci-render | HD rasteriser (done, milestone 3), original mode, acceptance check, A1 checks (milestone 3b), composition of the game screen (milestone 5) | sci-core, sci-pic, sci-vector, sci-view |
@@ -210,7 +210,10 @@ structure so that each part can be checked against its source
 Two entry points run the game:
 - `run_deterministic` (`include/sci/vm/interpreter.hpp`) runs it the way
   the patched reference does and reports each kernel call and, on request,
-  the shown screen; `tools/vm-trace` uses it.
+  the shown screen, the actors, the parser's results and the window layout
+  (`Graphics::set_layout_log`: the drawing code reports windows, text,
+  controls, menus and the cursor in 1x, milestone 6b); `tools/vm-trace`
+  uses it.
 - `Game` (`include/sci/vm/game.hpp`) runs it for the program, on the
   calling (main) thread. Wherever virtual time would pass, sci-vm calls
   `GameHost::wait`; the host presents `Game::screen()`, passes input on
@@ -236,8 +239,12 @@ sprites are original cels scaled N x N, hidden behind the picture by the
 HD priority map (rendered from the priority scene), or by the 1x priority
 where something else set it or with `priority_snap = on`. Only the 1x
 pixels whose shown data changed are composed again. In original mode every
-pixel is an EGA block. The game's cursor becomes the window's cursor, and
-keys are translated as ScummVM translates them. The game's own files are
+pixel is an EGA block. The game's cursor, scaled N x N, becomes the
+window's cursor where the system shows it pixel for pixel, and is drawn
+over the frame by the presenter elsewhere (milestone 6b,
+`docs/hd-composition.md`, "The cursor"); the mouse reaches the game in 1x
+through one tested mapping (`game_screen.hpp`). Keys are translated as
+ScummVM translates them. The game's own files are
 kept in `files/` next to the configuration (`DirectoryFileStore`).
 
 `Viewer` composes the 320N x 200N frame on the CPU: the status line, the

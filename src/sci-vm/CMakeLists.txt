@@ -12,6 +12,7 @@ sci_add_library(NAME sci-vm
         src/gfx_compare.cpp
         src/gfx_controls.cpp
         src/gfx_cursor.cpp
+        src/gfx_layout.cpp
         src/gfx_menu.cpp
         src/gfx_paint.cpp
         src/gfx_ports.cpp
