@@ -13,13 +13,22 @@
 //                 [--timing <from tick>-<to tick>] [--stop-tick <n>]
 //   sci-hd-frames <game folder> <output folder> --stack <n>[+<n>...]
 //                 [--scale <n>] [--snap] [--hints <directory>] [--cache <directory>]
+//   sci-hd-frames <game folder> <output folder> --check-interface <from>-<to>
+//                 --stop-tick <n> [--replay <file>] [--seed <n>]
+//                 [--hints <directory>] [--cache <directory>]
 //
 // Each tick gives <output>/<tick>.png (with --stack: stack-<n>+<n>.png):
 // original | HD, and with --snap a third panel, HD with priority_snap.
 // --timing composes the HD frame whenever the shown screen changes between
 // the two ticks, as the program presents it, and prints the time taken.
+// --check-interface (milestone 6b) checks every frame whose interface
+// changed, in original and HD mode at every N from <from> to <to>: the
+// interface and the menu bar are the shown 1x screen in N x N blocks, and
+// the picture around them does not change with them
+// (tools/common/interface_check.hpp); it writes nothing.
 
 #include "game_folder.hpp"
+#include "interface_check.hpp"
 #include "picture.hpp"
 #include "png.hpp"
 #include "sci/core/log.hpp"
@@ -43,6 +52,7 @@
 #include <format>
 #include <fstream>
 #include <iterator>
+#include <list>
 #include <map>
 #include <memory>
 #include <optional>
@@ -77,6 +87,7 @@ struct Options {
     std::optional<fs::path> cache;
     std::optional<std::pair<std::uint32_t, std::uint32_t>> timing;
     std::optional<std::uint32_t> stop_tick;
+    std::optional<std::pair<int, int>> check_interface;
 };
 
 std::optional<std::uint32_t> parse_number(std::string_view text) {
@@ -112,7 +123,10 @@ int usage() {
                          "                     [--hints <directory>] [--cache <directory>]\n"
                          "                     [--timing <from>-<to>] [--stop-tick <n>]\n"
                          "       sci-hd-frames <game folder> <output folder> --stack <n>[+<n>...] [--scale <n>]\n"
-                         "                     [--snap] [--hints <directory>] [--cache <directory>]");
+                         "                     [--snap] [--hints <directory>] [--cache <directory>]\n"
+                         "       sci-hd-frames <game folder> <output folder> --check-interface <from>-<to>\n"
+                         "                     --stop-tick <n> [--replay <file>] [--seed <n>]\n"
+                         "                     [--hints <directory>] [--cache <directory>]");
     return 2;
 }
 
@@ -160,6 +174,13 @@ std::optional<Options> parse_options(std::span<char*> args) {
                 return std::nullopt;
             }
             options.timing = std::pair{(*range)[0], (*range)[1]};
+        } else if (flag == "--check-interface") {
+            const auto range = parse_list(value, '-');
+            if (!range || range->size() != 2 || (*range)[0] < 1 || (*range)[0] > (*range)[1] ||
+                std::cmp_greater((*range)[1], sci::platform::max_scale)) {
+                return std::nullopt;
+            }
+            options.check_interface = std::pair{static_cast<int>((*range)[0]), static_cast<int>((*range)[1])};
         } else if (const auto number = parse_number(value)) {
             if (flag == "--seed") {
                 options.seed = *number;
@@ -173,6 +194,10 @@ std::optional<Options> parse_options(std::span<char*> args) {
         } else {
             return std::nullopt;
         }
+    }
+    if (options.check_interface) {
+        return options.ticks.empty() && options.stack.empty() && options.stop_tick ? std::optional(options)
+                                                                                   : std::nullopt;
     }
     if (options.ticks.empty() == options.stack.empty()) {
         return std::nullopt;
@@ -261,15 +286,129 @@ struct Timing {
     }
 };
 
+// The interface checks of milestone 6b on the frames whose interface
+// changed: at every N of the range, the frame of each mode as the program
+// keeps it up to date (sci/platform/game_frame.hpp), and in HD mode a whole
+// frame composed again with the interface recoloured.
+class InterfaceCheck {
+public:
+    InterfaceCheck(sci::platform::AnalysisCache& analysis, sci::core::Executor& executor, std::pair<int, int> scales)
+        : scales_(scales) {
+        for (int scale = scales.first; scale <= scales.second; ++scale) {
+            Scale& entry = per_scale_.emplace_back(analysis, executor);
+            entry.scale = scale;
+        }
+    }
+
+    void check(const sci::vm::ShownScreen& shown) {
+        if (shown.visual.size() != screen_pixels || shown.serial == last_serial_) {
+            return;
+        }
+        last_serial_ = shown.serial;
+        const std::uint64_t key = interface_key(shown);
+        if (key == last_key_ && std::ranges::equal(shown.pictures, last_pictures_)) {
+            return;
+        }
+        last_key_ = key;
+        last_pictures_.assign(shown.pictures.begin(), shown.pictures.end());
+        ++frames_;
+        const bool below_bar = std::ranges::any_of(shown.owner.subspan(std::size_t{screen_width} * 10), [](auto owner) {
+            return owner == static_cast<std::uint8_t>(sci::vm::Owner::Interface);
+        });
+        windows_ += below_bar ? 1 : 0;
+        over_sprites_ += sci::tools::window_over_sprite(shown) ? 1 : 0;
+        report(0, "menu bar", sci::tools::check_menu_bar(shown));
+        const std::vector<std::uint8_t> recoloured_visual = sci::tools::recolour_interface(shown);
+        sci::vm::ShownScreen recoloured = shown;
+        recoloured.visual = recoloured_visual;
+        for (Scale& entry : per_scale_) {
+            const auto source = [&entry](auto stack, auto lines, int scale) {
+                return entry.pictures.get(stack, lines, scale);
+            };
+            if (!entry.original) {
+                entry.original.emplace(source);
+                entry.hd.emplace(source);
+            }
+            entry.original->update(shown, GraphicsMode::Original, entry.scale, false);
+            report(entry.scale, "original",
+                   sci::tools::check_interface_blocks(shown, entry.original->frame(), entry.scale, false));
+            entry.hd->update(shown, GraphicsMode::Hd, entry.scale, false);
+            report(entry.scale, "HD", sci::tools::check_interface_blocks(shown, entry.hd->frame(), entry.scale, true));
+            GameFrame fresh(source);
+            fresh.update(recoloured, GraphicsMode::Hd, entry.scale, false);
+            report(entry.scale, "HD, recoloured interface",
+                   sci::tools::check_isolation(shown, entry.hd->frame(), fresh.frame(), entry.scale));
+            ++checks_;
+        }
+    }
+
+    // Prints the result; false if any check failed.
+    [[nodiscard]] bool print() const {
+        std::println("interface check: {} frames ({} with interface below the menu bar, {} with a window over a "
+                     "sprite), N = {} to {}, original and HD mode: {} frame checks, {} failed",
+                     frames_, windows_, over_sprites_, scales_.first, scales_.second, checks_, failures_);
+        return failures_ == 0;
+    }
+
+    void set_tick(std::uint32_t tick) { tick_ = tick; }
+
+private:
+    struct Scale {
+        Scale(sci::platform::AnalysisCache& analysis, sci::core::Executor& executor) : pictures(analysis, executor) {}
+
+        int scale = 0;
+        sci::platform::HdPictures pictures;
+        std::optional<GameFrame> original;
+        std::optional<GameFrame> hd;
+    };
+
+    // The interface's pixels and colours, to check each state once.
+    static std::uint64_t interface_key(const sci::vm::ShownScreen& shown) {
+        std::uint64_t hash = 0xcbf29ce484222325ULL; // FNV-1a.
+        for (std::size_t i = 0; i < screen_pixels; ++i) {
+            const bool mine = shown.owner[i] == static_cast<std::uint8_t>(sci::vm::Owner::Interface);
+            hash = (hash ^ (mine ? shown.visual[i] : 0xFFU)) * 0x100000001b3ULL;
+        }
+        return hash;
+    }
+
+    void report(int scale, std::string_view mode, const std::optional<sci::tools::FrameProblem>& problem) {
+        if (!problem) {
+            return;
+        }
+        if (++failures_ <= 10) {
+            std::println("tick {}, N = {}, {}: pixel ({}, {}): {}", tick_, scale, mode, problem->x, problem->y,
+                         problem->what);
+        }
+    }
+
+    std::pair<int, int> scales_;
+    std::list<Scale> per_scale_;
+    std::uint64_t last_serial_ = ~std::uint64_t{0};
+    std::uint64_t last_key_ = 0;
+    std::vector<sci::vm::ShownPicture> last_pictures_;
+    std::uint32_t tick_ = 0;
+    int frames_ = 0;
+    int windows_ = 0;
+    int over_sprites_ = 0;
+    int checks_ = 0;
+    int failures_ = 0;
+};
+
 class Host final : public sci::vm::GameHost {
 public:
-    Host(sci::platform::HdPictures& pictures, const Options& options)
+    Host(sci::platform::HdPictures& pictures, const Options& options, InterfaceCheck* check)
         : pictures_(&pictures), options_(&options), sheet_(pictures, options),
-          timed_([&pictures](auto stack, auto lines, int scale) { return pictures.get(stack, lines, scale); }) {}
+          timed_([&pictures](auto stack, auto lines, int scale) { return pictures.get(stack, lines, scale); }),
+          check_(check) {}
 
     void wait(sci::vm::Game& game, std::uint32_t milliseconds) override {
         virtual_ms_ += milliseconds;
         const auto tick = static_cast<std::uint32_t>(virtual_ms_ * 60 / 1000);
+        if (check_ != nullptr) {
+            check_->set_tick(tick);
+            check_->check(game.screen());
+        }
         if (options_->timing && tick >= options_->timing->first && tick <= options_->timing->second) {
             time_frame(game.screen());
         }
@@ -331,6 +470,7 @@ private:
     const Options* options_;
     Sheet sheet_;
     GameFrame timed_;
+    InterfaceCheck* check_;
     Timing timing_;
     std::uint64_t virtual_ms_ = 0;
     std::size_t next_ = 0;
@@ -444,7 +584,11 @@ int main(int argc, char** argv) {
         game_files.emplace(std::move(name), std::move(bytes));
     }
     sci::vm::MemoryFileStore files(std::move(game_files));
-    Host host(pictures, *options);
+    std::optional<InterfaceCheck> check;
+    if (options->check_interface) {
+        check.emplace(analysis, executor, *options->check_interface);
+    }
+    Host host(pictures, *options, check ? &*check : nullptr);
     sci::vm::Game game(*manager, host, &files, options->seed);
     game.schedule(input);
     if (const auto fault = game.run()) {
@@ -453,6 +597,9 @@ int main(int argc, char** argv) {
     }
     if (options->timing) {
         host.timing().print(options->scale);
+    }
+    if (check && !check->print()) {
+        return 1;
     }
     return 0;
 }
