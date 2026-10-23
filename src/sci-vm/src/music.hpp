@@ -117,6 +117,9 @@ public:
     // SciMusic::onTimer, once per adlib_base_tempo microseconds.
     void on_timer();
 
+    // The music timer calls made so far: the time key of the OPL logs.
+    [[nodiscard]] std::uint32_t timer_calls() const { return timer_calls_; }
+
     void clear_play_list();
     void stop_all();
 
@@ -198,6 +201,7 @@ private:
     int global_pause_ = 0;
     bool needs_resume_ = false;
     int time_counter_ = 0;
+    std::uint32_t timer_calls_ = 0;
     audio::MidiDevice* device_ = nullptr;
     std::vector<QueuedCommand> queued_commands_;
     bool in_timer_ = false;

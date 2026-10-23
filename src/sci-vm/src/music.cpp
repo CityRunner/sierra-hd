@@ -164,6 +164,7 @@ Music::Music(Faults& faults) : faults_(&faults), global_reverb_(driver_reverb_) 
 
 void Music::on_timer() {
     // SciMusic::onTimer, then the rest of MidiDriver_AdLib::onTimer.
+    ++timer_calls_;
     in_timer_ = true;
     send_queued_commands();
     // The playlist does not change while the timer runs.

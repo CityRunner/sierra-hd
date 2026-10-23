@@ -16,7 +16,11 @@
 # kSaid call its spec and match. With SIERRA_HD_LAYOUT=<file> (milestone 6b)
 # every window, text line, text box and size, control, inverted rectangle,
 # menu, saved box and cursor change writes its layout there in 1x screen
-# coordinates. Used by tools/vm-trace to compare sci-vm with ScummVM
+# coordinates. In the deterministic mode (milestone 7) the AdLib driver's
+# note ageing runs after each music timer call of the virtual clock instead
+# of on the OPL callback, and with SIERRA_HD_OPL=<file> every OPL register
+# write of the AdLib driver is written there with the number of the music
+# timer call. Used by tools/vm-trace to compare sci-vm with ScummVM
 # (engines/sci/sierra_hd_trace.cpp describes the details).
 diff -ruN a/engines/sci/engine/kevent.cpp b/engines/sci/engine/kevent.cpp
 --- a/engines/sci/engine/kevent.cpp
@@ -774,7 +778,7 @@ diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
 diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 --- a/engines/sci/sierra_hd_trace.cpp
 +++ b/engines/sci/sierra_hd_trace.cpp
-@@ -0,0 +1,608 @@
+@@ -0,0 +1,654 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -854,6 +858,21 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 + *   Rectangles are left,top,right,bottom (right and bottom exclusive),
 + *   strings are quoted as the parser's input. The kinds are listed in
 + *   docs/formats/replay-and-trace.md of sierra-hd, "Layout files".
++ *
++ * Milestone 7 adds:
++ *
++ * - The AdLib driver's own timer work (MidiDriver_AdLib::onTimer, which
++ *   ages the notes) runs right after each music timer call of the virtual
++ *   clock, on the main thread, and no longer on the OPL callback: the
++ *   driver chooses voices by age, so this is part of the determinism.
++ * - With SIERRA_HD_OPL=<file>, every OPL register write the AdLib driver
++ *   makes (MidiDriver_AdLib::setRegister) writes one line there:
++ *     <timer call> <register> <value>
++ *   The timer call is the number of music timer calls the virtual clock has
++ *   made (0 before the first); the register is three hex digits, 0xxx for
++ *   the left OPL2 (port 0x220) and 1xx for the right one (port 0x222); the
++ *   value two hex digits, as the driver writes it (before the dual OPL2
++ *   masks waveform and channel output bits).
 + */
 +
 +#define FORBIDDEN_SYMBOL_ALLOW_ALL
@@ -927,6 +946,10 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	reg_t parseEvent;
 +	Common::String said;
 +	FILE *layout = nullptr;
++	FILE *opl = nullptr;
++	uint32 musicCalls = 0;
++	void (*driverTimer)(void *) = nullptr;
++	void *driverTimerParam = nullptr;
 +};
 +
 +State &state();
@@ -1079,6 +1102,12 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +				if (!s.layout)
 +					error("sierra-hd: cannot write the layout file %s", layout);
 +			}
++			const char *opl = getenv("SIERRA_HD_OPL");
++			if (opl && *opl) {
++				s.opl = fopen(opl, "w");
++				if (!s.opl)
++					error("sierra-hd: cannot write the OPL file %s", opl);
++			}
 +			const char *parser = getenv("SIERRA_HD_PARSER");
 +			if (parser && *parser) {
 +				s.parser = fopen(parser, "w");
@@ -1104,6 +1133,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +			fflush(s.parser);
 +		if (s.layout)
 +			fflush(s.layout);
++		if (s.opl)
++			fflush(s.opl);
 +		g_sci->quitGame();
 +	}
 +	// A script that never returns to the event loop would not see the quit:
@@ -1118,6 +1149,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +			fclose(s.parser);
 +		if (s.layout)
 +			fclose(s.layout);
++		if (s.opl)
++			fclose(s.opl);
 +		warning("sierra-hd: the game did not stop at the limit; ending the process");
 +		exit(0);
 +	}
@@ -1198,8 +1231,13 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	s.microseconds += (uint64)milliseconds * 1000;
 +	while (s.music && s.tempo && s.musicDue <= s.microseconds) {
 +		s.musicDue += s.tempo;
-+		Common::StackLock lock(s.music->_mutex);
-+		s.music->onTimer();
++		++s.musicCalls;
++		{
++			Common::StackLock lock(s.music->_mutex);
++			s.music->onTimer();
++		}
++		if (s.driverTimer)
++			s.driverTimer(s.driverTimerParam);
 +	}
 +	checkStop(s);
 +	dumpScreen(s);
@@ -1218,6 +1256,18 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	s.music = music;
 +	s.tempo = tempoMicroseconds;
 +	s.musicDue = s.microseconds + tempoMicroseconds;
++}
++
++void sierraHdSetDriverTimer(void (*timer)(void *), void *param) {
++	State &s = state();
++	s.driverTimer = timer;
++	s.driverTimerParam = param;
++}
++
++void sierraHdOplWrite(int reg, int value) {
++	State &s = state();
++	if (s.opl)
++		fprintf(s.opl, "%u %03x %02x\n", s.musicCalls, reg & 0x1ff, value & 0xff);
 +}
 +
 +void sierraHdTraceKernel(const char *name, int argc, const reg_t *argv, reg_t result) {
@@ -1386,7 +1436,7 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 --- a/engines/sci/sierra_hd_trace.h
 +++ b/engines/sci/sierra_hd_trace.h
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,89 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -1396,7 +1446,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 + *
 + * The deterministic mode and kernel-call trace of milestone 4, with the
 + * cast positions and 1x maps of milestone 5, the parser results of
-+ * milestone 6a and the window layout of milestone 6b (see
++ * milestone 6a, the window layout of milestone 6b and the OPL register log
++ * of milestone 7 (see
 + * sierra_hd_trace.cpp).
 + */
 +
@@ -1430,6 +1481,14 @@ diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 +void sierraHdElapsedTimeRead();
 +// The music the virtual clock drives.
 +void sierraHdSetMusic(SciMusic *music, uint32 tempoMicroseconds);
++// The music driver's own work after each music timer call (milestone 7):
++// in the deterministic mode the virtual clock runs it, not the driver's
++// timer.
++void sierraHdSetDriverTimer(void (*timer)(void *), void *param);
++// One OPL register write of the AdLib driver (milestone 7), written to
++// SIERRA_HD_OPL: reg is 0x000-0x0ff for the left OPL2, 0x100-0x1ff for the
++// right one.
++void sierraHdOplWrite(int reg, int value);
 +// Writes one kernel call to the trace.
 +void sierraHdTraceKernel(const char *name, int argc, const reg_t *argv, reg_t result);
 +// The next replayed event due at the current tick, if any.
@@ -1467,6 +1526,74 @@ diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 +} // End of namespace Sci
 +
 +#endif
+diff -ruN a/engines/sci/sound/drivers/adlib.cpp b/engines/sci/sound/drivers/adlib.cpp
+--- a/engines/sci/sound/drivers/adlib.cpp
++++ b/engines/sci/sound/drivers/adlib.cpp
+@@ -31,6 +31,7 @@
+ #include "sci/resource/resource.h"
+ #include "sci/sound/drivers/mididriver.h"
+ #include "sci/util.h"
++#include "sci/sierra_hd_trace.h"
+ 
+ namespace Sci {
+ 
+@@ -67,6 +68,10 @@
+ 	void setTimerCallback(void *timerParam, Common::TimerManager::TimerProc timerProc) override;
+ 
+ 	void onTimer();
++	// sierra-hd: the note ageing of onTimer, which the virtual clock runs in
++	// the deterministic mode.
++	static void sierraHdTimer(void *driver);
++	void ageNotes();
+ 
+ 	void setVolume(byte volume);
+ 	void playSwitch(bool play);
+@@ -263,6 +268,10 @@
+ 	_isOpen = true;
+ 
+ 	_opl->start(new Common::Functor0Mem<void, MidiDriver_AdLib>(this, &MidiDriver_AdLib::onTimer));
++	// sierra-hd: in the deterministic mode the notes age on the virtual
++	// clock, after each music timer call, not on the OPL callback.
++	if (sierraHdDeterministic())
++		sierraHdSetDriverTimer(&MidiDriver_AdLib::sierraHdTimer, this);
+ 
+ 	return 0;
+ }
+@@ -397,9 +406,19 @@
+ }
+ 
+ void MidiDriver_AdLib::onTimer() {
++	if (sierraHdDeterministic())
++		return;
+ 	if (_adlibTimerProc)
+ 		(*_adlibTimerProc)(_adlibTimerParam);
+ 
++	ageNotes();
++}
++
++void MidiDriver_AdLib::sierraHdTimer(void *driver) {
++	((MidiDriver_AdLib *)driver)->ageNotes();
++}
++
++void MidiDriver_AdLib::ageNotes() {
+ 	// Increase the age of the notes
+ 	for (int i = 0; i < kVoices; i++) {
+ 		if (_voices[i].note != -1)
+@@ -844,12 +863,14 @@
+ 
+ void MidiDriver_AdLib::setRegister(int reg, int value, int channels) {
+ 	if (channels & kLeftChannel) {
++		sierraHdOplWrite(reg & 0xff, value);
+ 		_opl->write(0x220, reg);
+ 		_opl->write(0x221, value);
+ 	}
+ 
+ 	if (_stereo) {
+ 		if (channels & kRightChannel) {
++			sierraHdOplWrite(0x100 | (reg & 0xff), value);
+ 			_opl->write(0x222, reg);
+ 			_opl->write(0x223, value);
+ 		}
 diff -ruN a/engines/sci/sound/music.cpp b/engines/sci/sound/music.cpp
 --- a/engines/sci/sound/music.cpp
 +++ b/engines/sci/sound/music.cpp

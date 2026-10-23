@@ -8,12 +8,16 @@
 #include "gfx_screen.hpp"
 #include "graphics.hpp"
 #include "machine.hpp"
+#include "music.hpp"
 #include "parser.hpp"
+#include "sci/audio/adlib.hpp"
+#include "sound.hpp"
 #include "subsystems.hpp"
 #include "timing.hpp"
 
 #include <format>
 #include <iterator>
+#include <memory>
 #include <string_view>
 #include <vector>
 
@@ -147,11 +151,30 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
         ++calls;
         check_stop();
     });
+    // The AdLib driver, opened before the player as ScummVM's SciMusic::init
+    // does; its start-up writes come before the first timer call.
+    const Music* music = nullptr;
+    std::unique_ptr<audio::AdlibDriver> adlib;
+    if (options.on_opl) {
+        auto patches = audio::load_adlib_patches(resources);
+        if (!patches) {
+            return RunResult{.fault = patches.error().message, .ticks = 0, .calls = 0};
+        }
+        adlib = std::make_unique<audio::AdlibDriver>(std::move(*patches), [&](std::uint16_t reg, std::uint8_t value) {
+            options.on_opl(music != nullptr ? music->timer_calls() : 0, reg, value);
+        });
+        subsystems.sound().set_device(adlib.get());
+    }
     if (!machine.faults().raised()) {
         subsystems.attach(machine);
+        music = &subsystems.sound().music();
         if (machine.init_game()) {
             machine.run_game();
         }
+    }
+    if (music != nullptr) {
+        // The driver is destroyed before the player.
+        subsystems.sound().music().set_device(nullptr);
     }
     RunResult result{.fault = std::nullopt, .ticks = clock.ticks(), .calls = calls};
     if (machine.faults().raised()) {

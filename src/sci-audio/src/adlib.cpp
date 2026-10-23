@@ -152,7 +152,8 @@ core::Result<std::vector<AdlibPatch>> load_adlib_patches(const resource::Resourc
 
 // AdlibDriver -------------------------------------------------------------------------
 
-AdlibDriver::AdlibDriver(std::vector<AdlibPatch> patches) : patches_(std::move(patches)) {
+AdlibDriver::AdlibDriver(std::vector<AdlibPatch> patches, WriteHook hook)
+    : patches_(std::move(patches)), write_hook_(std::move(hook)) {
     // OPL::init for a dual OPL2: OPL3 mode, written at once.
     opl_.write_now(0x105, 0x01);
     set_register(0xBD, 0);
@@ -546,10 +547,17 @@ void AdlibDriver::set_operator(unsigned reg, const AdlibOperator& op) {
 
 void AdlibDriver::set_register(unsigned reg, unsigned value, Side sides) {
     // Ports 0x220/0x221 are the left OPL2, 0x222/0x223 the right one.
+    const auto port_byte = [](unsigned byte) { return static_cast<std::uint8_t>(byte & 0xFFU); };
     if (sides != Side::Right) {
+        if (write_hook_) {
+            write_hook_(port_byte(reg), port_byte(value));
+        }
         dual_write(false, reg, value);
     }
     if (sides != Side::Left) {
+        if (write_hook_) {
+            write_hook_(static_cast<std::uint16_t>(0x100U | port_byte(reg)), port_byte(value));
+        }
         dual_write(true, reg, value);
     }
 }
