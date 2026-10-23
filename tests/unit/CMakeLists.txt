@@ -49,7 +49,7 @@ sci_add_unit_test(NAME sci-vector-tests
 target_include_directories(sci-vector-tests PRIVATE pic ${PROJECT_SOURCE_DIR}/src/sci-vector/src)
 
 sci_add_unit_test(NAME sci-audio-tests
-    SOURCES audio/opl3_test.cpp
+    SOURCES audio/adlib_test.cpp audio/opl3_test.cpp
     DEPENDS sci-audio)
 
 sci_add_unit_test(NAME sci-render-tests
@@ -73,6 +73,7 @@ sci_add_unit_test(NAME sci-vm-tests
     SOURCES
         vm/files_test.cpp
         vm/input_test.cpp
+        vm/music_device_test.cpp
         vm/music_test.cpp
         vm/path_match_test.cpp
         vm/screen_test.cpp
