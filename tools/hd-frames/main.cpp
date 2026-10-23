@@ -288,8 +288,8 @@ struct Timing {
 
 // The interface checks of milestone 6b on the frames whose interface
 // changed: at every N of the range, the frame of each mode as the program
-// keeps it up to date (sci/platform/game_frame.hpp), and in HD mode a whole
-// frame composed again with the interface recoloured.
+// keeps it up to date (sci/platform/game_frame.hpp), and in HD mode the
+// frame updated to the same screen with the interface recoloured.
 class InterfaceCheck {
 public:
     InterfaceCheck(sci::platform::AnalysisCache& analysis, sci::core::Executor& executor, std::pair<int, int> scales)
@@ -328,16 +328,20 @@ public:
             if (!entry.original) {
                 entry.original.emplace(source);
                 entry.hd.emplace(source);
+                entry.probe.emplace(source);
             }
             entry.original->update(shown, GraphicsMode::Original, entry.scale, false);
             report(entry.scale, "original",
                    sci::tools::check_interface_blocks(shown, entry.original->frame(), entry.scale, false));
             entry.hd->update(shown, GraphicsMode::Hd, entry.scale, false);
             report(entry.scale, "HD", sci::tools::check_interface_blocks(shown, entry.hd->frame(), entry.scale, true));
-            GameFrame fresh(source);
-            fresh.update(recoloured, GraphicsMode::Hd, entry.scale, false);
+            // The probe shows the screen, then the screen with the interface
+            // recoloured: as in the program, the tiles that changed are
+            // composed again.
+            entry.probe->update(shown, GraphicsMode::Hd, entry.scale, false);
+            entry.probe->update(recoloured, GraphicsMode::Hd, entry.scale, false);
             report(entry.scale, "HD, recoloured interface",
-                   sci::tools::check_isolation(shown, entry.hd->frame(), fresh.frame(), entry.scale));
+                   sci::tools::check_isolation(shown, entry.hd->frame(), entry.probe->frame(), entry.scale));
             ++checks_;
         }
     }
@@ -360,6 +364,7 @@ private:
         sci::platform::HdPictures pictures;
         std::optional<GameFrame> original;
         std::optional<GameFrame> hd;
+        std::optional<GameFrame> probe;
     };
 
     // The interface's pixels and colours, to check each state once.
