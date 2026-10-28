@@ -1891,6 +1891,10 @@ scripts' bytecode (after the script patches), not from runs:
   thread stalled longer than the queue early in the title, in the debug
   build); no other run of exact zeros. The customer listens to it on real
   hardware later. **Assumed** (no sound card here).
+- **Game behaviour unchanged:** boot (3600 ticks, seed 0) and intro
+  (30000 ticks) match the reference in all seven comparisons, the OPL
+  writes as before (boot 1286 writes over timer calls 0 to 14933, intro
+  81604 over 0 to 118318). **Decided.**
 - **Open:** a long stall of the main thread (for example an HD picture
   analysed on room entry, up to about 0.5 s in a slow build) still empties
   the queue and is heard as a gap; the music then resumes in step.
