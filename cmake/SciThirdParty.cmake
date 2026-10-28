@@ -55,10 +55,12 @@ target_include_directories(sci_mt32emu SYSTEM PUBLIC ${sci_mt32emu_dir} ${sci_mt
 # Upstream's own build for MSVC-style compilers (clang-cl): the secure
 # overloads of the C string functions, instead of deprecation warnings.
 target_compile_definitions(sci_mt32emu PRIVATE $<$<BOOL:${SCI_CLANG_CL}>:_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES=1>)
-# Upstream code is C++98 style and names no standard; it is built as C++17
-# (Clang's default), not the project's C++23. Its warnings are silenced:
-# they are not ours to fix and would only bury the project's own.
-set_target_properties(sci_mt32emu PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+# Upstream code is C++98 style and names no standard. It is built as C++20,
+# where integers are two's complement and the left shift of a negative value
+# (which the renderer does) is defined; as C++17 UBSan stops the sanitizer
+# builds on it. Its warnings are silenced: they are not ours to fix and
+# would only bury the project's own.
+set_target_properties(sci_mt32emu PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
 target_compile_options(sci_mt32emu PRIVATE $<IF:$<BOOL:${SCI_CLANG_CL}>,/w,-w>)
 
 # --- SDL3 (milestone 3a) -----------------------------------------------------

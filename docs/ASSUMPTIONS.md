@@ -1915,11 +1915,15 @@ scripts' bytecode (after the script patches), not from runs:
   Nuked OPL3 (THIRD_PARTY.md); its `sha1/` is BSD 3-clause, also
   compatible. `COPYING.LESSER.txt` and the SHA-1 notice go into the release
   archives (`scripts/package-release.sh`). **Decided.**
-- **Build:** the static C++17 library `sci_mt32emu`
+- **Build:** the static C++20 library `sci_mt32emu`
   (`cmake/SciThirdParty.cmake`), on every platform including the ARM64 test
   build, with the global floating-point and sanitizer flags, its warnings
   off (`-w`, `/w` under clang-cl) and its headers as system headers, linked
   privately by sci-audio and included only in `src/sci-audio/src/mt32.cpp`.
+  C++20 because the renderer shifts negative values left
+  (`Synth.cpp`), defined since C++20 and undefined before: built as C++17,
+  the ASan + UBSan build stopped there with the ROMs. As C++20 the
+  sci-audio tests are clean under ASan + UBSan with and without ROMs.
   The code has no `try` or `throw`, so it builds without exceptions. For
   clang-cl the only MSVC-specific code is `#pragma pack` and
   `__declspec(align(1))` in `Structures.h` (both accepted by clang-cl) and

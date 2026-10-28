@@ -84,7 +84,7 @@ the C and plugin interfaces (`c_interface/`), the unit tests (`test/`) and
 the documentation (`README.md`, `NEWS.txt`, `TODO.txt`, `info.txt`,
 `COPYING.txt`, which is the GPL v2 that upstream ships for reference).
 
-Built by `cmake/SciThirdParty.cmake` as the static C++17 library
+Built by `cmake/SciThirdParty.cmake` as the static C++20 library
 `sci_mt32emu`, with its warnings silenced. Only sci-audio links it, and only
 `src/sci-audio/src/mt32.cpp` includes its headers.
 
