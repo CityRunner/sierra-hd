@@ -121,6 +121,33 @@ SCI_TEST(the_driver_starts_the_chip_as_a_dual_opl2) {
     SCI_CHECK(log.empty());
 }
 
+SCI_TEST(the_write_hook_sees_the_driver_writes_before_the_dual_opl2_masks) {
+    // As ScummVM's MidiDriver_AdLib::setRegister sends them to the ports
+    // (the OPL logs compared with the reference): the start-up writes too,
+    // and the feedback register without the output bits.
+    std::vector<Write> hooked;
+    const auto driver = std::make_unique<AdlibDriver>(
+        test_patches(), [&](std::uint16_t reg, std::uint8_t value) { hooked.push_back({.reg = reg, .value = value}); });
+    std::vector<Write> expected;
+    both(expected, 0xBD, 0x00);
+    both(expected, 0x08, 0x00);
+    both(expected, 0x01, 0x20);
+    SCI_CHECK(hooked == expected);
+    std::vector<Write> log;
+    driver->set_register_log(&log);
+    hooked.clear();
+    driver->init_track(header(0, 1));
+    driver->send(midi(0xC0, 0));
+    driver->send(midi(0x90, 60, 127));
+    SCI_CHECK(hooked.size() == log.size());
+    const auto feedback = std::ranges::find(hooked, Write{.reg = 0xC0, .value = 0x06});
+    SCI_CHECK(feedback != hooked.end() && feedback + 1 != hooked.end() && feedback[1] == Write{.reg = 0x1C0, .value = 0x06});
+    driver->set_write_hook({});
+    hooked.clear();
+    driver->send(midi(0x80, 60));
+    SCI_CHECK(hooked.empty());
+}
+
 SCI_TEST(note_on_programs_the_patch_frequency_and_level) {
     Driver adlib;
     SCI_CHECK(adlib.send(midi(0xC0, 0)).empty()); // Program change: state only.
