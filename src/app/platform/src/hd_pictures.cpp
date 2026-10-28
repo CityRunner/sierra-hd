@@ -62,8 +62,9 @@ vector::Scene with_lines(const vector::Scene& visual, std::span<const vm::ShownL
 void HdPictures::make(Entry& entry, AnalysisCache& analysis, core::Executor& executor) {
     const auto visual = analysis.scene(stack_variant(entry.stack, vector::Plane::Visual));
     if (visual) {
-        entry.background = entry.lines.empty() ? render::render_hd(**visual, entry.scale, executor)
-                                               : render::render_hd(with_lines(**visual, entry.lines), entry.scale, executor);
+        entry.background = entry.lines.empty()
+                               ? render::render_hd(**visual, entry.scale, executor)
+                               : render::render_hd(with_lines(**visual, entry.lines), entry.scale, executor);
     } else {
         core::log(core::LogLevel::Warning, core::LogCategory::General,
                   std::format("Picture {}: {}; shown at 1x", entry.stack.front().number, visual.error().message));
@@ -77,8 +78,8 @@ void HdPictures::make(Entry& entry, AnalysisCache& analysis, core::Executor& exe
     }
 }
 
-const HdPictures::Entry* HdPictures::find(std::span<const vm::ShownPicture> stack,
-                                          std::span<const vm::ShownLine> lines, int scale) {
+const HdPictures::Entry* HdPictures::find(std::span<const vm::ShownPicture> stack, std::span<const vm::ShownLine> lines,
+                                          int scale) {
     const auto same = [&](const Entry& e) {
         return e.scale == scale && std::ranges::equal(e.stack, stack) && std::ranges::equal(e.lines, lines);
     };
@@ -124,8 +125,7 @@ HdImages HdPictures::get(std::span<const vm::ShownPicture> stack, std::span<cons
     return images(keep(std::move(entry)));
 }
 
-HdImages HdPictures::request(std::span<const vm::ShownPicture> stack, std::span<const vm::ShownLine> lines,
-                             int scale) {
+HdImages HdPictures::request(std::span<const vm::ShownPicture> stack, std::span<const vm::ShownLine> lines, int scale) {
     if (stack.empty()) {
         return {};
     }
@@ -137,12 +137,15 @@ HdImages HdPictures::request(std::span<const vm::ShownPicture> stack, std::span<
     }
     if (!task_.busy()) {
         // The thread gets its own copy of what it renders.
-        task_.start([entry = Entry{.stack = {stack.begin(), stack.end()},
-                                   .lines = {lines.begin(), lines.end()},
-                                   .scale = scale,
-                                   .background = {},
-                                   .priority = {}},
-                     analysis = analysis_, executor = executor_]() mutable {
+        task_.start([entry =
+                         Entry{
+                             .stack = {stack.begin(), stack.end()},
+                             .lines = {lines.begin(), lines.end()},
+                             .scale = scale,
+                             .background = {},
+                             .priority = {},
+                         },
+                     analysis = analysis_, executor = executor_] mutable {
             make(entry, *analysis, *executor);
             return std::move(entry);
         });

@@ -616,8 +616,9 @@ public:
         // of milliseconds, over 100 in a debug build), here before the
         // music starts rather than as a stall in it.
         const int scale = scale_for_window();
-        const std::vector<std::uint8_t> black(static_cast<std::size_t>(sci::app::screen_width) * sci::app::screen_height *
-                                                  static_cast<std::size_t>(scale) * static_cast<std::size_t>(scale) * 4,
+        const std::vector<std::uint8_t> black(static_cast<std::size_t>(sci::app::screen_width) *
+                                                  sci::app::screen_height * static_cast<std::size_t>(scale) *
+                                                  static_cast<std::size_t>(scale) * 4,
                                               0);
         presenter_.present(black, scale, {});
     }

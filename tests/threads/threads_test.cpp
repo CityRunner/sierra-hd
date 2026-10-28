@@ -83,6 +83,7 @@ SCI_TEST(background_task_hands_its_result_to_the_owner) {
             std::this_thread::yield();
         }
         std::vector<int> doubled;
+        doubled.reserve(input.size());
         for (const int value : input) {
             doubled.push_back(value * 2);
         }
