@@ -138,8 +138,7 @@ public:
                     options_->on_midi(music_ != nullptr ? music_->timer_calls() : 0, message);
                 };
             }
-            mt32_ = std::make_unique<audio::Mt32Driver>(options_->mt32(), *patch,
-                                                        options_->on_midi ? &log_ : nullptr);
+            mt32_ = std::make_unique<audio::Mt32Driver>(options_->mt32(), *patch, options_->on_midi ? &log_ : nullptr);
             sound_->set_device(mt32_.get());
             return std::nullopt;
         }

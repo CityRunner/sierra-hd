@@ -361,8 +361,7 @@ int main(int argc, char** argv) {
         }
         const sci::audio::Mt32Roms& names = selection->synth->roms();
         std::println(stderr, "MT-32: {} ({}) with {} ({})", names.control_description,
-                     selection->control.filename().string(), names.pcm_description,
-                     selection->pcm.filename().string());
+                     selection->control.filename().string(), names.pcm_description, selection->pcm.filename().string());
         synth = std::move(selection->synth);
     }
     if (on_mt32) {
@@ -477,8 +476,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     return trace && (actors.empty() || actor_file) && (parser.empty() || parser_file) &&
-                   (layout.empty() || layout_file) && (opl.empty() || opl_file) &&
-                   (midi.empty() || midi_file)
+                   (layout.empty() || layout_file) && (opl.empty() || opl_file) && (midi.empty() || midi_file)
                ? 0
                : 1;
 }

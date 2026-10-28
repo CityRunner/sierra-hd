@@ -208,8 +208,7 @@ SCI_TEST(mt32_driver_shows_each_message_as_sent) {
     log.on_send = [&](std::span<const std::uint8_t> message) { sent.emplace_back(message.begin(), message.end()); };
     Mt32Driver driver(nullptr, std::nullopt, &log);
     // The reset as sendMt32SysEx builds it: header, address, data, checksum.
-    SCI_CHECK(
-        (sent.at(0) == std::vector<std::uint8_t>{0x41, 0x10, 0x16, 0x12, 0x7F, 0x00, 0x00, 0x01, 0x00, 0x00}));
+    SCI_CHECK((sent.at(0) == std::vector<std::uint8_t>{0x41, 0x10, 0x16, 0x12, 0x7F, 0x00, 0x00, 0x01, 0x00, 0x00}));
     sent.clear();
     driver.send(0x05C1); // Program 5 on channel 1: the volume, then the program (2 bytes), then the pan.
     driver.send(0x7F3C91);
