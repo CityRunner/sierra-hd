@@ -2401,6 +2401,68 @@ next task); `sci::vm::state_hash` (`src/sci-vm/src/state.cpp`) hashes it.
   that exactly that component's hash changes, and that two machines in
   equal states at different addresses hash equally.
 
+## Milestone 8: the save format (2026-10-28)
+
+The format, its checks and what a restore rebuilds are described in
+`docs/formats/save-format.md`. The decisions:
+
+- **The file holds the whole state stream**, all ten components with their
+  names, behind a header (magic `SCIHDSAV`, format version 1, game
+  identity, description, date and time, play time in ticks, program
+  version) and before a SHA-256 checksum of the whole file. Storing less
+  (ScummVM keeps only the scripts' string blocks) would save little: a save
+  of the real game is 360 to 500 KB, mostly the three 1x maps, the colour
+  pairs and the hunks. **Decided.**
+- **Game identity:** SHA-256 of all script and vocabulary resources, not
+  ScummVM's script 0 size and game object offset, so that any release or
+  script patch the state depends on is caught. A save of another release
+  is refused with "This saved game was made with another release of the
+  game." **Decided.**
+- **Versions:** 1 now; an older version is read through a documented
+  migration step added with the version that follows it, or refused with a
+  message naming both versions; a newer version is always refused.
+  **Decided.**
+- **The execution component is not restored.** A restore re-enters the
+  game through `Game::replay` (next task), as ScummVM does, so the frames,
+  registers and stack contents of the save are read and dropped; the stack
+  is recreated cleared, as ScummVM recreates it. Only the counters are
+  taken: the kernel-call counter (kGetTime's consecutive-read rule compares
+  call numbers with the clock's last read, which is restored too) and the
+  step counter. **Decided.**
+- **The clock is restored** as saved: virtual time, the waits, the music
+  timer and the throttle. ScummVM also sets its tick count back to the
+  save's play time; its wait and screen-update times are set to "now"
+  after the restore, which here is the restored time, so restoring them as
+  saved is the same. Input scheduled at ticks (a replay) waits until
+  virtual time reaches its tick again. **Decided.**
+- **gc_count_down and the restart flag** are restored as saved, so that
+  the persistent hash after a restore equals the one at the save, which is
+  what the exit criterion compares. ScummVM resets the countdown
+  (`GC_INTERVAL - 1`) and sets `gameIsRestarting` to "restore" after
+  loading; whether kRestoreGame does the same after `read_save` (to keep
+  the traces equal to the reference's after a restore) is decided with the
+  kernel functions. **Open** (next task).
+- **The music device** is not part of the state. The songs playing before
+  a restore get their notes switched off; the restored songs' parsers are
+  exactly where they were, but the device does not get their program and
+  controller changes again (ScummVM re-plays each playing song up to its
+  saved tick, `soundPlay(restoring)`), so a restored song is heard from
+  its next notes, possibly with the instruments of before. **Open** (next
+  task, with the kernel functions).
+- **A failed restore:** the header checks change nothing; an inconsistent
+  state may leave parts replaced, so the machine must stop with the
+  message (a fault) rather than run on. **Decided.**
+- **Checks:** the in-process round trip (`sci-vm-trace --save-check`)
+  gives equal persistent hashes, and equal hashes of each component but
+  `execution`, for `boot.txt` at ticks 1000, 2000 and 3600 and for
+  `intro.txt` at ticks 500, 5000, 12000 and 20000. Unit tests and the
+  `fuzz-save` target as described in the format document.
+- **Not done yet** (the next task): kSaveGame, kRestoreGame,
+  kCheckSaveGame and kGetSaveFiles on this format, their slot naming and
+  save folder (`sci-vm-trace --saves`), the restore through
+  `Game::replay`, and the full scenario round trip ("replay continues
+  identically").
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with

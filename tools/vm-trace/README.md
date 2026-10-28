@@ -10,6 +10,7 @@ trace, in the format of the reference ScummVM's trace patch
                  [--parser <file>] [--layout <file>] [--opl <file>]
                  [--music mt32 [--roms <folder>] [--midi <file>]]
                  [--state-hash <tick>[,<tick>...] <file>]
+                 [--save-check <tick>[,<tick>...] <file>]
     sci-vm-trace --scan-kernel <game folder> <output file>
     sci-vm-trace --vocabulary <game folder> <output file>
 
@@ -56,6 +57,19 @@ does.
 
       sci-vm-trace /game build/boot.txt --replay tests/scenarios/boot.txt \
           --stop-tick 3600 --state-hash 1000,2000,3600 build/boot-state.txt
+- `--save-check` makes the save round trip (milestone 8,
+  `docs/formats/save-format.md`) at each of the ticks, taken as for
+  `--state-hash`: the state is written as a save file and read into a
+  fresh machine on the same game files; the run goes on unchanged with its
+  own machine. Per requested tick: `<tick> <reached> <save bytes> <saved
+  persistent hash> <restored persistent hash> equal|differ`, then
+  `<tick> <reached> component <name> differs` for each component whose
+  hash differs (always `execution`, which a restore does not take), or
+  `<tick> <reached> <save bytes> error <message>` if the save could not be
+  read:
+
+      sci-vm-trace /game build/boot.txt --replay tests/scenarios/boot.txt \
+          --stop-tick 3600 --save-check 1000,2000,3600 build/boot-save.txt
 - `--vocabulary` lists the parser's vocabulary as sci-text reads it:
   `word <spelling> <class> <group>` for every word of vocab.000,
   `suffix <typed> <stored> <class mask> <class>` for vocab.901 and
