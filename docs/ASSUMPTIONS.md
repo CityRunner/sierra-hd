@@ -1756,9 +1756,48 @@ scripts' bytecode (after the script patches), not from runs:
   20 seconds), the same twice. **Decided** (the next task picks the hashed
   set).
 - **Open:** the device is not yet attached in the program (audio output,
-  mixer and device selection are later tasks); the register sequence is
-  checked by reading ScummVM's source, not by a register log of the
-  reference.
+  mixer and device selection are later tasks).
+
+## Milestone 7: the OPL comparison and the sound golden hashes (2026-10-28)
+
+- **OPL register logs in both engines.** Patch 0003 writes every register
+  write of ScummVM's AdLib driver (`MidiDriver_AdLib::setRegister`) to
+  `SIERRA_HD_OPL=<file>`; `sci-vm-trace --opl <file>` plays the music on
+  `AdlibDriver` (otherwise the silent driver) and writes ours from the
+  driver's write hook, at the same level: the value the driver writes to
+  the port, before the dual OPL2's masks. Format and time key in
+  `docs/formats/replay-and-trace.md`, "OPL files". **Decided.**
+- **Time key: the music timer call.** Both engines run the music timer on
+  the virtual clock, once per 4000 us, on the interpreter's thread, so the
+  number of timer calls made is the same at every point of a run; a write
+  carries the count when it is made (0 for the driver's start-up). The
+  OPL sample position was not used: the reference's chip generates in the
+  audio thread at the mixer's pace, not on the virtual clock. **Decided.**
+- **The reference's note ageing moves onto the virtual clock.** ScummVM
+  ages the notes (by which `findVoice` picks the voice for a new note) in
+  `MidiDriver_AdLib::onTimer`, called by the OPL chip's callback in the
+  audio thread; in the deterministic mode that callback now does nothing
+  and the virtual clock calls the ageing right after each music timer call,
+  as our `Music::on_timer` calls `AdlibDriver::on_timer`. Without it the
+  voice choice would depend on the host's audio timing. **Decided.**
+- **Result:** the logs match in boot (3600 ticks, seed 0: 1286 writes over
+  timer calls 0 to 14933, 200 key-ons), intro (30000 ticks: 81604 writes
+  over timer calls 0 to 118318, 11622 key-ons) and bedroom-wait (20000
+  ticks: 1040 writes over timer calls 0 to 13141, 118 key-ons), with all
+  six other comparisons matching too. No port bug showed up. The
+  comparison is the seventh in `run-scenario.sh` (on by default,
+  `SIERRA_HD_COMPARE_OPL=0` skips it). **Decided.**
+- **No per-sound comparison with the reference:** ScummVM cannot play one
+  sound resource alone without new engine code (a sound object, kDoSound
+  calls, the main loop), so the in-game comparison stands for it; the
+  intro plays the game's main themes. **Decided.**
+- **Golden hashes:** all 119 sound resources, each rendered with
+  `render_sound` for its first 20 seconds (84 end sooner), SHA-256 of the
+  samples at 49716 Hz in `tests/golden/sounds.txt`
+  (`sci-sound-render --golden <file> [--check]`). They match on x86-64
+  (release, about 35 s; the same as the debug build) and on ARM64 (the
+  cross-aarch64 build under qemu-user, about 3 minutes). Like the picture
+  hashes they need the game and run locally, not in CI. **Decided.**
 
 ## Spec items carried forward
 

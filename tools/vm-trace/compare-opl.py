@@ -67,7 +67,7 @@ def main() -> int:
     if len(reference) != len(ours):
         longer, side = (reference, "the reference") if len(reference) > len(ours) else (ours, "sci-vm")
         print(
-            f"{len(reference)} lines in the reference, {len(ours)} in sci-vm; only {side} has "
+            f"{len(reference)} writes in the reference, {len(ours)} in sci-vm; only {side} has "
             f"{describe(longer[min(len(reference), len(ours))])}"
         )
         return 1
