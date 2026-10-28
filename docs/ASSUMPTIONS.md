@@ -1613,19 +1613,35 @@ scripts' bytecode (after the script patches), not from runs:
 - The gate is approved as is and merged: the Linux and Windows matrix is
   green; macOS is optional.
 
-## Milestone SU deferred (2026-10-23)
+## Milestone SU dropped (2026-10-28)
 
-- The customer stopped milestone SU and asked to skip sprite undithering
-  for now and move on to the next milestone. Milestone 7 starts from main
-  without it. **Decided** by the customer.
-- The work done so far stays on the local branch `milestone-su`, not
-  merged: the detection (`sci::render::detect_dither`, with unit tests and
-  a fuzz target) and the threshold tuning on the game's cels with the
-  comparison with ScummVM's view undithering (`sci-undither-report`). The
-  override step (`hints/views/`) was stopped and not committed.
-- Until SU is resumed: sprites in HD mode stay as in milestone 6b (original
-  cels scaled N x N), and the milestone 9 playthrough requirement of A2
-  ("with sprite undithering on") is open.
+- The customer dropped sprite undithering (addendum A2, milestone SU)
+  completely. Sprites in HD mode stay the original cels scaled N x N
+  (milestone 6b), and the milestone 9 playthrough is done without
+  undithering. **Decided** by the customer.
+- The SU work was never merged or pushed: the local branch `milestone-su`
+  (detection and threshold tuning) and its git-ignored images are
+  deleted. Milestone 7 started from main without it (2026-10-23, when SU
+  was first put on hold).
+
+## MT-32 ROMs (2026-10-28)
+
+- The customer supplied Roland ROMs. They are kept on the local machine
+  only, outside the repository (`/home/user/roms/roland`), and are never
+  committed or uploaded; CI runs without them. SHA-256:
+  - `MT32_CONTROL.1987-10-07.v1.07.ROM`
+    `a73a06c23ed38370e58a11fb1b86f7ea4c547061a60d7aa62bae446235fd2dff`
+  - `MT32_CONTROL.1988-09-30.vX.XX-patched.ROM`
+    `c088c026ad99e13204ac4aa157052f443c52424cbd6394a82abd60bab4c34b91`
+  - `MT32_PCM.ROM`
+    `d9164063f293410cf33f2f64cdcea6893b44723fe41938e07ec9aef58b406238`
+  - `CM32L_CONTROL.1989-12-05.v1.02.ROM`
+    `08d68695e5bff6bbcbb751d6e4453db9f5ead0b5f41e86480798a04376dfe090`
+  - `CM32L_PCM.ROM`
+    `0dc50190bb7ea3fb212c970346b771a511772b528801e7eda6d27efda8c40698`
+- The milestone 7 checks use the MT-32 1.07 control ROM with the MT-32
+  PCM ROM (the original MT-32 the game was written for); the CM-32L set
+  is checked too, since the spec accepts both. **Decided.**
 
 ## Milestone 7: the OPL core (2026-10-23)
 
