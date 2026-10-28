@@ -202,6 +202,31 @@ SCI_TEST(mt32_driver_sends_the_patch_when_it_opens) {
     SCI_CHECK((addresses(bare) == std::vector<std::uint32_t>{0x7F0000}));
 }
 
+SCI_TEST(mt32_driver_shows_each_message_as_sent) {
+    std::vector<std::vector<std::uint8_t>> sent;
+    Mt32Driver::Log log;
+    log.on_send = [&](std::span<const std::uint8_t> message) { sent.emplace_back(message.begin(), message.end()); };
+    Mt32Driver driver(nullptr, std::nullopt, &log);
+    // The reset as sendMt32SysEx builds it: header, address, data, checksum.
+    SCI_CHECK(
+        (sent.at(0) == std::vector<std::uint8_t>{0x41, 0x10, 0x16, 0x12, 0x7F, 0x00, 0x00, 0x01, 0x00, 0x00}));
+    sent.clear();
+    driver.send(0x05C1); // Program 5 on channel 1: the volume, then the program (2 bytes), then the pan.
+    driver.send(0x7F3C91);
+    driver.send(0x2000E1);
+    SCI_CHECK(sent.size() == 5);
+    SCI_CHECK((sent.at(0) == std::vector<std::uint8_t>{0xB1, 0x07, 0x7F}));
+    SCI_CHECK((sent.at(1) == std::vector<std::uint8_t>{0xC1, 0x05}));
+    SCI_CHECK((sent.at(2) == std::vector<std::uint8_t>{0xB1, 0x0A, 0x40}));
+    SCI_CHECK((sent.at(3) == std::vector<std::uint8_t>{0x91, 0x3C, 0x7F}));
+    SCI_CHECK((sent.at(4) == std::vector<std::uint8_t>{0xE1, 0x00, 0x20}));
+    // A song's SysEx as the player passes it on.
+    sent.clear();
+    const std::array<std::uint8_t, 7> song{0x41, 0x10, 0x16, 0x12, 0x10, 0x00, 0x01};
+    driver.sysex(song);
+    SCI_CHECK(sent.size() == 1 && std::ranges::equal(sent.at(0), song));
+}
+
 SCI_TEST(mt32_driver_reports_its_player_choices) {
     const Mt32Driver driver(nullptr, std::nullopt);
     const sci::audio::PlayerChoices choices = driver.player_choices();

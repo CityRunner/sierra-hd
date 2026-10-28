@@ -2078,9 +2078,81 @@ scripts' bytecode (after the script patches), not from runs:
   sound 12, peaks at 394; sound 77 reaches full scale (32767) in
   mt32emu's own output. The run takes under a minute in the debug build.
   **Decided.**
-- **Not checked yet:** a comparison with ScummVM's MT-32 output (by ear;
-  mt32emu 2.8.3 against ScummVM's 2.7.0, the reordering above, the parts
-  assigned per song, the volume curve) and the CM-32L by ear.
+- **Not checked yet:** a comparison with ScummVM's MT-32 output by ear
+  (mt32emu 2.8.3 against ScummVM's 2.7.0, the volume curve) and the
+  CM-32L by ear. The messages sent, the parts assigned per song and the
+  reordering are compared in "the MT-32 comparison" below.
+
+## Milestone 7: the MT-32 comparison (2026-10-28)
+
+- **MIDI logs in both engines.** Patch 0003 writes every message
+  `MidiPlayer_Midi` hands to its MIDI driver (`_driver->send`, and
+  `_driver->sysEx` in `sysExNoDelay`) to `SIERRA_HD_MIDI=<file>`, before
+  `MidiDriver_MT32` and mt32emu's queue, keyed by the music timer call as
+  the OPL log (0 for the driver's open). `sci-vm-trace --music mt32
+  [--roms <folder>] [--midi <file>]` runs the deterministic VM on
+  `Mt32Driver` and writes ours through the new `Mt32Driver::Log::on_send`
+  hook, which sees each message at the same level: a channel message as
+  its 2 or 3 bytes, the driver's SysEx whole (header 41 10 16 12, address,
+  data, checksum, as `sendMt32SysEx` builds it). With `--roms` the driver
+  feeds a synthesiser on the ROMs the program would choose (nothing
+  renders it; the log does not depend on it). Format in
+  `docs/formats/replay-and-trace.md`, "MIDI files". **Decided.**
+- **ScummVM's ROMs:** ScummVM opens `CM32L_CONTROL.ROM`/`CM32L_PCM.ROM`,
+  then `MT32_CONTROL.ROM`/`MT32_PCM.ROM`, from its search path. The
+  reference gets `--extrapath` on a folder outside the repository
+  (`/home/user/roms/mt32-scummvm`) with relative symbolic links under those
+  names to the MT-32 1.07 control ROM and the MT-32 PCM ROM of
+  `/home/user/roms/roland`, mounted as `/roms` (its log: "Falling back to
+  MT32"). No CM-32L names there, so the MT-32 1.07 plays, as on our side.
+  **Decided.**
+- **`run-scenario.sh` with `SIERRA_HD_MUSIC=mt32`** runs both engines on
+  the MT-32 (`--music-driver=mt32`) and compares the MIDI logs
+  (`compare-midi.py`) in place of the OPL writes, with the other six
+  comparisons unchanged. **Decided.**
+- **Result:** all seven comparisons match: boot (3600 ticks, seed 0:
+  12022 calls, 417 messages over timer calls 0 to 15007, 101 note-ons, 68
+  SysEx), intro (30000 ticks: 227303 calls, 14638 messages over 0 to
+  125001, 5244 note-ons, 93 SysEx) and bedroom-wait (20000 ticks: 119178
+  calls, 1165 messages over 0 to 83346, 55 note-ons, 75 SysEx). The open
+  (reset, patch.001 upload, texts), the reverb and part assignment of
+  every song, the goodbye text at the end and every channel message are
+  the same bytes in the same order at the same timer call. No port bug
+  showed up. A changed byte in one line makes the comparison fail
+  (checked). The AdLib runs are unchanged (boot: all seven comparisons,
+  1286 OPL writes). GetPolyphony is not called in these three runs (the
+  game calls it once, in script 16), so its 32 is not in their traces;
+  both engines return 32 (`MidiPlayer_Midi::kVoices`). **Decided.**
+- **The SysEx ordering stays as sent.** The logs match because both are
+  taken at the driver's send point; below it ScummVM reorders: its
+  `MidiDriver_MT32` queues channel messages (`playMsg`, played at the
+  start of the next rendered buffer) and writes SysEx into the
+  synthesiser at once (`writeSysex`), so within a timer call a SysEx
+  overtakes the channel messages sent before it. This happens at song
+  starts: the old song's all-notes-off, hold-off and pitch-bend resets,
+  then the new song's reverb and part assignment (boot 1 timer call,
+  intro 13, bedroom-wait 4). Replaying the logs on a model of the parts
+  (part assignment, note-ons, note-offs, 0x7B) shows the effect: in
+  ScummVM's order the note-offs of that call reach the parts of the new
+  assignment, so notes of the old song are left on (intro: timer calls
+  3508, 4199, 60674 and 70449, 1 to 6 notes each; bedroom-wait: 3508)
+  until their timbre decays; in the order sent none are. That is a
+  ScummVM artefact, not the behaviour of an MT-32 or of Sierra's driver
+  (a real MT-32 receives the bytes serially), so ours keeps the order
+  sent (`playMsgNow`, `writeSysex`). **Decided.**
+- **End-to-end smoke** (debug build, Xvfb, `SDL_AUDIODRIVER=disk`, 40 s,
+  warm analysis cache), `music = mt32`, `mt32_rom = /roms/roland`: the
+  program logs "music: MT-32 on the MT-32 Control v1.07
+  (MT32_CONTROL.1987-10-07.v1.07.ROM) and the MT-32 PCM ROM
+  (MT32_PCM.ROM)"; 29.8 s of 44100 Hz 16-bit stereo, silence until the
+  title music starts at 2.87 s, then music to the end (RMS 370 to 1090 per
+  half second, peak 4583, no clipped sample), and one 35 ms run of exact
+  zeros at 7.91 s cut into a full-level waveform (an underrun, as in the
+  AdLib smoke). The same with `music = adlib`: 30.4 s, music from 2.13 s,
+  RMS about 1000 to 1370, peak 4510, gaps of 14 and 11 ms at 7.07 s. The
+  captures are `reports/images/audio/m7-title-music-mt32-capture.wav` and
+  `m7-title-music-adlib-capture-2.wav` (ignored by the repository) for
+  the customer's listening. **Assumed** (no sound card here).
 
 ## Spec items carried forward
 
