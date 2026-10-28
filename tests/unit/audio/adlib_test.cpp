@@ -141,7 +141,8 @@ SCI_TEST(the_write_hook_sees_the_driver_writes_before_the_dual_opl2_masks) {
     driver->send(midi(0x90, 60, 127));
     SCI_CHECK(hooked.size() == log.size());
     const auto feedback = std::ranges::find(hooked, Write{.reg = 0xC0, .value = 0x06});
-    SCI_CHECK(feedback != hooked.end() && feedback + 1 != hooked.end() && feedback[1] == Write{.reg = 0x1C0, .value = 0x06});
+    SCI_CHECK(feedback != hooked.end() && feedback + 1 != hooked.end() &&
+              feedback[1] == Write{.reg = 0x1C0, .value = 0x06});
     driver->set_write_hook({});
     hooked.clear();
     driver->send(midi(0x80, 60));

@@ -53,10 +53,12 @@ public:
     // SoundCommandParser, then syncSoundSettings) and puts its timer on the
     // virtual clock.
     void attach(Machine& machine);
+
     // The device the music plays on, set before attach (as ScummVM opens
     // the driver before syncSoundSettings sets the volume); null is the
     // silent driver. It must outlive the player.
     void set_device(audio::MidiDevice* device) { device_ = device; }
+
     // SciEngine::runGame, when the game ends or restarts.
     void clear_play_list();
     // Passes signals and cues of the playing sounds to their objects; SCI0

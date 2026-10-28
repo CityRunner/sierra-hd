@@ -415,8 +415,8 @@ int main(int argc, char** argv) {
         std::println(stderr, "stopped: {}", *result.fault);
         return 1;
     }
-    return trace && (actors.empty() || actor_file) && (parser.empty() || parser_file) && (layout.empty() || layout_file) &&
-                   (opl.empty() || opl_file)
+    return trace && (actors.empty() || actor_file) && (parser.empty() || parser_file) &&
+                   (layout.empty() || layout_file) && (opl.empty() || opl_file)
                ? 0
                : 1;
 }

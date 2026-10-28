@@ -162,6 +162,7 @@ int golden(const sci::resource::ResourceManager& resources, const std::filesyste
 
 } // namespace
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): argument parsing.
 int main(int argc, char** argv) {
     const std::span<char*> args(argv, static_cast<std::size_t>(argc));
     std::vector<std::string_view> positional;
@@ -195,7 +196,8 @@ int main(int argc, char** argv) {
     const std::optional<unsigned> seconds = positional.size() > 2 ? parse_number(positional[2]) : 60U;
     const std::optional<unsigned> number = positional.size() > 1 ? parse_number(positional[1]) : std::nullopt;
     const bool all = positional.size() > 1 && positional[1] == "all";
-    if (positional.size() < 2 || positional.size() > 3 || !seconds || (!number && !all) || (all && (raw != nullptr || opl != nullptr))) {
+    if (positional.size() < 2 || positional.size() > 3 || !seconds || (!number && !all) ||
+        (all && (raw != nullptr || opl != nullptr))) {
         std::println(stderr, "usage: sci-sound-render <game folder> <sound number | all> [seconds] [--raw <file>] "
                              "[--opl <file>]\n"
                              "       sci-sound-render <game folder> --golden <file> [--check]");

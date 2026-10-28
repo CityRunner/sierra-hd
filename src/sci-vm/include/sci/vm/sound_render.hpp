@@ -36,6 +36,7 @@ struct SoundRenderOptions {
     // music timer calls made so far, as sci-vm-trace --opl writes them
     // (docs/formats/replay-and-trace.md, "OPL files"); the driver's start-up
     // writes are seen only by the overload that creates the driver.
+    // NOLINTNEXTLINE(readability-redundant-member-init): designated initializers may leave it out.
     std::function<void(std::uint32_t timer_call, std::uint16_t reg, std::uint8_t value)> on_opl = {};
 };
 

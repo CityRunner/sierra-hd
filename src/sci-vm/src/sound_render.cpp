@@ -30,9 +30,8 @@ core::Result<RenderedSound> render_sound(std::span<const std::uint8_t> sound, in
     }
     // Cleared again before `music` goes.
     if (options.on_opl) {
-        driver.set_write_hook([&](std::uint16_t reg, std::uint8_t value) {
-            options.on_opl(music.timer_calls(), reg, value);
-        });
+        driver.set_write_hook(
+            [&](std::uint16_t reg, std::uint8_t value) { options.on_opl(music.timer_calls(), reg, value); });
     }
     music.sound_init(*entry);
     MusicEntry& song = music.add(std::move(entry));

@@ -220,7 +220,11 @@ SCI_TEST(a_synthetic_song_renders_until_its_end) {
 SCI_TEST(the_opl_log_of_a_render_is_keyed_by_the_timer_call) {
     std::vector<std::tuple<std::uint32_t, std::uint16_t, std::uint8_t>> writes;
     sci::audio::AdlibDriver driver(audible_patches());
-    sci::vm::SoundRenderOptions options{.max_frames = 10 * sci::audio::Opl3::native_rate, .loop = 1, .master_volume = 15};
+    sci::vm::SoundRenderOptions options{
+        .max_frames = 10 * sci::audio::Opl3::native_rate,
+        .loop = 1,
+        .master_volume = 15,
+    };
     options.on_opl = [&](std::uint32_t call, std::uint16_t reg, std::uint8_t value) {
         writes.emplace_back(call, reg, value);
     };
@@ -239,6 +243,6 @@ SCI_TEST(the_opl_log_of_a_render_is_keyed_by_the_timer_call) {
     SCI_CHECK(key(false) != writes.end() && std::get<0>(*key(false)) == 126);
     // The hook is gone after the render.
     writes.clear();
-    driver.send(0x90 | (60U << 8U) | (127U << 16U));
+    driver.send(0x90U | (60U << 8U) | (127U << 16U));
     SCI_CHECK(writes.empty());
 }
