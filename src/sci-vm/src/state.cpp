@@ -374,8 +374,10 @@ void Machine::save_state(StateWriter& out) const {
 
     out.begin("machine");
     out.reg(game_object_);
-    out.boolean(game_is_restarting_);
+    out.u8(static_cast<std::uint8_t>(game_is_restarting_));
     out.i32(gc_count_down_);
+    out.i32(last_save_virtual_id_);
+    out.i32(last_save_new_id_);
 }
 
 // The subsystems -----------------------------------------------------------

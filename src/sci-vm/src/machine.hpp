@@ -104,6 +104,15 @@ struct ExecStack {
 
 enum class Abort : std::uint8_t { None, LoadGame, RestartGame, QuitGame };
 
+// What kGameIsRestarting reports (GAMEISRESTARTING_*): 1 after a restart,
+// 2 after a restore.
+enum class Restarting : std::uint8_t { None = 0, Restart = 1, Restore = 2 };
+
+// kSaveGame's virtual ids of saved games (SAVEGAMEID_OFFICIALRANGE_*): slot
+// n is id 100 + n.
+inline constexpr int save_id_first = 100;
+inline constexpr int save_id_last = 199;
+
 // One kernel call as traced (docs/formats/replay-and-trace.md).
 struct KernelCall {
     const char* name = "";
@@ -156,9 +165,25 @@ public:
 
     [[nodiscard]] Abort aborting() const { return abort_; }
 
-    [[nodiscard]] bool game_is_restarting() const { return game_is_restarting_; }
+    [[nodiscard]] Restarting game_is_restarting() const { return game_is_restarting_; }
 
-    void clear_game_is_restarting() { game_is_restarting_ = false; }
+    void set_game_is_restarting(Restarting value) { game_is_restarting_ = value; }
+
+    // kSaveGame's last new slot (EngineState::_lastSaveVirtualId and
+    // _lastSaveNewId): a save with the same low virtual id overwrites it.
+    [[nodiscard]] int last_save_virtual_id() const { return last_save_virtual_id_; }
+
+    [[nodiscard]] int last_save_new_id() const { return last_save_new_id_; }
+
+    void set_last_save(int virtual_id, int new_id) {
+        last_save_virtual_id_ = virtual_id;
+        last_save_new_id_ = new_id;
+    }
+
+    // gamestate_restore after the state is read: the GC runs a full
+    // interval later, the scripts are told of the restore, and the last
+    // save is forgotten (EngineState::reset).
+    void after_restore();
 
     [[nodiscard]] std::uint32_t steps() const { return steps_; }
 
@@ -216,6 +241,9 @@ public:
     // Where the running run_vm started: 0 unless a kernel function invoked it.
     [[nodiscard]] int execution_stack_base() const { return execution_stack_base_; }
 
+    // For tests that call kernel functions as the top-level run_vm would.
+    void set_execution_stack_base(int base) { execution_stack_base_ = base; }
+
     // Writes its part of the VM state (state.cpp).
     void save_state(StateWriter& out) const;
     // Reads it back (state_load.cpp).
@@ -265,7 +293,9 @@ private:
     Reg prev_{};
     int rest_ = 0;
     Abort abort_ = Abort::None;
-    bool game_is_restarting_ = false;
+    Restarting game_is_restarting_ = Restarting::None;
+    int last_save_virtual_id_ = save_id_first;
+    int last_save_new_id_ = 0;
     int gc_count_down_ = 0;
     std::uint32_t steps_ = 0;
     std::function<void(const KernelCall&)> kernel_log_;

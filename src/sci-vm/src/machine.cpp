@@ -31,6 +31,7 @@
 #include "machine.hpp"
 
 #include "bytecode.hpp"
+#include "files.hpp"
 #include "subsystems.hpp"
 
 #include <algorithm>
@@ -114,7 +115,9 @@ bool Machine::init_game() {
     execution_stack_base_ = -1;
     stack_position_changed_ = false;
     abort_ = Abort::None;
-    game_is_restarting_ = false;
+    game_is_restarting_ = Restarting::None;
+    last_save_virtual_id_ = save_id_first;
+    last_save_new_id_ = 0;
     if (segments_.instantiate_script(0) == 0) {
         faults_.raise("initGame(): Could not instantiate script 0");
         return false;
@@ -147,22 +150,38 @@ void Machine::run_game() {
         }
         if (abort_ != Abort::LoadGame) {
             subsystems_->on_stop_game(*this);
+        } else {
+            // runGame closes the files whatever the reason.
+            subsystems_->files().close_all();
         }
         stack_frames_.clear();
         xs_ = nullptr;
-        if (abort_ == Abort::RestartGame) {
+        if (abort_ == Abort::LoadGame) {
+            // A restored game: the game object's replay method takes over
+            // (runGame, kAbortLoadGame).
+            abort_ = Abort::None;
+            init_stack_base_with_selector(selectors_.cache().replay);
+            shrink_stack_to_base();
+        } else if (abort_ == Abort::RestartGame) {
             segments_.reset();
             if (!init_game()) {
                 break;
             }
             init_stack_base_with_selector(selectors_.cache().play);
-            game_is_restarting_ = true;
+            game_is_restarting_ = Restarting::Restart;
             subsystems_->on_restart_game(*this);
             abort_ = Abort::None;
         } else {
             break;
         }
     }
+}
+
+void Machine::after_restore() {
+    gc_count_down_ = gc_interval - 1;
+    game_is_restarting_ = Restarting::Restore;
+    last_save_virtual_id_ = save_id_first;
+    last_save_new_id_ = 0;
 }
 
 Reg Machine::global(std::size_t index) const {

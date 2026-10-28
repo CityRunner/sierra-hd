@@ -222,6 +222,7 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
         subsystems.events().schedule(event);
     }
     subsystems.files().set_store(options.files);
+    subsystems.files().set_saves(options.saves, "sci-vm-trace");
     Machine machine(resources, subsystems);
     Clock& clock = subsystems.clock();
     std::uint32_t calls = 0;

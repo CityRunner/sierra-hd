@@ -123,6 +123,10 @@ public:
 
     [[nodiscard]] const std::vector<std::uint8_t>& shown() const { return shown_; }
 
+    // GfxScreen::clearForRestoreGame: the 1x maps are cleared and shown, so
+    // the restored game's replay method draws on a black screen.
+    void clear_for_restore();
+
     [[nodiscard]] const std::vector<std::uint8_t>& shown_owner() const { return shown_owner_; }
 
     // The background layer of what is shown: visual, owner, priority and

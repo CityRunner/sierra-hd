@@ -26,6 +26,9 @@ public:
 
     [[nodiscard]] bool raised() const { return message_.has_value(); }
 
+    // For tests on machines set up without a game's vocabularies.
+    void clear() { message_.reset(); }
+
     [[nodiscard]] const std::string& message() const {
         static const std::string none;
         return message_ ? *message_ : none;

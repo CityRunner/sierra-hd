@@ -42,6 +42,7 @@
 #include "sci/core/log.hpp"
 #include "sci/core/sha256.hpp"
 #include "sci/platform/mt32_roms.hpp"
+#include "sci/platform/save_folder.hpp"
 #include "sci/render/colors.hpp"
 #include "sci/resource/resource_id.hpp"
 #include "sci/text/parser.hpp"
@@ -63,6 +64,7 @@
 #include <optional>
 #include <ostream>
 #include <print>
+#include <random>
 #include <ranges>
 #include <set>
 #include <span>
@@ -94,7 +96,7 @@ int usage() {
                          "[--parser <file>] [--layout <file>] [--opl <file>]\n"
                          "                    [--music mt32 [--roms <folder>] [--midi <file>]] "
                          "[--state-hash <tick>[,<tick>...] <file>]\n"
-                         "                    [--save-check <tick>[,<tick>...] <file>]\n"
+                         "                    [--save-check <tick>[,<tick>...] <file>] [--saves <folder>]\n"
                          "       sci-vm-trace --scan-kernel <game folder> <output file>\n"
                          "       sci-vm-trace --vocabulary <game folder> <output file>");
     return 2;
@@ -267,6 +269,7 @@ int main(int argc, char** argv) {
     std::filesystem::path roms;
     std::filesystem::path state_hash;
     std::filesystem::path save_check;
+    std::filesystem::path saves_folder;
     bool on_mt32 = false;
     std::uint32_t screen_every = 60;
     for (std::size_t i = 3; i < args.size(); i += 2) {
@@ -321,6 +324,10 @@ int main(int argc, char** argv) {
         }
         if (flag == "--screens") {
             screens = value;
+            continue;
+        }
+        if (flag == "--saves") {
+            saves_folder = value;
             continue;
         }
         if (flag == "--actors") {
@@ -533,7 +540,28 @@ int main(int argc, char** argv) {
     }
     sci::vm::MemoryFileStore files(std::move(game_files));
     options.files = &files;
+    // The saves: the folder given, or a fresh one for this run, removed at
+    // its end, so that every run starts with no saves, as the reference does.
+    const bool own_saves = saves_folder.empty();
+    if (own_saves) {
+        std::random_device random;
+        const std::filesystem::path temporary = std::filesystem::temp_directory_path(error);
+        bool made = false;
+        for (int attempt = 0; attempt < 100 && !made; ++attempt) {
+            saves_folder = temporary / std::format("sci-vm-trace-saves-{:08x}", random());
+            made = std::filesystem::create_directory(saves_folder, error);
+        }
+        if (!made) {
+            std::println(stderr, "cannot make a folder for the saves in {}", temporary.string());
+            return 1;
+        }
+    }
+    sci::platform::SaveFolder saves(saves_folder);
+    options.saves = &saves;
     const sci::vm::RunResult result = sci::vm::run_deterministic(*manager, options);
+    if (own_saves) {
+        std::filesystem::remove_all(saves_folder, error);
+    }
     trace.close();
     actor_file.close();
     parser_file.close();

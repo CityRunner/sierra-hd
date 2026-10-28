@@ -490,9 +490,15 @@ void Machine::load_state(StateReader& in) {
 
     in.begin("machine");
     const Reg game_object = in.reg();
-    const bool restarting = in.boolean();
+    const std::uint8_t restarting = in.u8();
     const int gc_count_down = in.i32();
+    const int last_save_virtual_id = in.i32();
+    const int last_save_new_id = in.i32();
     if (in.failed()) {
+        return;
+    }
+    if (restarting > static_cast<std::uint8_t>(Restarting::Restore)) {
+        in.fail("the restart flag is out of range");
         return;
     }
     if (game_object != game_object_) {
@@ -516,8 +522,10 @@ void Machine::load_state(StateReader& in) {
     };
     steps_ = steps;
     kernel_calls_ = kernel_calls;
-    game_is_restarting_ = restarting;
+    game_is_restarting_ = static_cast<Restarting>(restarting);
     gc_count_down_ = gc_count_down;
+    last_save_virtual_id_ = last_save_virtual_id;
+    last_save_new_id_ = last_save_new_id;
 }
 
 // The subsystems -----------------------------------------------------------

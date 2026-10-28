@@ -77,6 +77,9 @@ struct RunOptions {
     bool trace_callers = false;
     // The files the game may open; none can be opened without a store.
     FileStore* files = nullptr;
+    // The saved games kSaveGame writes and kRestoreGame reads; none are
+    // listed and saving fails without a store.
+    SaveStore* saves = nullptr;
     // Called whenever virtual time passes, with the game tick and the maps,
     // once graphics are up.
     std::function<void(const ScreenMaps&)> on_tick;

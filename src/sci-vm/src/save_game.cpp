@@ -148,6 +148,29 @@ core::Result<SaveHeader> parse_header(std::span<const std::uint8_t> file, const 
 
 } // namespace
 
+std::optional<SaveHeader> read_save_summary(std::span<const std::uint8_t> file) {
+    StateReader in(file);
+    for (const char c : save_magic) {
+        if (in.u8() != static_cast<std::uint8_t>(c)) {
+            return std::nullopt;
+        }
+    }
+    SaveHeader header;
+    header.version = in.u32();
+    header.game = read_digest(in);
+    header.description = in.string();
+    header.saved_at.year = in.u16() - 1900;
+    header.saved_at.month = in.u8() - 1;
+    header.saved_at.day = in.u8();
+    header.saved_at.hour = in.u8();
+    header.saved_at.minute = in.u8();
+    header.saved_at.second = in.u8();
+    if (in.failed()) {
+        return std::nullopt;
+    }
+    return header;
+}
+
 core::Result<SaveHeader> read_save_header(std::span<const std::uint8_t> file, const core::Sha256Digest* game) {
     StateReader in(file);
     return parse_header(file, game, in);

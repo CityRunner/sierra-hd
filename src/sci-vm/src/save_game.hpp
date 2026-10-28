@@ -12,6 +12,7 @@
 #include "sci/vm/local_time.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -59,6 +60,13 @@ struct SaveHeader {
 // or another game), with a message for the player.
 [[nodiscard]] core::Result<SaveHeader> read_save_header(std::span<const std::uint8_t> file,
                                                         const core::Sha256Digest* game);
+
+// What the save dialogs list of a file: the magic, the format version, the
+// game identity, the description and the date and time, which keep their
+// place in every format version (docs/formats/save-format.md, "Versions"),
+// read without the checksum. Nothing for a file that is not a save or
+// whose prefix is cut short.
+[[nodiscard]] std::optional<SaveHeader> read_save_summary(std::span<const std::uint8_t> file);
 
 // Restores a save into a machine that is attached to its subsystems and
 // initialised (init_game) on the same game files. On an InvalidData error

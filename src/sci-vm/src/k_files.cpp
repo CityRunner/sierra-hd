@@ -4,9 +4,12 @@
 // ed949213a23440447ea402e263daa871394b6bf9, from:
 //   engines/sci/engine/kfile.cpp (kFileIO open, close, readString and
 //   writeString as SCI0's FOpen, FClose, FGets and FPuts; kSaveGame,
-//   kRestoreGame, kCheckSaveGame, kGetSaveFiles with no saved games: the save
-//   format is milestone 8)
-// and translated into this project's style, types and error handling.
+//   kRestoreGame, kCheckSaveGame, kGetSaveFiles),
+//   engines/sci/engine/file.cpp (listSavegames, findSavegame),
+//   engines/sci/engine/savegame.cpp (gamestate_restore after the state is
+//   read)
+// and translated into this project's style, types and error handling. The
+// saves are in the project's format (docs/formats/save-format.md).
 //
 // ScummVM - Graphic Adventure Engine
 //
@@ -28,25 +31,110 @@
 // with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #include "files.hpp"
+#include "gfx_screen.hpp"
 #include "graphics.hpp"
 #include "kernel_functions.hpp"
 #include "machine.hpp"
+#include "music.hpp"
+#include "save_game.hpp"
+#include "sound.hpp"
 #include "subsystems.hpp"
+#include "timing.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <format>
+#include <tuple>
 
 namespace sci::vm {
 
 namespace {
 
-constexpr int save_id_first = 100; // SAVEGAMEID_OFFICIALRANGE_START
-constexpr int save_id_last = 199;  // SAVEGAMEID_OFFICIALRANGE_END
 constexpr Reg signal_reg = make_reg(0, 0xFFFF);
+constexpr std::size_t max_save_name_length = 36; // kMaxSaveNameLength, with the terminator.
+constexpr std::size_t max_listed_saves = 20;     // kMaxNumSaveGames
 
 Files& files(Machine& machine) {
     return machine.subsystems().files();
+}
+
+// A saved game as the dialogs list it (SavegameDesc).
+struct SaveDesc {
+    int slot = 0;
+    std::string name;
+    LocalTime saved_at;
+    // Of this format version and this release of the game, and undamaged
+    // (read_save_header accepts it): it can be restored.
+    bool compatible = false;
+};
+
+// listSavegames: the saves that have a description, newest first (by date
+// and time; saves of the same second by slot). Files that are not saves
+// are left out.
+std::vector<SaveDesc> list_saves(Machine& machine) {
+    std::vector<SaveDesc> saves;
+    SaveStore* store = files(machine).saves();
+    if (store == nullptr) {
+        return saves;
+    }
+    const core::Sha256Digest game = game_identity(machine.resources().manager());
+    for (const int slot : store->slots()) {
+        if (slot < save_slot_first || slot > save_slot_last) {
+            continue;
+        }
+        const auto file = store->read(slot);
+        if (!file) {
+            continue;
+        }
+        const auto header = read_save_summary(*file);
+        if (!header || header->description.empty()) {
+            continue;
+        }
+        std::string name = header->description;
+        if (name.ends_with('\n')) {
+            name.pop_back();
+        }
+        saves.push_back(SaveDesc{
+            .slot = slot,
+            .name = std::move(name),
+            .saved_at = header->saved_at,
+            .compatible = read_save_header(*file, &game).has_value(),
+        });
+    }
+    const auto key = [](const SaveDesc& save) {
+        const LocalTime& t = save.saved_at;
+        return std::tuple(t.year, t.month, t.day, t.hour, t.minute, t.second);
+    };
+    std::ranges::stable_sort(saves, [&](const SaveDesc& a, const SaveDesc& b) {
+        if (key(a) != key(b)) {
+            return key(a) > key(b);
+        }
+        return a.slot < b.slot;
+    });
+    return saves;
+}
+
+const SaveDesc* find_save(const std::vector<SaveDesc>& saves, int slot) {
+    const auto found = std::ranges::find(saves, slot, &SaveDesc::slot);
+    return found != saves.end() ? &*found : nullptr;
+}
+
+// gamestate_restore after the state is read, in its order: the screen is
+// cleared (before reading there, but the maps are not in ScummVM's saves,
+// so the result is the same), the engine state is reset, the songs that
+// were playing are played again; then runGame calls the game's replay
+// method.
+void after_restore(Machine& machine) {
+    Subsystems& subsystems = machine.subsystems();
+    subsystems.graphics().screen().clear_for_restore();
+    machine.after_restore();
+    subsystems.reset_event_counter();
+    subsystems.clock().reset_throttle();
+    subsystems.sound().reconstruct_play_list(machine);
+    if (subsystems.sound().has_music() && subsystems.sound().music().all_paused()) {
+        subsystems.sound().music().reset_global_pause();
+    }
+    machine.abort(Abort::LoadGame);
 }
 
 } // namespace
@@ -116,7 +204,7 @@ Reg k_file_io_write_string(Machine& machine, std::span<Reg> args) {
     return written ? number(static_cast<int>(*written)) : null_reg;
 }
 
-// Saved games: none are listed or written before milestone 8.
+// Saved games, by slot (1 to 99) and virtual id (100 + slot).
 
 Reg k_save_game(Machine& machine, std::span<Reg> args) {
     if (machine.execution_stack_base() != 0) {
@@ -132,16 +220,49 @@ Reg k_save_game(Machine& machine, std::span<Reg> args) {
         machine.faults().raise("kSaveGame: called with description being NULL");
         return null_reg;
     }
+    const std::string description = machine.segments().get_string(args[2]);
     const int virtual_id = args[1].to_sint16();
-    if (virtual_id > save_id_last) {
+    const std::vector<SaveDesc> saves = list_saves(machine);
+    int slot = -1;
+    if (virtual_id >= save_id_first && virtual_id <= save_id_last) {
+        // An existing save is overwritten: it must be there.
+        slot = virtual_id - save_id_first;
+        if (find_save(saves, slot) == nullptr) {
+            return null_reg;
+        }
+    } else if (virtual_id < save_id_first) {
+        if (virtual_id == machine.last_save_virtual_id()) {
+            // The same new save again overwrites the last one.
+            slot = machine.last_save_new_id();
+        } else {
+            // A new save goes into the first slot without one.
+            for (slot = save_slot_first; slot <= save_slot_last; ++slot) {
+                if (find_save(saves, slot) == nullptr) {
+                    break;
+                }
+            }
+            if (slot > save_slot_last) {
+                machine.faults().raise("kSavegame: no more savegame slots available");
+                return null_reg;
+            }
+        }
+    } else {
         machine.faults().raise("kSaveGame: invalid savegameId used");
         return null_reg;
     }
-    if (virtual_id >= save_id_first) {
-        return null_reg; // No such saved game to overwrite.
+    machine.set_last_save(virtual_id, slot);
+
+    SaveStore* store = files(machine).saves();
+    if (store == nullptr) {
+        warn("kSaveGame: there is no save folder; the game is not saved");
+        return null_reg;
     }
-    warn("kSaveGame: saving comes with milestone 8; the game is not saved");
-    return null_reg;
+    const std::vector<std::uint8_t> file = write_save(machine, description, files(machine).program());
+    if (!store->write(slot, file)) {
+        warn(std::format("kSaveGame: the save of slot {} could not be written", slot));
+        return null_reg;
+    }
+    return true_reg;
 }
 
 Reg k_restore_game(Machine& machine, std::span<Reg> args) {
@@ -154,12 +275,33 @@ Reg k_restore_game(Machine& machine, std::span<Reg> args) {
         warn(std::format("Savegame ID {} is not allowed", id));
         return true_reg;
     }
-    warn(std::format("Savegame ID {} not found", id - save_id_first));
-    return true_reg; // Failure.
+    const int slot = id - save_id_first;
+    const std::vector<SaveDesc> saves = list_saves(machine);
+    SaveStore* store = files(machine).saves();
+    const auto file = store != nullptr && find_save(saves, slot) != nullptr ? store->read(slot) : std::nullopt;
+    if (!file) {
+        warn(std::format("Savegame ID {} not found", slot));
+        return true_reg; // Failure.
+    }
+    // The checks up to the game identity change nothing: the game is told
+    // of the failure and runs on (gamestate_restore shows the message).
+    const core::Sha256Digest game = game_identity(machine.resources().manager());
+    if (const auto header = read_save_header(*file, &game); !header) {
+        warn(std::format("Savegame ID {} cannot be restored: {}", slot, header.error().message));
+        return true_reg;
+    }
+    // Past them, a failure may leave parts of the state replaced.
+    if (const auto restored = read_save(machine, *file); !restored) {
+        machine.faults().raise(std::format("kRestoreGame: {}", restored.error().message));
+        return true_reg;
+    }
+    after_restore(machine);
+    return null_reg; // Success.
 }
 
 Reg k_check_save_game(Machine& machine, std::span<Reg> args) {
     const std::uint16_t virtual_id = args[1].to_uint16();
+    const std::vector<SaveDesc> saves = list_saves(machine);
     if (virtual_id == 0) {
         return null_reg;
     }
@@ -167,14 +309,37 @@ Reg k_check_save_game(Machine& machine, std::span<Reg> args) {
         machine.faults().raise(std::format("kCheckSaveGame: called with invalid savegame ID ({})", virtual_id));
         return null_reg;
     }
-    return null_reg; // Not found.
+    const SaveDesc* save = find_save(saves, virtual_id - save_id_first);
+    if (save == nullptr) {
+        return null_reg;
+    }
+    // Another format version or another release of the game: the game's
+    // dialog says it cannot be restored (ScummVM checks the version here and
+    // the release in kRestoreGame).
+    return save->compatible ? true_reg : null_reg;
 }
 
 Reg k_get_save_files(Machine& machine, std::span<Reg> args) {
-    // No saved games: an empty list of names (its terminating zero).
-    const std::array<std::uint8_t, 1> names{0};
+    // After the list, a low virtual id asks for a new slot.
+    machine.set_last_save(save_id_first, machine.last_save_new_id());
+    const std::vector<SaveDesc> saves = list_saves(machine);
+    std::size_t total = std::min(saves.size(), max_listed_saves);
+    const std::span<Reg> slots = machine.segments().deref_regs(args[2], static_cast<int>(total));
+    if (slots.empty() && total > 0) {
+        warn(std::format("kGetSaveFiles: {:04x}:{:04x} invalid or too small to hold slot data", args[2].segment,
+                         args[2].offset));
+        total = 0;
+    }
+    // The names, max_save_name_length bytes each, then a terminating zero.
+    std::vector<std::uint8_t> names((total * max_save_name_length) + 1, 0);
+    for (std::size_t i = 0; i < total; ++i) {
+        slots[i] = number(saves[i].slot + save_id_first);
+        const std::string& name = saves[i].name;
+        std::copy_n(name.begin(), std::min(name.size(), max_save_name_length - 1),
+                    names.begin() + static_cast<std::ptrdiff_t>(i * max_save_name_length));
+    }
     machine.segments().memcpy(args[1], names);
-    return number(0);
+    return number(static_cast<int>(total));
 }
 
 } // namespace sci::vm

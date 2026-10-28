@@ -77,6 +77,7 @@ sci_add_unit_test(NAME sci-vm-tests
         vm/music_device_test.cpp
         vm/music_test.cpp
         vm/path_match_test.cpp
+        vm/save_kernel_test.cpp
         vm/save_test.cpp
         vm/screen_test.cpp
         vm/script_patcher_test.cpp

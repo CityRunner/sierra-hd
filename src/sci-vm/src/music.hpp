@@ -143,6 +143,13 @@ public:
     void sound_resume(MusicEntry& sound);
     // SciMusic::pauseAll: pauses or resumes every song, with a counter.
     void pause_all(bool pause);
+
+    // isAllPaused, and resetGlobalPauseCounter after a restore: the songs
+    // keep their restored status.
+    [[nodiscard]] bool all_paused() const { return global_pause_ > 0; }
+
+    void reset_global_pause() { global_pause_ = 0; }
+
     void sound_set_volume(MusicEntry& sound, int volume);
     void sound_set_priority(MusicEntry& sound, std::uint8_t priority);
 

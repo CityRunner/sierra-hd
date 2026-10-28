@@ -34,6 +34,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <utility>
 
 namespace sci::vm {
 
@@ -52,6 +53,17 @@ public:
 
     // No store: files cannot be opened, as when ScummVM finds none.
     void set_store(FileStore* store) { store_ = store; }
+
+    // The saved games, and the program named in the saves written. No
+    // store: no saves are listed and saving fails.
+    void set_saves(SaveStore* saves, std::string program) {
+        saves_ = saves;
+        program_ = std::move(program);
+    }
+
+    [[nodiscard]] SaveStore* saves() const { return saves_; }
+
+    [[nodiscard]] const std::string& program() const { return program_; }
 
     // file_open: a handle from 1, or 0xFFFF (SIGNAL_REG) on failure. The
     // name is already in English and lower case.
@@ -91,6 +103,8 @@ private:
     Handle* handle(std::uint16_t number);
 
     FileStore* store_ = nullptr;
+    SaveStore* saves_ = nullptr;
+    std::string program_;
     std::vector<Handle> handles_ = std::vector<Handle>(5); // Handle 0 is never used.
 };
 
