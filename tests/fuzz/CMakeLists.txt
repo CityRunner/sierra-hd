@@ -65,3 +65,13 @@ if(SCI_FUZZ)
     list(JOIN targets "\n" lines)
     file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/fuzz-targets.txt CONTENT "${lines}\n")
 endif()
+
+# The save loader on a synthetic machine (tests/unit/vm/save_world.hpp); the
+# seeds are saves of that machine, written by sci-vm-tests with
+# SCI_WRITE_SAVE_SEEDS=tests/fuzz/corpus/save.
+sci_add_fuzz_target(NAME fuzz-save
+    SOURCE fuzz_save.cpp
+    DEPENDS sci-vm
+    CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus/save)
+target_include_directories(fuzz-save PRIVATE ${PROJECT_SOURCE_DIR}/src/sci-vm/src
+    ${PROJECT_SOURCE_DIR}/tests/unit/vm ${PROJECT_SOURCE_DIR}/tests/unit/resource)
