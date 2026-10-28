@@ -149,7 +149,10 @@ bool render(const sci::resource::ResourceManager& resources, std::uint16_t numbe
         };
     }
     if (mt32 != nullptr) {
-        std::srand(1); // NOLINT(cert-msc51-cpp): mt32emu's jitter, the same in every run
+        // mt32emu's pitch jitter, the same in every run.
+        // NOLINTBEGIN(bugprone-unsafe-functions,bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+        std::srand(1);
+        // NOLINTEND(bugprone-unsafe-functions,bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
     }
     const auto rendered =
         mt32 != nullptr ? sci::vm::render_sound_mt32(resources, number, mt32->control, mt32->pcm, options)

@@ -28,6 +28,7 @@
 
 #include "sci/audio/mt32_driver.hpp"
 
+#include "sci/core/assert.hpp"
 #include "sci/core/log.hpp"
 #include "sci/resource/resource_manager.hpp"
 
@@ -180,8 +181,8 @@ core::Result<std::optional<Mt32Patch>> load_mt32_patch(const resource::ResourceM
 
 // Mt32Driver -------------------------------------------------------------------------
 
-Mt32Driver::Mt32Driver(std::unique_ptr<Mt32> synth, const std::optional<Mt32Patch>& patch, SysexHook hook)
-    : synth_(std::move(synth)), hook_(std::move(hook)) {
+Mt32Driver::Mt32Driver(std::unique_ptr<Mt32> synth, const std::optional<Mt32Patch>& patch, Log* log)
+    : synth_(std::move(synth)), log_(log) {
     // resetMt32: an emulated MT-32 needs no wait after it.
     send_sysex(0x7F0000, std::array<std::uint8_t, 2>{0x01, 0x00});
     if (patch) {
@@ -191,9 +192,33 @@ Mt32Driver::Mt32Driver(std::unique_ptr<Mt32> synth, const std::optional<Mt32Patc
 
 Mt32Driver::~Mt32Driver() {
     // MidiPlayer_Midi::close. Without a patch ScummVM's goodbye text is
-    // uninitialised; nothing is sent then.
+    // uninitialised; nothing is sent then (has_reverb_ is set by the patch).
     if (has_reverb_) {
         send_sysex(0x200000, goodbye_text_);
+    }
+}
+
+Mt32& Mt32Driver::synth() {
+    SCI_ASSERT(synth_ != nullptr);
+    return *synth_;
+}
+
+void Mt32Driver::play(std::uint32_t message) {
+    if (log_ != nullptr) {
+        log_->midi.push_back(message);
+    }
+    if (synth_ != nullptr) {
+        synth_->play_now(message);
+    }
+}
+
+void Mt32Driver::write_sysex(std::uint8_t device, std::span<const std::uint8_t> address_and_data) {
+    if (log_ != nullptr) {
+        log_->sysex.emplace_back(address_and_data.begin(), address_and_data.end());
+        log_->sysex_at.push_back(log_->midi.size());
+    }
+    if (synth_ != nullptr) {
+        synth_->write_sysex(device, address_and_data);
     }
 }
 
@@ -213,10 +238,7 @@ void Mt32Driver::send_sysex(std::uint32_t address, std::span<const std::uint8_t>
                                       static_cast<std::uint8_t>((address >> 8U) & 0xFFU),
                                       static_cast<std::uint8_t>(address & 0xFFU)};
     message.insert(message.end(), data.begin(), data.end());
-    if (hook_) {
-        hook_(message);
-    }
-    synth_->write_sysex(sysex_device, message);
+    write_sysex(sysex_device, message);
 }
 
 void Mt32Driver::send_patch(const Mt32Patch& patch) {
@@ -248,7 +270,7 @@ void Mt32Driver::send_patch(const Mt32Patch& patch) {
 }
 
 void Mt32Driver::send_midi(int status, int first, int second) {
-    synth_->play_now(static_cast<std::uint32_t>(status) | (static_cast<std::uint32_t>(first) << 8U) |
+    play(static_cast<std::uint32_t>(status) | (static_cast<std::uint32_t>(first) << 8U) |
                      (static_cast<std::uint32_t>(second) << 16U));
 }
 
@@ -336,7 +358,7 @@ void Mt32Driver::send(std::uint32_t message) {
     case 0xD0:
         break; // Sierra's driver ignores aftertouch.
     case 0xE0:
-        synth_->play_now(message);
+        play(message);
         break;
     default:
         warn(std::format("Ignoring MIDI event {:02x}", command));
@@ -404,14 +426,20 @@ void Mt32Driver::sysex(std::span<const std::uint8_t> message) {
     // MidiDriver_MT32::sysEx for an unframed message: a Roland DT1 (0x12)
     // or DAT (0x42) is written without its header and checksum.
     if (!message.empty() && message[0] == 0xF0) {
-        synth_->play_sysex_now(message);
+        if (log_ != nullptr) {
+            log_->sysex.emplace_back(message.begin(), message.end());
+            log_->sysex_at.push_back(log_->midi.size());
+        }
+        if (synth_ != nullptr) {
+            synth_->play_sysex_now(message);
+        }
         return;
     }
     if (message.size() < 5 || (message[3] != 0x12 && message[3] != 0x42)) {
         warn(std::format("Unused sysEx command {}", message.size() < 4 ? -1 : message[3]));
         return;
     }
-    synth_->write_sysex(message[1], message.subspan(4, message.size() - 5));
+    write_sysex(message[1], message.subspan(4, message.size() - 5));
 }
 
 } // namespace sci::audio

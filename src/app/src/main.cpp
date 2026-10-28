@@ -1026,7 +1026,9 @@ int main(int argc, char** argv) {
     sci::core::set_log_sink(&print_log);
     // mt32emu's pitch jitter is the only user of rand() (the program's own
     // code never calls it); a fixed seed makes it the same in every run.
-    std::srand(1); // NOLINT(cert-msc51-cpp): deterministic on purpose
+    // NOLINTBEGIN(bugprone-unsafe-functions,bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+    std::srand(1);
+    // NOLINTEND(bugprone-unsafe-functions,bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
     // Spec section 5.3: the floating-point profile, on the main thread too.
     if (const auto profile = sci::core::check_fp_profile(); !profile) {
         std::println(stderr, "{}", profile.error().message);

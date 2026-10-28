@@ -14,8 +14,9 @@ device layer under it is here (milestone 7).
   chip. Milestone 7.
 - `sci/audio/midi_device.hpp`: `MidiDevice`, what the SCI0 player sends to
   a music device (MIDI messages, the track header, the global volume, the
-  play switch, a step after each music timer call). No device is the
-  silent driver.
+  play switch, a song's SysEx and reverb, a step after each music timer
+  call) and asks of it (`PlayerChoices`: play mask, voices, rhythm
+  channel). No device is the silent driver, with the AdLib's choices.
 - `sci/audio/adlib.hpp`: `AdlibDriver`, ScummVM's SCI0 AdLib driver (SCI0
   late) on an `Opl3` in dual OPL2 mode (stereo panning): voice mapping from
   the sound header, round-robin voice allocation, patches, pitch wheel,
@@ -28,11 +29,21 @@ device layer under it is here (milestone 7).
   file I/O), which mt32emu identifies (`roms()`: model, ROM names and
   versions); MIDI messages and SysEx at once or at a frame; stereo int16
   output at the native rate of 32000 Hz. Wrong, unknown or mismatched ROMs
-  are an error, not an abort. The SCI0 MT-32 driver on it is the next task.
-  Milestone 7.
+  are an error, not an abort. `identify_mt32_rom` tells what one file is
+  (for choosing among the files of a ROM folder). Milestone 7.
+- `sci/audio/mt32_driver.hpp`: `Mt32Driver`, ScummVM's SCI0 MT-32 driver
+  (`MidiPlayer_Midi` on an emulated MT-32, SCI0 late) on an `Mt32`: at
+  open the reset and the game's patch.001 (`parse_mt32_patch`,
+  `load_mt32_patch`: display texts, master volume, patches 1-96, timbres,
+  rhythm key map, partial reserve, reverb settings) as SysEx written into
+  the synthesiser; per song the part assignment (initTrack) and the
+  default reverb; MIDI with the driver's program, volume and rhythm
+  handling. It reports play mask 0x01, 32 voices and the rhythm channel
+  9. Milestone 7.
 
 - `sci/audio/mixer.hpp`: `Mixer`, the software mixer: the device's stereo
-  output at its rate (49716 Hz) to the output device's rate, by 4-point
+  output at its rate (49716 Hz for the OPL, 32000 Hz for the MT-32) to the
+  output device's rate, by 4-point
   cubic Hermite interpolation, with a volume, clipping to 16 bits and a
   small speed correction (`queue_speed`) that holds the output queue near
   its target as the clocks drift. Doubles, no threads, no I/O. Milestone 7.
@@ -41,8 +52,10 @@ The audio output itself (SDL3, the hand-off to the audio thread) is in app
 (`src/app/src/audio_output.cpp`), which owns the window-system dependency.
 
 Rendering a sound resource through the player and the driver is
-`sci::vm::render_sound` (sci-vm, as the player is there), and the tool
-`tools/sound-render`.
+`sci::vm::render_sound` (AdLib or MT-32; sci-vm, as the player is there),
+and the tool `tools/sound-render` (`--device mt32 --roms <folder>` for the
+MT-32). Reading the ROM folder and the fallback to the AdLib are in app's
+platform layer (`sci/platform/mt32_roms.hpp`).
 
 ## Invariants
 
@@ -62,10 +75,15 @@ Rendering a sound resource through the player and the driver is
 - The AdLib driver is integer-only and deterministic too; the player's
   timing, signals and cues are the same with it as with the silent driver
   (`tests/unit/vm/music_device_test.cpp`).
+- The MT-32 driver changes which channels play and the voices kDoSound
+  GetPolyphony reports (32), not the timing, signals or cues
+  (docs/ASSUMPTIONS.md, "Milestone 7: the MT-32 driver").
 
 ## MT-32 ROMs in the tests
 
-The tests of `Mt32` (`tests/unit/audio/mt32_test.cpp`) that need ROMs read
+The tests of `Mt32` and `Mt32Driver` (`tests/unit/audio/mt32_test.cpp`,
+`mt32_driver_test.cpp`) and of the ROM folder
+(`tests/unit/platform/mt32_roms_test.cpp`) that need ROMs read
 them from the folder in `SIERRA_HD_MT32_ROMS`, and pass with a "skipped"
 note when it is not set or a file is missing (CI has no ROMs). Files:
 `MT32_CONTROL.1987-10-07.v1.07.ROM` (or `MT32_CONTROL.ROM`),

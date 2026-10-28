@@ -49,7 +49,7 @@ sci_add_unit_test(NAME sci-vector-tests
 target_include_directories(sci-vector-tests PRIVATE pic ${PROJECT_SOURCE_DIR}/src/sci-vector/src)
 
 sci_add_unit_test(NAME sci-audio-tests
-    SOURCES audio/adlib_test.cpp audio/mixer_test.cpp audio/mt32_test.cpp audio/opl3_test.cpp
+    SOURCES audio/adlib_test.cpp audio/mixer_test.cpp audio/mt32_driver_test.cpp audio/mt32_test.cpp audio/opl3_test.cpp
     DEPENDS sci-audio)
 
 sci_add_unit_test(NAME sci-render-tests
@@ -64,6 +64,7 @@ sci_add_unit_test(NAME sci-platform-tests
         platform/analysis_cache_test.cpp
         platform/game_frame_test.cpp
         platform/interface_check_test.cpp
+        platform/mt32_roms_test.cpp
         platform/platform_test.cpp
         ${PROJECT_SOURCE_DIR}/tools/common/interface_check.cpp
     DEPENDS sci-platform)

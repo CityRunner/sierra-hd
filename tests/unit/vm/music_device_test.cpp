@@ -256,3 +256,95 @@ SCI_TEST(the_opl_log_of_a_render_is_keyed_by_the_timer_call) {
     driver.send(0x90U | (60U << 8U) | (127U << 16U));
     SCI_CHECK(writes.empty());
 }
+
+namespace {
+
+// Channel 1 for the MT-32 only (play mask 0x01), channel 2 for the AdLib
+// only (0x04), channel 9 (rhythm) for neither; a note on each at tick 0, a
+// signal 7 at tick 10 and a cue at tick 20 on the control channel, the end
+// at tick 40.
+std::vector<std::uint8_t> two_device_song() {
+    std::vector<std::uint8_t> data(0x21, 0);
+    data[2 + 2] = 0x01;
+    data[2 + 4] = 0x04;
+    data.insert(data.end(), {0x00, 0xC1, 0x05, 0x00, 0x91, 0x40, 0x60, 0x00, 0xC2, 0x06, 0x00, 0x92, 0x41,
+                             0x60, 0x00, 0x99, 0x24, 0x60, 0x0A, 0xCF, 0x07, 0x0A, 0xBF, 0x60, 0x01, 0x14, 0xFC});
+    return data;
+}
+
+bool sent(const RecordingDevice& device, const std::string& call) {
+    return std::ranges::count(device.calls, call) > 0;
+}
+
+} // namespace
+
+SCI_TEST(the_player_asks_the_device_for_its_choices) {
+    // Without a device (the silent driver) and with the AdLib: its play
+    // mask, nine voices and no rhythm channel.
+    Player silent;
+    SCI_CHECK(silent.music.voices() == 9);
+    SCI_CHECK(silent.music.player_choices() == sci::vm::silent_choices);
+
+    Player adlib;
+    RecordingDevice adlib_device;
+    adlib.music.set_device(&adlib_device);
+    MusicEntry& on_adlib = adlib.add(two_device_song(), 1);
+    adlib.music.sound_play(on_adlib);
+    adlib.music.on_timer();
+    SCI_CHECK(sent(adlib_device, "send 604192") && !sent(adlib_device, "send 604091") &&
+              !sent(adlib_device, "send 602499"));
+
+    // The MT-32's choices: its play mask 0x01, 32 voices and the rhythm
+    // channel 9, which plays whatever its play mask.
+    Player mt32;
+    RecordingDevice mt32_device;
+    mt32_device.choices = {.play_id = 0x01, .polyphony = 32, .has_rhythm_channel = true};
+    mt32.music.set_device(&mt32_device);
+    SCI_CHECK(mt32.music.voices() == 32);
+    MusicEntry& on_mt32 = mt32.add(two_device_song(), 1);
+    mt32.music.sound_play(on_mt32);
+    mt32.music.on_timer();
+    SCI_CHECK(sent(mt32_device, "send 604091") && !sent(mt32_device, "send 604192") &&
+              sent(mt32_device, "send 602499"));
+
+    // The signals, cues, ticks and the end are the same on every device.
+    Player plain;
+    MusicEntry& on_none = plain.add(two_device_song(), 1);
+    plain.music.sound_play(on_none);
+    plain.music.on_timer();
+    for (int i = 0; i < 400; ++i) {
+        plain.music.on_timer();
+        adlib.music.on_timer();
+        mt32.music.on_timer();
+        SCI_CHECK(std::tie(on_none.signal, on_none.data_inc, on_none.ticker, on_none.status) ==
+                  std::tie(on_mt32.signal, on_mt32.data_inc, on_mt32.ticker, on_mt32.status));
+        SCI_CHECK(std::tie(on_adlib.signal, on_adlib.data_inc, on_adlib.ticker, on_adlib.status) ==
+                  std::tie(on_mt32.signal, on_mt32.data_inc, on_mt32.ticker, on_mt32.status));
+        on_none.signal = 0;
+        on_adlib.signal = 0;
+        on_mt32.signal = 0;
+    }
+    SCI_CHECK(on_mt32.data_inc == 1 && !on_mt32.parser->is_tracking());
+    adlib.music.clear_play_list();
+    adlib.music.set_device(nullptr);
+    mt32.music.clear_play_list();
+    mt32.music.set_device(nullptr);
+}
+
+SCI_TEST(the_player_passes_reverb_and_sysex_to_the_device) {
+    Player player;
+    RecordingDevice device;
+    player.music.set_device(&device);
+    // A reverb controller (0x50) and a SysEx (its length, then the data, as
+    // ScummVM's parser reads it) on the control channel.
+    std::vector<std::uint8_t> data(0x21, 0);
+    data.insert(data.end(), {0x00, 0xBF, 0x50, 0x03, 0x00, 0xF0, 0x03, 0x41, 0x10, 0xF7, 0x0A, 0xFC});
+    MusicEntry& sound = player.add(data, 1);
+    player.music.sound_play(sound);
+    device.calls.clear();
+    player.music.on_timer();
+    // The trailing 0xF7 is dropped.
+    SCI_CHECK(sent(device, "reverb 3") && sent(device, "sysex 2"));
+    player.music.clear_play_list();
+    player.music.set_device(nullptr);
+}

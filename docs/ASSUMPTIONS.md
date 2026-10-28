@@ -1872,7 +1872,7 @@ scripts' bytecode (after the script patches), not from runs:
   speed correction (`tests/unit/audio/mixer_test.cpp`). **Decided.**
 - **Configuration** (format 1 unchanged; a file without the new keys gets
   the defaults): `music = adlib | mt32 | off` (default `adlib`; `mt32`
-  falls back to AdLib with a warning until the MT-32 task; `off` is the
+  falls back to AdLib with a warning without usable ROMs, see "the MT-32 driver"; `off` is the
   silent driver, with the same timing and no audio device) and
   `volume = 0..100` (per cent, default 100). Without an audio device, or
   without patch.003, the program logs a warning and plays on the silent
@@ -1972,9 +1972,115 @@ scripts' bytecode (after the script patches), not from runs:
   the ROM tests pass with a "skipped" note (CI). Locally the folder is
   mounted read-only (`SIERRA_HD_MOUNTS=/home/user/roms/roland:/roms`); no
   file from it is in the worktree. **Decided.**
-- **Not yet:** the SCI0 MT-32 driver (ScummVM's `MidiPlayer_Midi`), the
-  ROM path in the configuration and the fallback to AdLib without ROMs
-  (spec section 8) are the next task.
+- **Since done:** the SCI0 MT-32 driver, the ROM folder in the
+  configuration and the fallback to the AdLib ("Milestone 7: the MT-32
+  driver").
+
+## Milestone 7: the MT-32 driver (2026-10-28)
+
+- **Ported:** the SCI0-late path of `MidiPlayer_Midi`
+  (`engines/sci/sound/drivers/midi.cpp`) for an emulated MT-32, as
+  `sci::audio::Mt32Driver` on `sci::audio::Mt32`: `open` (the reset SysEx
+  0x7F0000, then `readMt32Patch` on patch.001: the second display text,
+  the master volume 0x100016 (cut to 100), patches 1-48, the timbres,
+  patches 49-96 after 0xABCD, the rhythm key map and partial reserve after
+  0xDCBA, the first text, the "mystery" SysEx 0x52000A), `close` (the
+  goodbye text), `initTrack` (the default reverb, then the part
+  assignment 0x10000D from the play masks of channels 1-8 and the rhythm
+  flag of channel 9), `send`/`noteOn`/`controlChange`/`setPatch`
+  (programs, volume scaled by the master volume, notes dropped on a
+  channel without a program except on the rhythm channel, no programs on
+  the rhythm channel, aftertouch and 0x4B dropped), `setVolume`,
+  `playSwitch`, `setReverb` and `sysEx` as `MidiDriver_MT32::sysEx`
+  (audio/softsynth/mt32.cpp) hands them on: the driver's SysEx messages are
+  written straight into the synthesiser's memory (mt32emu's `writeSysex`,
+  no header or checksum check), as in ScummVM. Not ported: the General
+  MIDI mapping (its maps are the identity for an MT-32, so only the
+  "no program yet" rule remains), the D-110, the KQ4/LSL2 text order, the
+  early-SCI0 MT32.DRV bank and the SysEx delays (an emulated MT-32 has
+  none). `isMt32GmPatch`'s format check is kept: a GM-format patch is
+  Unsupported, data of neither format InvalidData (ScummVM errors out).
+  **Decided.**
+- **Out-of-range reverb:** ScummVM indexes its reverb table with any value;
+  -1 (a song's controller 0x50 = 127 while the global reverb is still -1)
+  would read before it. The value is stored and nothing is sent.
+  **Assumed** (as for the AdLib's out-of-bounds reads).
+- **Timing of the MIDI:** messages reach mt32emu at once (`playMsgNow`,
+  `writeSysex`) during the timer call, and the 128 frames up to the next
+  call (32000 / 250) are rendered after it, so everything a call sends
+  takes effect at that call's first frame, with no MIDI cable delay: as
+  ScummVM, which opens mt32emu in `MIDIDelayMode_IMMEDIATE` and generates
+  the samples after the timer callback (`MidiDriver_Emulated::readBuffer`).
+  One difference: ScummVM queues short messages (`playMsg`) and writes
+  SysEx at once, so within one timer call a SysEx (the part assignment of
+  a track init) overtakes the short messages queued before it; here all
+  arrive in the order sent, as on the real MT-32. **Assumed:** the
+  comparison with ScummVM (next task) checks whether this is audible.
+- **Player choices per device.** As ScummVM's `SciMusic`, the player now
+  asks the device (`MidiDevice::player_choices`): play mask, voices,
+  rhythm channel. The AdLib and the silent driver keep 0x04, 9 voices, no
+  rhythm channel (static assertions); the MT-32 reports 0x01, 32 voices
+  and the rhythm channel. The timer rate is not asked: ScummVM's emulated
+  MIDI drivers run at 250 calls a second (`MidiDriver_Emulated::_baseFreq`)
+  as the OPL does (static assertion). What changes with the MT-32:
+  - *Which channels play* (`getChannelFilterMask`): channels with bit 0x01
+    instead of 0x04, and channel 9 always. Signals, the loop point, holds,
+    cues and the end are on the control channel 15, which every device
+    plays; events of filtered channels are dropped with their delta times
+    added to the next kept event, so the ticks of everything kept, and the
+    song's length, are the same. Checked on all 119 sounds: the signals
+    and cues (timer call, signal, cumulative cue) and the timer calls to
+    the end are identical on both devices (`sci-sound-render all 60`).
+    Reverb controllers on a filtered channel set the song's reverb only on
+    the device that plays it; the reverb is not visible to SCI0 scripts.
+  - *kDoSound GetPolyphony* returns 32 instead of 9: visible to the
+    scripts. The game calls it once (script 16, offset 0x422) and only
+    compares the result with 3 (PC speaker), so both devices take the same
+    branch; the kernel-call trace of a run on the MT-32 shows 32 there.
+    The deterministic scenario runs stay on the AdLib (or silent) driver.
+  - *SysEx in songs* now reach the device (ScummVM's `MidiParser` sends
+    them; the AdLib ignores them, so the OPL output is unchanged). The
+    parser reads their length as ScummVM does (a VLQ after 0xF0); no sound
+    of the game has one in its MT-32 channels (no SysEx warning in the
+    119-sound run).
+  **Decided.**
+- **Configuration and fallback:** `mt32_rom` (format 1 unchanged) is the
+  folder of the ROMs, as the spec's "path in the configuration": one key,
+  and the user's dumps can keep their names. Every `*.rom` file (any case,
+  at most 1 MiB) is identified by content (`identify_mt32_rom`, mt32emu's
+  size and SHA-1 list); the MT-32 1.07 control ROM is preferred, then
+  other MT-32 versions, then the CM-32L (and CM-32LN), in file-name order
+  among equals, each with a PCM ROM of its model (`sci::platform::
+  open_mt32_roms`, `choose_music_device`). With the customer's folder the
+  1.07 is chosen; the patched MT-32 control ROM is not known to mt32emu
+  and is passed over. No folder, no known control ROM, no matching PCM ROM
+  or a pair mt32emu refuses: a warning in the log and the AdLib. A
+  patch.001 that cannot be read: a warning and the AdLib too; no
+  patch.001: the MT-32 plays without it (as ScummVM for SCI0 late). The
+  ROMs chosen are logged. **Decided.**
+- **rand():** the program seeds it once at start with 1 (`main.cpp`), the
+  sound tool before each MT-32 sound; the project's own code never calls
+  `rand()`, so this only fixes mt32emu's pitch jitter. **Decided.**
+- **Mixer and output:** `AudioOutput` takes either driver with its
+  renderer and native rate; the mixer resamples 32000 Hz as it does 49716
+  Hz. The AdLib path is unchanged (OPL writes and golden hashes below).
+  **Decided.**
+- **Rendering:** `sci::vm::render_sound` on an `Mt32Driver` and
+  `render_sound_mt32` (a new synthesiser per sound with the game's
+  patch.001); `sci-sound-render --device mt32 --roms <folder>`; both
+  devices print the signals and cues (count and SHA-256).
+- **Result (MT-32 1.07):** all 119 sound resources play to their end or
+  for 60 s without an error or warning from the driver or mt32emu (no
+  unknown MIDI event, no SysEx). 105 end within
+  60 s; all are audible except sound 128, whose only channel (14) is no
+  MT-32 part (the SCI0 driver assigns channels 1-9 only, as ScummVM and
+  Sierra's driver do; on the AdLib it plays). The quietest audible one,
+  sound 12, peaks at 394; sound 77 reaches full scale (32767) in
+  mt32emu's own output. The run takes under a minute in the debug build.
+  **Decided.**
+- **Not checked yet:** a comparison with ScummVM's MT-32 output (by ear;
+  mt32emu 2.8.3 against ScummVM's 2.7.0, the reordering above, the parts
+  assigned per song, the volume curve) and the CM-32L by ear.
 
 ## Spec items carried forward
 

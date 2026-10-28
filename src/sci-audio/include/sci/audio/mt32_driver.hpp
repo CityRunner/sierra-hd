@@ -44,7 +44,7 @@
 
 #include <array>
 #include <cstdint>
-#include <functional>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <span>
@@ -107,14 +107,22 @@ public:
     static constexpr std::uint32_t base_tempo = 1000000 / timer_frequency;
     static constexpr int rhythm_channel = 9;
 
-    // The address and data of one SysEx message the driver sends, before
-    // the checksum (for tests).
-    using SysexHook = std::function<void(std::span<const std::uint8_t> address_and_data)>;
+    // What the driver sends to the synthesiser, in order (for tests): each
+    // channel message as Mt32::play_now takes it, and each SysEx message
+    // as its address and data (the SCI driver's, without header and
+    // checksum) or, for a framed one, whole; `sysex_at` is the number of
+    // channel messages sent before each SysEx message.
+    struct Log {
+        std::vector<std::uint32_t> midi;
+        std::vector<std::vector<std::uint8_t>> sysex;
+        std::vector<std::size_t> sysex_at;
+    };
 
     // MidiPlayer_Midi::open on an emulated MT-32: resets the synthesiser
-    // and sends `patch`, if any. `hook` (if any) sees every SysEx message
-    // the driver sends, from the reset on.
-    Mt32Driver(std::unique_ptr<Mt32> synth, const std::optional<Mt32Patch>& patch, SysexHook hook = {});
+    // and sends `patch`, if any. `log` (if any) receives everything the
+    // driver sends from the reset on and must outlive the driver. A null
+    // `synth` is for tests: the messages are only logged.
+    Mt32Driver(std::unique_ptr<Mt32> synth, const std::optional<Mt32Patch>& patch, Log* log = nullptr);
     // MidiPlayer_Midi::close: shows the goodbye text.
     ~Mt32Driver() override;
     Mt32Driver(const Mt32Driver&) = delete;
@@ -133,8 +141,12 @@ public:
 
     // The synthesiser, whose render() gives the output at Mt32::native_rate.
     // Messages reach it at once (Mt32::play_now): rendered after a timer
-    // call, they take effect at that call's frame.
-    [[nodiscard]] Mt32& synth() { return *synth_; }
+    // call, they take effect at that call's frame. Not for a driver made
+    // without one.
+    [[nodiscard]] Mt32& synth();
+
+    // Stops (null) or moves the log.
+    void set_log(Log* log) { log_ = log; }
 
 private:
     struct Channel {
@@ -154,9 +166,11 @@ private:
     void control_change(int channel, int control, int value);
     void set_patch(int channel, int patch);
     void send_midi(int status, int first, int second);
+    void play(std::uint32_t message);
+    void write_sysex(std::uint8_t device, std::span<const std::uint8_t> address_and_data);
 
     std::unique_ptr<Mt32> synth_;
-    SysexHook hook_;
+    Log* log_ = nullptr;
     std::array<Channel, 16> channels_{};
     bool play_switch_ = true;
     int master_volume_ = 15;
