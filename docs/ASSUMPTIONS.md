@@ -1896,9 +1896,107 @@ scripts' bytecode (after the script patches), not from runs:
   (30000 ticks) match the reference in all seven comparisons, the OPL
   writes as before (boot 1286 writes over timer calls 0 to 14933, intro
   81604 over 0 to 118318). **Decided.**
-- **Open:** a long stall of the main thread (for example an HD picture
+- ~~Open:~~ a long stall of the main thread (for example an HD picture
   analysed on room entry, up to about 0.5 s in a slow build) still empties
-  the queue and is heard as a gap; the music then resumes in step.
+  the queue and is heard as a gap; the music then resumes in step. Done,
+  see "Milestone 7: gaps in the music".
+
+## Milestone 7: gaps in the music (2026-10-28)
+
+- **Measured** (the main loop instrumented per wait: time in the
+  interpreter, in `HdPictures`, in the composition and in the
+  presentation, and the queue; Xvfb, `SDL_AUDIODRIVER=disk`, 44100 Hz,
+  1024-frame buffers, queue target 3072 frames = 70 ms; analysis cache
+  built). Three causes:
+  1. **HD pictures were made on the main thread, inside the wait** (the
+     host's present). Debug build: 1888 and 1861 ms for the title's two
+     pictures at N = 3, the music generation stopped meanwhile. Release:
+     14 to 16 ms (N = 3), no gap by itself.
+  2. **The first presentation set the renderer up** (texture, first
+     draw): 88 ms in release (69 ms in the presentation), 123 ms in debug,
+     right after the audio had started.
+  3. **After an underrun the queue stayed short.** A stall that leaves
+     the host more than 250 ms behind is dropped by the host (no catch-up,
+     "Milestone 4a"), so the queue was never refilled: after the start-up
+     stalls the debug build ran with 4 to 20 ms of queue instead of 70, and
+     every later hiccup was a gap (56.7 ms at 5.80 s after an 81 ms run of
+     the interpreter; 10.5 ms at 13.85 s after 28 ms of interpreter and
+     39 ms of composition, debug). This is also what the earlier captures
+     heard (57 ms at 2.89 s; 14 + 11 ms near 7.07 s; MT-32 35 ms at
+     7.91 s). The release capture (75 s) had no gap of 1 ms or more, but its
+     queue was down to 5 to 12 ms and it clicked at 70 to 74 s.
+  The ordinary frames are short: release 1 to 2 ms of interpreter and up
+  to 9 ms of presentation per wait (27 ms once); debug up to 28 ms of
+  interpreter and 17 to 44 ms of composition.
+- **Fix 1: HD pictures on a thread of their own.**
+  `HdPictures::request` (the program; `get` stays synchronous for the
+  tools) renders a stack that is not kept on a `BackgroundTask` (one
+  `std::async` thread, one stack at a time, the one asked for last next;
+  the rendering itself still spreads over the executor). The main thread
+  only polls. Spec section 4.3 already puts this work on worker threads;
+  the analysis cache and the executor are only used from that thread in
+  the program. **What is shown meanwhile:** the frame shown stays (as
+  before, when the main thread was busy) for up to 1 s, the room-entry
+  budget ("Milestone 3"); after that the new picture is shown at 1x
+  (`GameFrame::update` with `hold` off composes it without HD images)
+  until the HD images come, and then everything is composed again in HD.
+  A blocky flash at every room entry was the alternative and was not
+  taken; on the reference machine the HD images take well under the
+  second, so only slow builds (debug: 1.8 s) see the 1x picture. The
+  interpreter, the music, the input and the timing go on all the while:
+  nothing the interpreter sees depends on the HD images, so deterministic
+  runs and the timing of signals and cues are unchanged. Tests:
+  `background_task_hands_its_result_to_the_owner` (label `threads`,
+  TSan), `pending_hd_images_hold_the_frame_or_show_the_picture_at_1x`.
+  **Decided.**
+- **Fix 2: the renderer is set up before the music.** The host presents a
+  black frame at the window's N when it is made, before the audio opens.
+  **Decided.**
+- **Fix 3: the queue is topped up after an underrun.** SDL's audio thread
+  counts in an atomic the bytes it wanted and did not find (the stream's
+  get callback; it does nothing else). When the host is in time again
+  (in a wait, about to sleep, so all the music due is made and no
+  catch-up burst follows), `AudioOutput::recover` tops the queue up to the
+  target with silence if the device went without for a quarter of the
+  target or more. The gap that was there grows by up to the target (at
+  most 70 ms more of silence), and the queue has its margin again. A
+  shorter underrun (a few frames with the queue low) is left to the speed
+  correction: topping up would turn a click into a gap. A stall shorter
+  than 250 ms needs no top-up: the host catches up and the queue refills
+  itself. When that catch-up overfills the queue (above twice the
+  target), new audio is now dropped until the queue is back at the target
+  (one cut), not only while it is above the limit (a cut at every timer
+  call around it). Test: `audio_output_tops_the_queue_up_after_an_underrun`
+  (dummy driver, label `threads`). **Decided.**
+- **No larger queue.** The target stays max(60 ms, three device buffers)
+  (latency about 70 ms plus SDL's buffer, unchanged): with the three fixes
+  the longest stall left in a release build is a single presentation of
+  under 30 ms, and a larger queue would only hide stalls, not remove them.
+  **Decided.**
+- **Why it holds.** On a normal machine in a release build the main
+  thread's longest work between two waits is now an interpreter step and
+  a frame (a few ms, at most about 30 ms here), well under the 70 ms
+  queue; the long work runs elsewhere. On a very slow machine (or a debug
+  build) a frame can still take longer than the queue: the music then has
+  a gap, the host drops the lag beyond 250 ms, and the queue is topped up
+  so that one stall costs one gap, not a stream of them.
+- **Verified** (after the fixes; same setup, 60 to 70 s from the start:
+  the title and the change to the intro's first room, pictures 992 and
+  88; `tools/audio-gaps/find_gaps.py`, gaps of 1 ms or more that cut into
+  the waveform, and jumps):
+  - release, AdLib: no gap, no jump; MT-32: no gap, no jump.
+  - debug, AdLib: no gap, no jump; MT-32: one gap of 39 ms at 1.09 s (the
+    title picture shown at 1x after the 1 s hold: a full composition of
+    72 ms in debug) and one jump at 50.07 s (dropped audio, see below).
+  The disk driver paces itself with whole-millisecond `SDL_Delay`s, so its
+  clock is off by a few tenths of a per cent (1024 frames: about 0.5 %
+  fast), more than the 0.2 % speed correction absorbs: a long capture
+  drifts towards an empty or a full queue and then clicks or drops. That
+  is the capture's clock, not a sound card's (crystals are within about
+  0.01 %); the captures use `SDL_AUDIO_DEVICE_SAMPLE_FRAMES=1020`, which
+  comes closer. The captures are in `reports/images/audio/`
+  (`m7-title-music-adlib-nogaps.wav`, `m7-title-music-mt32-nogaps.wav`,
+  release; git-ignored). **Assumed** (no sound card here).
 
 ## Milestone 7: mt32emu (2026-10-28)
 

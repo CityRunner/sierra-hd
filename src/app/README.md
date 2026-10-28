@@ -25,7 +25,10 @@ interface.
     the game's patch.001, as the player's device; after each music timer
     call the synthesiser's samples (49716 or 32000 Hz) are mixed to the
     device rate on the main thread and queued in an `SDL_AudioStream`,
-    which SDL's audio thread plays.
+    which SDL's audio thread plays. HD pictures are made on a thread of
+    their own (`HdPictures::request`), so that the music and the game go
+    on at room entry: the frame shown stays for up to a second, then the
+    new picture is shown at 1x until its HD images are ready.
 
 ## Running
 
@@ -66,7 +69,8 @@ device (or with `SDL_AUDIODRIVER=dummy`, as in CI), the program logs a
 warning or plays into the dummy device; the game runs the same. SDL's
 `disk` driver (`SDL_AUDIODRIVER=disk SDL_AUDIO_DISK_OUTPUT_FILE=<file>`)
 writes what would be played to a raw file (16-bit stereo at the rate it
-reports on standard error).
+reports on standard error); `tools/audio-gaps/find_gaps.py` lists the gaps
+in such a file.
 
 ## Invariants
 
