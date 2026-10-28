@@ -1984,7 +1984,10 @@ scripts' bytecode (after the script patches), not from runs:
   the title and the change to the intro's first room, pictures 992 and
   88; `tools/audio-gaps/find_gaps.py`, gaps of 1 ms or more that cut into
   the waveform, and jumps):
-  - release, AdLib: no gap, no jump; MT-32: no gap, no jump.
+  - release, AdLib: no gap, no jump (two runs). MT-32: no gap (two runs);
+    no jump in the instrumented run, which dropped 72 ms twice when the
+    queue reached twice the target (the capture's clock, below), and one
+    jump at 35.87 s in the final run, the same kind of drop.
   - debug, AdLib: no gap, no jump; MT-32: one gap of 39 ms at 1.09 s (the
     title picture shown at 1x after the 1 s hold: a full composition of
     72 ms in debug) and one jump at 50.07 s (dropped audio, see below).
@@ -1997,6 +2000,10 @@ scripts' bytecode (after the script patches), not from runs:
   comes closer. The captures are in `reports/images/audio/`
   (`m7-title-music-adlib-nogaps.wav`, `m7-title-music-mt32-nogaps.wav`,
   release; git-ignored). **Assumed** (no sound card here).
+- **Game behaviour unchanged:** boot (3600 ticks, seed 0) and intro
+  (30000 ticks) match the reference in all seven comparisons, with the
+  same OPL writes as before (boot 1286 over timer calls 0 to 14933, intro
+  81604 over 0 to 118318). **Decided.**
 
 ## Milestone 7: mt32emu (2026-10-28)
 
