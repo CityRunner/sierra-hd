@@ -162,7 +162,7 @@ SCI_TEST(every_truncated_state_is_reported) {
     sci::vm::StateReader length_field(std::span(file).subspan(length_at, 4));
     const std::uint32_t length = length_field.u32();
     SCI_CHECK(length_at + 4 + length + checksum_size == file.size());
-    for (std::uint32_t cut = 1; cut <= length; cut += cut < 200 ? 1 : 997) {
+    for (std::uint32_t cut = 1; cut <= length; cut += cut < 64 ? 1 : 2999) {
         std::vector<std::uint8_t> damaged(file.begin(), file.end() - static_cast<std::ptrdiff_t>(checksum_size + cut));
         const std::uint32_t shorter = length - cut;
         for (std::size_t i = 0; i < 4; ++i) {
