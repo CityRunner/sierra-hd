@@ -43,8 +43,8 @@
 #include "sci/core/error.hpp"
 
 #include <array>
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
@@ -137,6 +137,7 @@ public:
     void play_switch(bool play) override;
     void sysex(std::span<const std::uint8_t> message) override;
     void set_reverb(std::int8_t reverb) override;
+
     void on_timer() override {}
 
     // The synthesiser, whose render() gives the output at Mt32::native_rate.
@@ -165,7 +166,7 @@ private:
     void note_on(int channel, int note, int velocity);
     void control_change(int channel, int control, int value);
     void set_patch(int channel, int patch);
-    void send_midi(int status, int first, int second);
+    void send_midi(unsigned status_byte, int first, int second);
     void play(std::uint32_t message);
     void write_sysex(std::uint8_t device, std::span<const std::uint8_t> address_and_data);
 

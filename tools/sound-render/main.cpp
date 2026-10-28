@@ -154,9 +154,9 @@ bool render(const sci::resource::ResourceManager& resources, std::uint16_t numbe
         std::srand(1);
         // NOLINTEND(bugprone-unsafe-functions,bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
     }
-    const auto rendered =
-        mt32 != nullptr ? sci::vm::render_sound_mt32(resources, number, mt32->control, mt32->pcm, options)
-                        : sci::vm::render_sound(resources, number, options);
+    const auto rendered = mt32 != nullptr
+                              ? sci::vm::render_sound_mt32(resources, number, mt32->control, mt32->pcm, options)
+                              : sci::vm::render_sound(resources, number, options);
     if (!rendered) {
         std::println(stderr, "sound {}: {}", number, rendered.error().message);
         return false;
@@ -167,8 +167,8 @@ bool render(const sci::resource::ResourceManager& resources, std::uint16_t numbe
     }
     const std::vector<std::uint8_t> bytes = sample_bytes(rendered->samples);
     const std::string events = events_text(rendered->events);
-    std::println("sound {} frames {} calls {} {} peak {} sha256 {} events {} {}", number,
-                 rendered->samples.size() / 2, rendered->timer_calls, rendered->ended ? "ended" : "cut", peak,
+    std::println("sound {} frames {} calls {} {} peak {} sha256 {} events {} {}", number, rendered->samples.size() / 2,
+                 rendered->timer_calls, rendered->ended ? "ended" : "cut", peak,
                  sci::core::to_hex(sci::core::sha256(bytes)), rendered->events.size(),
                  sci::core::to_hex(sci::core::sha256(std::span(
                      reinterpret_cast<const std::uint8_t*>(events.data()), // NOLINT(*-reinterpret-cast): bytes of text

@@ -911,9 +911,9 @@ std::unique_ptr<sci::app::AudioOutput> open_audio(const sci::resource::ResourceM
             return sci::app::AudioOutput::open(std::make_unique<sci::audio::Mt32Driver>(std::move(choice.mt32), *patch),
                                                volume);
         }
-        sci::core::log(sci::core::LogLevel::Warning, sci::core::LogCategory::General,
-                       std::format("music: the MT-32 patch cannot be read ({}); playing on the AdLib",
-                                   patch.error().message));
+        sci::core::log(
+            sci::core::LogLevel::Warning, sci::core::LogCategory::General,
+            std::format("music: the MT-32 patch cannot be read ({}); playing on the AdLib", patch.error().message));
     }
     auto patches = sci::audio::load_adlib_patches(manager);
     if (!patches) {

@@ -67,7 +67,10 @@ inline constexpr int adlib_polyphony = 9;
 inline constexpr bool adlib_has_rhythm_channel = false;
 inline constexpr std::uint32_t adlib_base_tempo = 1000000 / 250; // OPL callback frequency.
 inline constexpr audio::PlayerChoices silent_choices{
-    .play_id = adlib_play_id, .polyphony = adlib_polyphony, .has_rhythm_channel = adlib_has_rhythm_channel};
+    .play_id = adlib_play_id,
+    .polyphony = adlib_polyphony,
+    .has_rhythm_channel = adlib_has_rhythm_channel,
+};
 
 // An SCI0 (late) sound resource: a 0x21-byte header, then one MIDI stream
 // whose channels carry play masks per device, and optionally a digital

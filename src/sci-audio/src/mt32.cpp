@@ -9,10 +9,10 @@
 #include <cstdint>
 #include <format>
 #include <memory>
-#include <optional>
 #include <mt32emu/File.h>
 #include <mt32emu/ROMInfo.h>
 #include <mt32emu/Synth.h>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>

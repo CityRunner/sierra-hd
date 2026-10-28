@@ -54,14 +54,13 @@ core::Result<RenderedSound> render_on(std::span<const std::uint8_t> sound, int n
         music.on_timer();
         ++calls;
         if (song.signal != 0 || song.data_inc != cue) {
-            rendered.events.push_back({.timer_call = static_cast<std::uint32_t>(calls),
-                                       .signal = song.signal,
-                                       .cue = song.data_inc});
+            rendered.events.push_back(
+                {.timer_call = static_cast<std::uint32_t>(calls), .signal = song.signal, .cue = song.data_inc});
             song.signal = 0;
         }
         // The frames up to the next timer call, without drift.
-        const std::uint64_t next = std::min<std::uint64_t>(
-            calls * rate / audio::AdlibDriver::timer_frequency, options.max_frames);
+        const std::uint64_t next =
+            std::min<std::uint64_t>(calls * rate / audio::AdlibDriver::timer_frequency, options.max_frames);
         const auto count = static_cast<std::size_t>(next - frames);
         const std::size_t offset = rendered.samples.size();
         rendered.samples.resize(offset + (count * 2));
@@ -102,8 +101,8 @@ core::Result<RenderedSound> render_sound(std::span<const std::uint8_t> sound, in
                                          const SoundRenderOptions& options) {
     return render_on(
         sound, number, driver, audio::Mt32::native_rate,
-        [&](std::span<std::int16_t> samples) { driver.synth().render(samples); }, [](const Music& /*music*/) {},
-        [] {}, options);
+        [&](std::span<std::int16_t> samples) { driver.synth().render(samples); }, [](const Music& /*music*/) {}, [] {},
+        options);
 }
 
 core::Result<RenderedSound> render_sound(const resource::ResourceManager& resources, std::uint16_t number,

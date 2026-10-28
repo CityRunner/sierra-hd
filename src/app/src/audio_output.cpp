@@ -27,18 +27,24 @@ void warn(std::string_view what) {
 std::unique_ptr<AudioOutput> AudioOutput::open(std::vector<audio::AdlibPatch> patches, double volume) {
     auto driver = std::make_unique<audio::AdlibDriver>(std::move(patches));
     audio::AdlibDriver& adlib = *driver;
-    return open(Synth{.driver = std::move(driver),
-                      .rate = audio::Opl3::native_rate,
-                      .render = [&adlib](std::span<std::int16_t> samples) { adlib.opl().generate(samples); }},
-                volume);
+    return open(
+        Synth{
+            .driver = std::move(driver),
+            .rate = audio::Opl3::native_rate,
+            .render = [&adlib](std::span<std::int16_t> samples) { adlib.opl().generate(samples); },
+        },
+        volume);
 }
 
 std::unique_ptr<AudioOutput> AudioOutput::open(std::unique_ptr<audio::Mt32Driver> driver, double volume) {
     audio::Mt32Driver& mt32 = *driver;
-    return open(Synth{.driver = std::move(driver),
-                      .rate = audio::Mt32::native_rate,
-                      .render = [&mt32](std::span<std::int16_t> samples) { mt32.synth().render(samples); }},
-                volume);
+    return open(
+        Synth{
+            .driver = std::move(driver),
+            .rate = audio::Mt32::native_rate,
+            .render = [&mt32](std::span<std::int16_t> samples) { mt32.synth().render(samples); },
+        },
+        volume);
 }
 
 std::unique_ptr<AudioOutput> AudioOutput::open(Synth synth, double volume) {

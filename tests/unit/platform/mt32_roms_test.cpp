@@ -63,16 +63,16 @@ Config mt32_config(const fs::path& folder) {
 SCI_TEST(music_choice_keeps_adlib_and_off) {
     Config config;
     config.mt32_rom = "/nowhere";
-    auto adlib = sci::platform::choose_music_device(config);
+    const auto adlib = sci::platform::choose_music_device(config);
     SCI_CHECK(adlib.device == MusicDevice::Adlib && adlib.mt32 == nullptr && adlib.log.empty());
     config.music = MusicDevice::Off;
-    auto off = sci::platform::choose_music_device(config);
+    const auto off = sci::platform::choose_music_device(config);
     SCI_CHECK(off.device == MusicDevice::Off && off.log.empty());
 }
 
 SCI_TEST(music_choice_falls_back_without_a_rom_folder) {
     for (const fs::path& folder : {fs::path(), fs::path("/nowhere/sierra-hd-roms")}) {
-        auto choice = sci::platform::choose_music_device(mt32_config(folder));
+        const auto choice = sci::platform::choose_music_device(mt32_config(folder));
         SCI_CHECK(choice.device == MusicDevice::Adlib && choice.mt32 == nullptr);
         SCI_CHECK(choice.warning && choice.log.contains("playing on the AdLib"));
     }
@@ -86,7 +86,7 @@ SCI_TEST(music_choice_falls_back_on_wrong_roms) {
     std::ofstream(folder.path() / "MT32_PCM.rom", std::ios::binary) << std::string(524288, 'y');
     std::ofstream(folder.path() / "big.rom", std::ios::binary) << std::string((1U << 20U) + 1, 'z');
     std::ofstream(folder.path() / "readme.txt") << "not a ROM\n";
-    auto choice = sci::platform::choose_music_device(mt32_config(folder.path()));
+    const auto choice = sci::platform::choose_music_device(mt32_config(folder.path()));
     SCI_CHECK(choice.device == MusicDevice::Adlib && choice.mt32 == nullptr && choice.warning);
     SCI_CHECK(choice.log.contains("no MT-32 or CM-32L control ROM"));
 }
@@ -132,6 +132,6 @@ SCI_TEST(music_choice_opens_the_users_mt32) {
 
     // A control ROM without its PCM ROM falls back.
     fs::remove(cm32l.path() / "CM32L_PCM.ROM", error);
-    auto third = sci::platform::choose_music_device(mt32_config(cm32l.path()));
+    const auto third = sci::platform::choose_music_device(mt32_config(cm32l.path()));
     SCI_CHECK(third.device == MusicDevice::Adlib && third.warning && third.log.contains("no PCM ROM"));
 }

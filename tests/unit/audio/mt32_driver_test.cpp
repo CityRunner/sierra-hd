@@ -82,6 +82,7 @@ std::uint32_t address_of(const std::vector<std::uint8_t>& sysex) {
 
 std::vector<std::uint32_t> addresses(const Mt32Driver::Log& log) {
     std::vector<std::uint32_t> result;
+    result.reserve(log.sysex.size());
     for (const auto& sysex : log.sysex) {
         result.push_back(address_of(sysex));
     }
@@ -142,8 +143,9 @@ SCI_TEST(mt32_patch_parses_all_parts) {
     if (!patch) {
         return;
     }
-    SCI_CHECK(std::string_view(reinterpret_cast<const char*>(patch->after_text.data()), 5) == // NOLINT(*-reinterpret-cast)
-              "After");
+    SCI_CHECK(
+        std::string_view(reinterpret_cast<const char*>(patch->after_text.data()), 5) == // NOLINT(*-reinterpret-cast)
+        "After");
     SCI_CHECK(patch->before_text[0] == 'B' && patch->goodbye_text[0] == 'G');
     SCI_CHECK(patch->volume == 100);
     SCI_CHECK(patch->default_reverb == 2);
@@ -181,8 +183,8 @@ SCI_TEST(mt32_driver_sends_the_patch_when_it_opens) {
         // timbres, patches 49-96, rhythm key map, partial reserve, the
         // second text and the "mystery" SysEx.
         SCI_CHECK((addresses(log) == std::vector<std::uint32_t>{0x7F0000, 0x200000, 0x100016, 0x050000, 0x050200,
-                                                                 0x080000, 0x080200, 0x050300, 0x050500, 0x030110,
-                                                                 0x100004, 0x200000, 0x52000A}));
+                                                                0x080000, 0x080200, 0x050300, 0x050500, 0x030110,
+                                                                0x100004, 0x200000, 0x52000A}));
         SCI_CHECK(log.sysex[1][3] == 'B' && log.sysex[11][3] == 'A'); // Before, then after.
         SCI_CHECK((log.sysex[2] == std::vector<std::uint8_t>{0x10, 0x00, 0x16, 100}));
         SCI_CHECK(log.sysex[5].size() == 3 + Mt32Patch::timbre_size && log.sysex[6][3] == 1);
@@ -194,7 +196,9 @@ SCI_TEST(mt32_driver_sends_the_patch_when_it_opens) {
 
     // Without patch.001 only the reset is sent, and nothing at the close.
     Mt32Driver::Log bare;
-    { const Mt32Driver driver(nullptr, std::nullopt, &bare); }
+    {
+        const Mt32Driver driver(nullptr, std::nullopt, &bare);
+    }
     SCI_CHECK((addresses(bare) == std::vector<std::uint32_t>{0x7F0000}));
 }
 
@@ -218,8 +222,7 @@ SCI_TEST(mt32_driver_routes_notes_and_programs) {
     // the program and the pan; a repeated program sends nothing.
     driver.send(midi(0xC1, 5, 0));
     driver.send(midi(0xC1, 5, 0));
-    SCI_CHECK((log.midi ==
-               std::vector<std::uint32_t>{midi(0xB1, 7, 127), midi(0xC1, 5, 0), midi(0xB1, 0x0A, 0x40)}));
+    SCI_CHECK((log.midi == std::vector<std::uint32_t>{midi(0xB1, 7, 127), midi(0xC1, 5, 0), midi(0xB1, 0x0A, 0x40)}));
     log.midi.clear();
     // Notes now pass, a note off as a note on with velocity 0; a program
     // on the rhythm channel, aftertouch and voice mapping (0x4B) are not
@@ -278,8 +281,7 @@ SCI_TEST(mt32_driver_assigns_the_parts_of_a_song) {
     // The patch's default reverb (2) first, then the parts.
     SCI_CHECK((addresses(log) == std::vector<std::uint32_t>{0x100001, 0x10000D}));
     SCI_CHECK((log.sysex[0] == std::vector<std::uint8_t>{0x10, 0x00, 0x01, 2, 12, 22}));
-    SCI_CHECK((log.sysex[1] ==
-               std::vector<std::uint8_t>{0x10, 0x00, 0x0D, 1, 2, 0x10, 0x10, 0x10, 0x10, 0x10, 8, 9}));
+    SCI_CHECK((log.sysex[1] == std::vector<std::uint8_t>{0x10, 0x00, 0x0D, 1, 2, 0x10, 0x10, 0x10, 0x10, 0x10, 8, 9}));
     log.sysex.clear();
     // The same reverb again is not sent; another one is; -1 (none) is only
     // stored.

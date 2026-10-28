@@ -70,7 +70,8 @@ core::Result<Mt32Selection> open_mt32_roms(const fs::path& folder) {
             paths.push_back(entry.path());
         }
     }
-    std::ranges::sort(paths);
+    // Paths in one folder are distinct.
+    std::ranges::stable_sort(paths);
     std::vector<RomFile> controls;
     std::vector<RomFile> pcms;
     for (const fs::path& path : paths) {
@@ -106,9 +107,8 @@ core::Result<Mt32Selection> open_mt32_roms(const fs::path& folder) {
     if (last_error) {
         return std::unexpected(std::move(*last_error));
     }
-    return core::make_error(core::ErrorCode::NotFound,
-                            std::format("no PCM ROM for the {} in {}", controls.front().info.description,
-                                        folder.string()));
+    return core::make_error(core::ErrorCode::NotFound, std::format("no PCM ROM for the {} in {}",
+                                                                   controls.front().info.description, folder.string()));
 }
 
 MusicChoice choose_music_device(const Config& config) {
@@ -117,18 +117,24 @@ MusicChoice choose_music_device(const Config& config) {
     }
     auto selection = open_mt32_roms(config.mt32_rom);
     if (!selection) {
-        return MusicChoice{.device = MusicDevice::Adlib,
-                           .mt32 = nullptr,
-                           .log = std::format("music: no MT-32 ({}); playing on the AdLib", selection.error().message),
-                           .warning = true};
+        return MusicChoice{
+            .device = MusicDevice::Adlib,
+            .mt32 = nullptr,
+            .log = std::format("music: no MT-32 ({}); playing on the AdLib", selection.error().message),
+            .warning = true,
+        };
     }
     const audio::Mt32Roms& roms = selection->synth->roms();
-    std::string log = std::format("music: {} on the {} ({}) and the {} ({})",
-                                  roms.model == audio::Mt32Model::Mt32 ? "MT-32" : "CM-32L", roms.control_description,
-                                  selection->control.filename().string(), roms.pcm_description,
-                                  selection->pcm.filename().string());
+    std::string log =
+        std::format("music: {} on the {} ({}) and the {} ({})",
+                    roms.model == audio::Mt32Model::Mt32 ? "MT-32" : "CM-32L", roms.control_description,
+                    selection->control.filename().string(), roms.pcm_description, selection->pcm.filename().string());
     return MusicChoice{
-        .device = MusicDevice::Mt32, .mt32 = std::move(selection->synth), .log = std::move(log), .warning = false};
+        .device = MusicDevice::Mt32,
+        .mt32 = std::move(selection->synth),
+        .log = std::move(log),
+        .warning = false,
+    };
 }
 
 } // namespace sci::platform

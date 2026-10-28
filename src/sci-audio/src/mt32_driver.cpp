@@ -48,8 +48,8 @@ constexpr std::size_t header_size = 491;
 constexpr std::size_t patches_49_96_size = 256 + 128;
 constexpr std::size_t rhythm_size = 256 + 9;
 // The largest MT-32 patch: 64 timbres and both optional parts.
-constexpr std::size_t max_mt32_size = header_size + 1 + (64 * Mt32Patch::timbre_size) + 2 + patches_49_96_size + 2 +
-                                      rhythm_size;
+constexpr std::size_t max_mt32_size =
+    header_size + 1 + (64 * Mt32Patch::timbre_size) + 2 + patches_49_96_size + 2 + rhythm_size;
 // The General MIDI format: 1153 bytes of maps, then a length and MIDI data.
 constexpr std::size_t gm_map_size = 1153;
 constexpr std::uint16_t flag_patches_49_96 = 0xABCD;
@@ -59,16 +59,21 @@ constexpr std::uint16_t flag_rhythm = 0xDCBA;
 constexpr std::uint8_t sysex_device = 0x10;
 constexpr std::size_t max_sysex_size = 264;
 
+// A channel message's status byte.
+unsigned status(unsigned command, int channel) {
+    return command | static_cast<unsigned>(channel);
+}
+
 void warn(std::string_view message) {
     core::log(core::LogLevel::Warning, core::LogCategory::General, message);
 }
 
 std::uint16_t u16le(std::span<const std::uint8_t> data, std::size_t at) {
-    return static_cast<std::uint16_t>(data[at] | (data[at + 1] << 8U));
+    return static_cast<std::uint16_t>(unsigned{data[at]} | (unsigned{data[at + 1]} << 8U));
 }
 
 std::uint16_t u16be(std::span<const std::uint8_t> data, std::size_t at) {
-    return static_cast<std::uint16_t>((data[at] << 8U) | data[at + 1]);
+    return static_cast<std::uint16_t>((unsigned{data[at]} << 8U) | unsigned{data[at + 1]});
 }
 
 template <std::size_t N>
@@ -144,7 +149,7 @@ core::Result<Mt32Patch> parse_mt32_patch(std::span<const std::uint8_t> data) {
     for (std::size_t i = 0; i < timbres; ++i) {
         patch.timbres.push_back(take<Mt32Patch::timbre_size>(data, at));
     }
-    const auto flag = [&]() -> std::optional<std::uint16_t> {
+    const auto flag = [&] -> std::optional<std::uint16_t> {
         if (data.size() - at < 2) {
             return std::nullopt;
         }
@@ -234,9 +239,11 @@ void Mt32Driver::send_sysex(std::uint32_t address, std::span<const std::uint8_t>
         warn("SysEx message exceed maximum size; ignoring");
         return;
     }
-    std::vector<std::uint8_t> message{static_cast<std::uint8_t>((address >> 16U) & 0xFFU),
-                                      static_cast<std::uint8_t>((address >> 8U) & 0xFFU),
-                                      static_cast<std::uint8_t>(address & 0xFFU)};
+    std::vector<std::uint8_t> message{
+        static_cast<std::uint8_t>((address >> 16U) & 0xFFU),
+        static_cast<std::uint8_t>((address >> 8U) & 0xFFU),
+        static_cast<std::uint8_t>(address & 0xFFU),
+    };
     message.insert(message.end(), data.begin(), data.end());
     write_sysex(sysex_device, message);
 }
@@ -269,21 +276,19 @@ void Mt32Driver::send_patch(const Mt32Patch& patch) {
     send_sysex(0x52000A, std::array<std::uint8_t, 6>{0x16, 0x16, 0x16, 0x16, 0x16, 0x16});
 }
 
-void Mt32Driver::send_midi(int status, int first, int second) {
-    play(static_cast<std::uint32_t>(status) | (static_cast<std::uint32_t>(first) << 8U) |
-                     (static_cast<std::uint32_t>(second) << 16U));
+void Mt32Driver::send_midi(unsigned status_byte, int first, int second) {
+    play(status_byte | (static_cast<std::uint32_t>(first) << 8U) | (static_cast<std::uint32_t>(second) << 16U));
 }
 
 void Mt32Driver::note_on(int channel, int note, int velocity) {
     // The patch, key shift, velocity and percussion maps are the identity
     // for an MT-32 (they map to General MIDI); only an unmapped channel
     // (no program yet) drops its notes.
-    if (channel != rhythm_channel &&
-        channels_[static_cast<std::size_t>(channel)].mapped_patch == unmapped) {
+    if (channel != rhythm_channel && channels_[static_cast<std::size_t>(channel)].mapped_patch == unmapped) {
         return;
     }
     channels_[static_cast<std::size_t>(channel)].playing = true;
-    send_midi(0x90 | channel, note, velocity);
+    send_midi(status(0x90U, channel), note, velocity);
 }
 
 void Mt32Driver::control_change(int channel, int control, int value) {
@@ -315,13 +320,13 @@ void Mt32Driver::control_change(int channel, int control, int value) {
     default:
         break;
     }
-    send_midi(0xB0 | channel, control, value);
+    send_midi(status(0xB0U, channel), control, value);
 }
 
 void Mt32Driver::set_patch(int channel, int patch) {
     Channel& state = channels_[static_cast<std::size_t>(channel)];
     // The MT-32's rhythm part keeps its own setup.
-    if (channel == rhythm_channel || state.patch == patch) {
+    if (channel == rhythm_channel || std::cmp_equal(state.patch, patch)) {
         return;
     }
     state.patch = static_cast<std::uint8_t>(patch);
@@ -331,9 +336,9 @@ void Mt32Driver::set_patch(int channel, int patch) {
     if (reset_volume) {
         control_change(channel, 0x07, state.volume);
     }
-    send_midi(0xC0 | channel, patch, 0);
+    send_midi(status(0xC0U, channel), patch, 0);
     // ScummVM's workaround for USB-MIDI cables, kept for the same messages.
-    send_midi(0xB0 | channel, 0x0A, state.pan);
+    send_midi(status(0xB0U, channel), 0x0A, state.pan);
 }
 
 void Mt32Driver::send(std::uint32_t message) {
@@ -372,7 +377,7 @@ void Mt32Driver::set_volume(std::uint8_t volume) {
         return;
     }
     for (int channel = 1; channel < 10; ++channel) {
-        control_change(channel, 0x07, channels_[static_cast<std::size_t>(channel)].volume & 0x7F);
+        control_change(channel, 0x07, static_cast<int>(channels_[static_cast<std::size_t>(channel)].volume & 0x7FU));
     }
 }
 
@@ -381,7 +386,7 @@ void Mt32Driver::set_reverb(std::int8_t reverb) {
     // song's controller 0x50 = 127 before a global reverb is set) would
     // read outside them, and is only stored here.
     if (has_reverb_ && reverb_ != reverb && reverb >= 0 && std::cmp_less(reverb, reverb_config_.size())) {
-        send_sysex(0x100001, reverb_config_[static_cast<std::size_t>(reverb)]);
+        send_sysex(0x100001, reverb_config_[static_cast<std::uint8_t>(reverb)]);
     }
     reverb_ = reverb;
 }
@@ -393,7 +398,7 @@ void Mt32Driver::play_switch(bool play) {
         return;
     }
     for (int channel = 1; channel < 10; ++channel) {
-        send_midi(0xB0 | channel, 0x07, 0);
+        send_midi(status(0xB0U, channel), 0x07, 0);
     }
 }
 
