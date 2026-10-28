@@ -80,6 +80,12 @@ and compares the traces; the reference side is the patch
   driver), every OPL register write the AdLib driver makes is written in
   the format below. `tools/vm-trace/compare-opl.py` compares two such
   files.
+- **MIDI** (milestone 7). With `SIERRA_HD_MIDI=<file>` (reference, run with
+  `--music-driver=mt32`) or `--music mt32 --midi <file>` (sci-vm-trace,
+  which then plays the music on its MT-32 driver), every message the SCI
+  MT-32 driver sends towards the synthesiser is written in the format of
+  "MIDI files" below. `tools/vm-trace/compare-midi.py` compares two such
+  files.
 
 ## Replay files
 
@@ -264,3 +270,28 @@ driver makes them (ScummVM's `MidiDriver_AdLib::setRegister`; in sci-vm
 
 `sci-sound-render --opl <file>` writes the same lines for one sound played
 alone, keyed by its own timer calls.
+
+## MIDI files
+
+One line per message the SCI0 MT-32 driver sends towards the synthesiser,
+in the order the driver sends them, at the point where ScummVM's
+`MidiPlayer_Midi` hands them to its MIDI driver (`_driver->send`,
+`_driver->sysEx`: before `MidiDriver_MT32` and mt32emu's queue); in sci-vm
+`sci::audio::Mt32Driver::Log::on_send`:
+
+    0 41 10 16 12 7f 00 00 01 00 00
+    0 41 10 16 12 10 00 16 64 76
+    8 41 10 16 12 10 00 0d 01 02 10 10 10 10 10 10 10 70
+    8 c1 09
+    1637 92 4b 00
+
+- The first field is the time key, as in "OPL files": the number of music
+  timer calls made so far (0 for the driver's start-up, before the first).
+- Then the message's bytes, two hex digits each. A channel message is its
+  status and data bytes: two for a program change (`cn`) or channel
+  pressure (`dn`), three otherwise (a note-off is a note-on with velocity
+  0, as the driver sends it). A SysEx message is written as handed to
+  `MidiDriver::sysEx`, without F0 and F7: the driver's own (reset, patch
+  upload, display texts, master volume, reverb, part assignment) as the
+  Roland header `41 10 16 12`, the three address bytes, the data and the
+  checksum.

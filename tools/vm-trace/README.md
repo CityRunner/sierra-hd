@@ -8,6 +8,7 @@ trace, in the format of the reference ScummVM's trace patch
                  [--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]
                  [--screens <folder>] [--screen-every <ticks>] [--actors <file>]
                  [--parser <file>] [--layout <file>] [--opl <file>]
+                 [--music mt32 [--roms <folder>] [--midi <file>]]
     sci-vm-trace --scan-kernel <game folder> <output file>
     sci-vm-trace --vocabulary <game folder> <output file>
 
@@ -37,6 +38,12 @@ does.
   timing) and writes every OPL register write of the driver as
   `<timer call> <register> <value>` (`docs/formats/replay-and-trace.md`,
   "OPL files").
+- `--music mt32` plays the music on sci-audio's MT-32 driver instead (with
+  the game's patch.001; kDoSound GetPolyphony then returns 32), `--roms`
+  opens a synthesiser on the ROMs of that folder as the program chooses
+  them (it renders nothing; without it the messages are only logged), and
+  `--midi` writes every message the driver sends as `<timer call> <bytes>`
+  (`docs/formats/replay-and-trace.md`, "MIDI files"). Not with `--opl`.
 - `--vocabulary` lists the parser's vocabulary as sci-text reads it:
   `word <spelling> <class> <group>` for every word of vocab.000,
   `suffix <typed> <stored> <class mask> <class>` for vocab.901 and
@@ -60,6 +67,19 @@ The reference side, with the same options as environment variables:
         xvfb-run -a env SDL_AUDIODRIVER=dummy \
         tools/reference-scummvm/run.sh build/reference-scummvm /game --music-driver=adlib
 
+On the MT-32, `SIERRA_HD_MIDI=<file>` in place of `SIERRA_HD_OPL` and
+`--music-driver=mt32 --extrapath=<folder>`, where the folder holds the ROMs
+under the names ScummVM opens, `MT32_CONTROL.ROM` and `MT32_PCM.ROM` (it
+tries `CM32L_CONTROL.ROM` and `CM32L_PCM.ROM` first). Keep that folder
+outside the repository, for example symbolic links next to the ROM folder:
+
+    mkdir -p /home/user/roms/mt32-scummvm && cd /home/user/roms/mt32-scummvm
+    ln -s ../roland/MT32_CONTROL.1987-10-07.v1.07.ROM MT32_CONTROL.ROM
+    ln -s ../roland/MT32_PCM.ROM MT32_PCM.ROM
+
+and mount the parent (`SIERRA_HD_MOUNTS=...,/home/user/roms:/roms`), so
+that the relative links resolve in the container.
+
 Then:
 
     tools/vm-trace/compare.py build/traces/ref.txt build/traces/vm.txt
@@ -82,12 +102,17 @@ the kind) or `layout match: <n> lines (...)` with the lines of each kind.
 `compare-opl.py <reference file> <sci-vm file>` compares the OPL register
 writes and prints the first difference (line, timer call and the fields
 that differ) or `opl match: <n> writes (timer calls <first> to <last>, <k>
-key-ons)`.
+key-ons)`. `compare-midi.py <reference file> <sci-vm file>` compares the
+MIDI messages and prints the first difference or `midi match: <n> messages
+(timer calls <first> to <last>, <k> note-ons, <m> SysEx)`.
 
 `run-scenario.sh <replay> <stop tick> <output folder> [seed]` runs a replay
 in both engines and compares traces, screens, maps, actor positions,
 parser results, layout and OPL register writes (`SIERRA_HD_COMPARE_OPL=0`
-skips the last); `run-all-scenarios.sh [--jobs <n>]` does so
+skips the last; with `SIERRA_HD_MUSIC=mt32` both engines play on the MT-32
+and the MIDI messages are compared instead, the reference with the ROMs of
+`SIERRA_HD_MT32_SCUMMVM`, default `/roms/mt32-scummvm`, sci-vm with those
+of `SIERRA_HD_MT32_ROMS`, default `/roms/roland`); `run-all-scenarios.sh [--jobs <n>]` does so
 for every run listed in `tests/scenarios/scenarios.txt`, one line per run,
 n runs at a time (four on four cores take about 10 minutes for all).
 
