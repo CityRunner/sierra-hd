@@ -56,6 +56,13 @@ struct ScreenMaps {
     std::span<const std::uint8_t> control;
 };
 
+struct SaveCheck {
+    std::size_t bytes = 0;      // The save file's size.
+    StateHash saved;            // The state written.
+    StateHash restored;         // The fresh machine's state after reading it.
+    std::optional<std::string> error; // Why reading failed, if it did.
+};
+
 struct RunOptions {
     std::uint32_t seed = 0;
     std::vector<InputEvent> input;
@@ -114,6 +121,13 @@ struct RunOptions {
     // taken in the kernel call that let the time pass.
     std::vector<std::uint32_t> state_hash_ticks;
     std::function<void(std::uint32_t requested, std::uint32_t tick, const StateHash&)> on_state_hash;
+    // The save round trip (milestone 8, docs/formats/save-format.md) at each
+    // of these ticks, taken as state_hash_ticks are: the state is written as
+    // a save file and read into a fresh machine on the same game files, and
+    // on_save_check is called with what came of it. The run goes on with
+    // its own machine, unchanged.
+    std::vector<std::uint32_t> save_check_ticks;
+    std::function<void(std::uint32_t requested, std::uint32_t tick, const SaveCheck&)> on_save_check;
 };
 
 struct RunResult {

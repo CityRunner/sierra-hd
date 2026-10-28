@@ -94,6 +94,7 @@ int usage() {
                          "[--parser <file>] [--layout <file>] [--opl <file>]\n"
                          "                    [--music mt32 [--roms <folder>] [--midi <file>]] "
                          "[--state-hash <tick>[,<tick>...] <file>]\n"
+                         "                    [--save-check <tick>[,<tick>...] <file>]\n"
                          "       sci-vm-trace --scan-kernel <game folder> <output file>\n"
                          "       sci-vm-trace --vocabulary <game folder> <output file>");
     return 2;
@@ -265,6 +266,7 @@ int main(int argc, char** argv) {
     std::filesystem::path midi;
     std::filesystem::path roms;
     std::filesystem::path state_hash;
+    std::filesystem::path save_check;
     bool on_mt32 = false;
     std::uint32_t screen_every = 60;
     for (std::size_t i = 3; i < args.size(); i += 2) {
@@ -283,19 +285,21 @@ int main(int argc, char** argv) {
             return usage();
         }
         const std::string_view value = args[i + 1];
-        if (flag == "--state-hash") {
+        if (flag == "--state-hash" || flag == "--save-check") {
             // Two values: the ticks, increasing, and the file.
             if (i + 2 >= args.size()) {
                 return usage();
             }
+            std::vector<std::uint32_t>& ticks =
+                flag == "--state-hash" ? options.state_hash_ticks : options.save_check_ticks;
             for (const auto part : std::views::split(value, ',')) {
                 const auto tick = parse_number(std::string_view(part.begin(), part.end()));
-                if (!tick || (!options.state_hash_ticks.empty() && *tick <= options.state_hash_ticks.back())) {
+                if (!tick || (!ticks.empty() && *tick <= ticks.back())) {
                     return usage();
                 }
-                options.state_hash_ticks.push_back(*tick);
+                ticks.push_back(*tick);
             }
-            state_hash = args[i + 2];
+            (flag == "--state-hash" ? state_hash : save_check) = args[i + 2];
             ++i;
             continue;
         }
@@ -485,6 +489,33 @@ int main(int argc, char** argv) {
             }
         };
     }
+    std::ofstream save_check_file;
+    if (!save_check.empty()) {
+        save_check_file.open(save_check);
+        if (!save_check_file) {
+            std::println(stderr, "cannot write {}", save_check.string());
+            return 1;
+        }
+        // Per requested tick: the save's size, the persistent hash saved and
+        // restored and whether they are equal, then each component that
+        // differs; or why the save could not be read.
+        options.on_save_check = [&](std::uint32_t requested, std::uint32_t tick, const sci::vm::SaveCheck& check) {
+            if (check.error) {
+                save_check_file << std::format("{} {} {} error {}\n", requested, tick, check.bytes, *check.error);
+                return;
+            }
+            const bool equal = check.saved.persistent == check.restored.persistent;
+            save_check_file << std::format("{} {} {} {} {} {}\n", requested, tick, check.bytes,
+                                           sci::core::to_hex(check.saved.persistent),
+                                           sci::core::to_hex(check.restored.persistent), equal ? "equal" : "differ");
+            for (std::size_t c = 0; c < check.saved.components.size() && c < check.restored.components.size(); ++c) {
+                if (check.saved.components[c].digest != check.restored.components[c].digest) {
+                    save_check_file << std::format("{} {} component {} differs\n", requested, tick,
+                                                   check.saved.components[c].name);
+                }
+            }
+        };
+    }
     // The game folder's files for kFOpen to read, under lower-case names,
     // and nothing written yet: the reference starts with an empty save folder.
     std::map<std::string, std::vector<std::uint8_t>> game_files;
@@ -510,6 +541,7 @@ int main(int argc, char** argv) {
     opl_file.close();
     midi_file.close();
     state_file.close();
+    save_check_file.close();
     std::println(stderr, "{} kernel calls in {} ticks", result.calls, result.ticks);
     if (result.fault) {
         std::println(stderr, "stopped: {}", *result.fault);
@@ -517,7 +549,7 @@ int main(int argc, char** argv) {
     }
     return trace && (actors.empty() || actor_file) && (parser.empty() || parser_file) &&
                    (layout.empty() || layout_file) && (opl.empty() || opl_file) && (midi.empty() || midi_file) &&
-                   (state_hash.empty() || state_file)
+                   (state_hash.empty() || state_file) && (save_check.empty() || save_check_file)
                ? 0
                : 1;
 }

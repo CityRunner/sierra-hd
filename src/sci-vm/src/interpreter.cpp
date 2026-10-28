@@ -10,6 +10,7 @@
 #include "machine.hpp"
 #include "music.hpp"
 #include "parser.hpp"
+#include "save_game.hpp"
 #include "sci/audio/adlib.hpp"
 #include "sci/audio/mt32.hpp"
 #include "sci/audio/mt32_driver.hpp"
@@ -184,6 +185,34 @@ void report_state(Machine& machine, std::uint32_t tick, const RunOptions& option
     }
 }
 
+// The save round trips due at `tick`: the state saved, then read into a
+// fresh machine on the same game files.
+void check_saves(const resource::ResourceManager& resources, Machine& machine, std::uint32_t tick,
+                 const RunOptions& options, std::size_t& next) {
+    if (!options.on_save_check) {
+        return;
+    }
+    for (; next < options.save_check_ticks.size() && tick >= options.save_check_ticks[next]; ++next) {
+        SaveCheck check;
+        const std::vector<std::uint8_t> file = write_save(machine, "round trip", "sci-vm-trace");
+        check.bytes = file.size();
+        check.saved = state_hash(machine);
+        Subsystems subsystems;
+        subsystems.set_seed(options.seed);
+        subsystems.files().set_store(options.files);
+        Machine fresh(resources, subsystems);
+        subsystems.attach(fresh);
+        if (!fresh.init_game()) {
+            check.error = fresh.faults().message();
+        } else if (const auto restored = read_save(fresh, file); !restored) {
+            check.error = restored.error().message;
+        } else {
+            check.restored = state_hash(fresh);
+        }
+        options.on_save_check(options.save_check_ticks[next], tick, check);
+    }
+}
+
 } // namespace
 
 RunResult run_deterministic(const resource::ResourceManager& resources, const RunOptions& options) {
@@ -209,9 +238,11 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
         }
     };
     std::size_t next_state_hash = 0;
+    std::size_t next_save_check = 0;
     clock.set_advance_hook([&] {
         check_stop();
         report_state(machine, clock.ticks(), options, next_state_hash);
+        check_saves(resources, machine, clock.ticks(), options, next_save_check);
         if (options.on_tick && subsystems.graphics().attached()) {
             Screen& screen = subsystems.graphics().screen();
             options.on_tick(ScreenMaps{
