@@ -109,16 +109,41 @@ public:
 
     [[nodiscard]] bool at_end() const { return position_ == data_.size(); }
 
+    // Marks the content inconsistent; the first message is kept.
+    void fail(std::string message);
+
+    // Reads a component's name and fails unless it is `name`.
+    void begin(std::string_view name);
+
+    // A count of elements of at least `element_bytes` each: fails (and
+    // gives 0) when the rest of the data cannot hold that many.
+    std::size_t count(std::size_t element_bytes);
+
+    // Why reading failed: the first inconsistency, or running out of data.
+    [[nodiscard]] std::string message() const {
+        return message_.empty() && failed_ ? std::string("the state ends early") : message_;
+    }
+
 private:
     std::span<const std::uint8_t> take(std::size_t count);
 
     std::span<const std::uint8_t> data_;
     std::size_t position_ = 0;
     bool failed_ = false;
+    std::string message_;
 };
 
 // Writes the whole VM state, component by component.
 void write_state(Machine& machine, StateWriter& out);
+
+// Reads what write_state wrote into a machine that is attached to its
+// subsystems and initialised (init_game) on the same game files, replacing
+// its state and rebuilding what the stream leaves out
+// (docs/formats/save-format.md). Of the execution component only the
+// counters are taken: a restore re-enters the game through its replay
+// method. False, with the reason in `in`, if the data is inconsistent; the
+// machine must then not run.
+bool read_state(Machine& machine, StateReader& in);
 
 // The hashes of the state write_state writes.
 [[nodiscard]] StateHash state_hash(Machine& machine);

@@ -38,6 +38,7 @@
 namespace sci::vm {
 
 class StateWriter;
+class StateReader;
 class Graphics;
 struct Port;
 
@@ -91,6 +92,8 @@ public:
 
     // Writes its part of the VM state (state.cpp).
     void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
 
 private:
     MenuItemEntry* find_item(std::uint16_t menu_id, std::uint16_t item_id);

@@ -43,6 +43,7 @@
 namespace sci::vm {
 
 class StateWriter;
+class StateReader;
 class ScriptPatcher;
 
 // Whether getting a script's segment loads the script, and whether it
@@ -146,6 +147,8 @@ public:
 
     // Writes its part of the VM state (state.cpp).
     void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
 
 private:
     [[nodiscard]] SegmentId find_free_segment() const;

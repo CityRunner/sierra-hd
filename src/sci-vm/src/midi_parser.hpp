@@ -41,6 +41,7 @@
 namespace sci::vm {
 
 class StateWriter;
+class StateReader;
 class Music;
 struct MusicEntry;
 
@@ -84,6 +85,8 @@ public:
 
     // Writes its part of the VM state (state.cpp).
     void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in, MusicEntry& sound);
 
 private:
     struct EventInfo {

@@ -40,6 +40,7 @@
 namespace sci::vm {
 
 class StateWriter;
+class StateReader;
 class Resources;
 class ScriptPatcher;
 
@@ -106,6 +107,9 @@ public:
 
     [[nodiscard]] LocalVariables* locals_block() const { return locals_block_; }
 
+    // Reconnects the locals after a restore (state_load.cpp).
+    void set_locals_block(LocalVariables* block) { locals_block_ = block; }
+
     [[nodiscard]] std::map<std::uint32_t, Object>& objects() { return objects_; }
 
     [[nodiscard]] const std::map<std::uint32_t, Object>& objects() const { return objects_; }
@@ -142,6 +146,8 @@ public:
 
     // Writes its part of the VM state (state.cpp).
     void save_state(StateWriter& out) const;
+    // Reloads the script from the resources and applies the saved buffer.
+    void load_state(StateReader& in, Resources& resources, const ScriptPatcher* patcher);
 
 private:
     struct Block {

@@ -36,6 +36,7 @@
 namespace sci::vm {
 
 class StateWriter;
+class StateReader;
 class Graphics;
 
 inline constexpr unsigned signal_stop_update = 0x0001U;
@@ -87,6 +88,8 @@ public:
 
     // Writes its part of the VM state (state.cpp).
     void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
 
 private:
     bool invoke(Reg list);

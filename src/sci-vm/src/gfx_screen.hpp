@@ -38,6 +38,7 @@
 namespace sci::vm {
 
 class StateWriter;
+class StateReader;
 
 inline constexpr unsigned mask_visual = 1U;
 inline constexpr unsigned mask_priority = 2U;
@@ -150,6 +151,8 @@ public:
 
     // Writes its part of the VM state (state.cpp).
     void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
 
 private:
     [[nodiscard]] static std::size_t index(int x, int y) {

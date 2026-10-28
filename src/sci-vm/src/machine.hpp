@@ -49,6 +49,7 @@
 namespace sci::vm {
 
 class StateWriter;
+class StateReader;
 class Subsystems;
 
 inline constexpr int vm_stack_size = 0x1000;
@@ -217,6 +218,8 @@ public:
 
     // Writes its part of the VM state (state.cpp).
     void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
 
 private:
     struct Variables {

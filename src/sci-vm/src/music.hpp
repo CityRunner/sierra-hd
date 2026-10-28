@@ -53,7 +53,9 @@
 namespace sci::vm {
 
 class StateWriter;
+class StateReader;
 class Faults;
+class Resources;
 
 enum class SoundStatus : std::uint8_t { Stopped = 0, Initialized = 1, Paused = 2, Playing = 3 };
 
@@ -213,6 +215,8 @@ public:
 
     // Writes its part of the VM state (state.cpp).
     void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in, Resources& resources);
 
 private:
     // A queued device command: a track init if `track_init` is set, else a
