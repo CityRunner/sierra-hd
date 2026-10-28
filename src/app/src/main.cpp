@@ -8,13 +8,16 @@
 //   sierra-hd --version | --help
 //
 // The configuration file sierra-hd.ini and the hint files (hints/) are
-// next to the executable (spec section 10.2).
+// next to the executable (spec section 10.2). The music plays through SDL3
+// audio (milestone 7, audio_output.hpp).
 
+#include "audio_output.hpp"
 #include "file_store.hpp"
 #include "game_screen.hpp"
 #include "sci/core/assert.hpp"
 #include "sci/core/error.hpp"
 #include "sci/core/fp_profile.hpp"
+#include "sci/audio/adlib.hpp"
 #include "sci/core/log.hpp"
 #include "sci/platform/analysis_cache.hpp"
 #include "sci/platform/config.hpp"
@@ -620,6 +623,7 @@ public:
     }
 
     void wait(sci::vm::Game& game, std::uint32_t milliseconds) override {
+        const std::uint64_t wait_start = virtual_;
         virtual_ += milliseconds;
         while (true) {
             SDL_Event event;
@@ -628,6 +632,9 @@ public:
             }
             present(game);
             const std::uint64_t now = SDL_GetTicks() - start_;
+            // The music of the time passed so far in this wait.
+            game.pass_wait(static_cast<std::uint32_t>(std::min<std::uint64_t>(
+                now > wait_start ? now - wait_start : 0, milliseconds)));
             if (now >= virtual_) {
                 // Far behind (a slow machine, a dialog): catch up, no burst.
                 if (now > virtual_ + 250) {
@@ -878,6 +885,30 @@ std::optional<Options> parse_options(std::span<char*> args) {
     return options;
 }
 
+// The music device of the configuration (milestone 7): the AdLib driver with
+// the game's patches through SDL3 audio, or none (the silent driver) when
+// the music is off, the patches cannot be read or there is no audio device.
+std::unique_ptr<sci::app::AudioOutput> open_audio(const sci::resource::ResourceManager& manager,
+                                                  const sci::platform::Config& config) {
+    using sci::platform::MusicDevice;
+    if (config.music == MusicDevice::Off) {
+        return nullptr;
+    }
+    if (config.music == MusicDevice::Mt32) {
+        sci::core::log(sci::core::LogLevel::Warning, sci::core::LogCategory::General,
+                       "music: the MT-32 is not supported yet; playing on the AdLib");
+    }
+    auto patches = sci::audio::load_adlib_patches(manager);
+    if (!patches) {
+        sci::core::log(sci::core::LogLevel::Warning, sci::core::LogCategory::General,
+                       std::format("music: no AdLib patches ({}); the music plays without sound",
+                                   patches.error().message));
+        return nullptr;
+    }
+    return sci::app::AudioOutput::open(std::move(*patches),
+                                       static_cast<double>(config.volume) / sci::platform::max_volume);
+}
+
 // The input events of a replay file; an error message if it cannot be read.
 sci::core::Result<std::vector<sci::vm::InputEvent>> read_replay(const fs::path& path) {
     const std::ifstream file(path, std::ios::binary);
@@ -942,12 +973,15 @@ int run(const Options& options) {
         sci::platform::HdPictures pictures(analysis, executor);
         sci::app::DirectoryFileStore files(base / "files", game->files);
         GameHost host(window.get(), renderer.get(), game->manager, pictures, *config);
+        // Before the game, which sends it note-offs when it goes.
+        const auto audio = open_audio(game->manager, *config);
         // A different seed every time, as ScummVM seeds its random source;
         // a replay's run starts from a known one.
         const std::uint32_t seed = options.replay
                                        ? options.seed.value_or(0)
                                        : options.seed.value_or(static_cast<std::uint32_t>(SDL_GetPerformanceCounter()));
         sci::vm::Game running(game->manager, host, &files, seed);
+        running.set_music_device(audio.get());
         running.schedule(replay);
         if (const auto fault = running.run()) {
             show_error(window.get(), std::format("The interpreter stopped: {}", *fault));

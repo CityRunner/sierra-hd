@@ -61,6 +61,22 @@ std::optional<std::string> apply(ParsedConfig& parsed, std::string_view key, std
             return std::format("scale is auto or 1 to {}", max_scale);
         }
         config.scale = *scale;
+    } else if (key == "music") {
+        if (value == "adlib") {
+            config.music = MusicDevice::Adlib;
+        } else if (value == "mt32") {
+            config.music = MusicDevice::Mt32;
+        } else if (value == "off") {
+            config.music = MusicDevice::Off;
+        } else {
+            return "music is adlib, mt32 or off";
+        }
+    } else if (key == "volume") {
+        const auto volume = parse_int(value);
+        if (!volume || *volume < 0 || *volume > max_volume) {
+            return std::format("volume is 0 to {}", max_volume);
+        }
+        config.volume = *volume;
     } else if (key == "priority_snap") {
         if (value != "on" && value != "off") {
             return "priority_snap is on or off";
@@ -118,6 +134,22 @@ core::Result<ParsedConfig> parse_config(std::string_view text) {
     return parsed;
 }
 
+namespace {
+
+std::string_view music_name(MusicDevice device) {
+    switch (device) {
+    case MusicDevice::Adlib:
+        return "adlib";
+    case MusicDevice::Mt32:
+        return "mt32";
+    case MusicDevice::Off:
+        return "off";
+    }
+    return "adlib";
+}
+
+} // namespace
+
 std::string format_config(const Config& config) {
     const auto path = [](const std::filesystem::path& p) {
         const std::u8string text = p.u8string();
@@ -133,11 +165,16 @@ std::string format_config(const Config& config) {
                        "scale = {}\n"
                        "; on: sprites pass behind the picture in whole 1x pixels, as in the original\n"
                        "priority_snap = {}\n"
-                       "; folder of the MT-32 ROMs (used from milestone 7)\n"
-                       "mt32_rom ={}\n",
+                       "; folder of the MT-32 ROMs\n"
+                       "mt32_rom ={}\n"
+                       "; music device: adlib, mt32 (needs the ROMs, otherwise adlib) or off\n"
+                       "music = {}\n"
+                       "; volume in per cent, 0 to {}\n"
+                       "volume = {}\n",
                        config_format, path(config.game_folder), config.mode == GraphicsMode::Hd ? "hd" : "original",
                        max_scale, config.scale == 0 ? std::string("auto") : std::to_string(config.scale),
-                       config.priority_snap ? "on" : "off", path(config.mt32_rom));
+                       config.priority_snap ? "on" : "off", path(config.mt32_rom), music_name(config.music),
+                       max_volume, config.volume);
 }
 
 } // namespace sci::platform

@@ -1,0 +1,135 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include "audio_output.hpp"
+
+#include "sci/audio/opl3.hpp"
+#include "sci/core/log.hpp"
+
+#include <SDL3/SDL_init.h>
+
+#include <algorithm>
+#include <format>
+#include <utility>
+
+namespace sci::app {
+
+namespace {
+
+constexpr int channels = 2;
+constexpr std::size_t frame_bytes = sizeof(std::int16_t) * channels;
+
+void warn(std::string_view what) {
+    core::log(core::LogLevel::Warning, core::LogCategory::General,
+              std::format("{}: {}; the music plays without sound", what, SDL_GetError()));
+}
+
+} // namespace
+
+std::unique_ptr<AudioOutput> AudioOutput::open(std::vector<audio::AdlibPatch> patches, double volume) {
+    if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+        warn("Cannot start the audio");
+        return nullptr;
+    }
+    // The device's own rate, so that SDL converts nothing; its buffer size
+    // sets the smallest queue.
+    SDL_AudioSpec device{};
+    int device_frames = 0;
+    if (!SDL_GetAudioDeviceFormat(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &device, &device_frames) || device.freq <= 0) {
+        warn("No audio device");
+        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+        return nullptr;
+    }
+    const SDL_AudioSpec spec{.format = SDL_AUDIO_S16, .channels = channels, .freq = device.freq};
+    SDL_AudioStream* stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+    if (stream == nullptr) {
+        warn("Cannot open the audio device");
+        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+        return nullptr;
+    }
+    std::unique_ptr<AudioOutput> output(new AudioOutput(stream, static_cast<std::uint32_t>(device.freq),
+                                                        static_cast<std::size_t>(std::max(device_frames, 0)),
+                                                        std::move(patches), volume));
+    // The device starts paused; it plays the silence queued until the
+    // music comes.
+    if (!SDL_ResumeAudioStreamDevice(stream)) {
+        warn("Cannot start the audio device");
+        return nullptr;
+    }
+    core::log(core::LogLevel::Info, core::LogCategory::General,
+              std::format("audio: {} Hz, device buffer {} frames, queue {} frames", output->rate_, device_frames,
+                          output->target_frames_));
+    return output;
+}
+
+AudioOutput::AudioOutput(SDL_AudioStream* stream, std::uint32_t rate, std::size_t device_frames,
+                         std::vector<audio::AdlibPatch> patches, double volume)
+    : stream_(stream), rate_(rate),
+      target_frames_(std::max<std::size_t>(std::size_t{rate} * target_milliseconds / 1000, device_frames * 3)),
+      driver_(std::move(patches)), mixer_(audio::Opl3::native_rate, rate) {
+    mixer_.set_volume(volume);
+    // Start with the target queue of silence, so that the device does not
+    // run dry before the first timer calls.
+    const std::vector<std::int16_t> silence(target_frames_ * channels, 0);
+    put(silence);
+}
+
+AudioOutput::~AudioOutput() {
+    // Stops SDL's audio thread using the stream and closes the device.
+    SDL_DestroyAudioStream(stream_);
+    SDL_QuitSubSystem(SDL_INIT_AUDIO);
+}
+
+void AudioOutput::send(std::uint32_t message) {
+    driver_.send(message);
+}
+
+void AudioOutput::init_track(std::span<const std::uint8_t> header) {
+    driver_.init_track(header);
+}
+
+void AudioOutput::set_volume(std::uint8_t volume) {
+    driver_.set_volume(volume);
+}
+
+void AudioOutput::play_switch(bool play) {
+    driver_.play_switch(play);
+}
+
+void AudioOutput::on_timer() {
+    driver_.on_timer();
+    ++timer_calls_;
+    // The frames up to the next timer call, without drift (as
+    // sci::vm::render_sound): the chip's output is the deterministic one.
+    const std::uint64_t next = timer_calls_ * audio::Opl3::native_rate / audio::AdlibDriver::timer_frequency;
+    opl_samples_.resize(static_cast<std::size_t>(next - opl_frames_) * channels);
+    opl_frames_ = next;
+    driver_.opl().generate(opl_samples_);
+    const std::size_t queued = queued_frames();
+    mixer_.set_speed(audio::queue_speed(queued, target_frames_));
+    output_samples_.clear();
+    mixer_.process(opl_samples_, output_samples_);
+    // Too far ahead of the device (after a stall the interpreter caught up
+    // on): drop rather than let the delay grow.
+    if (queued + (output_samples_.size() / channels) > target_frames_ * 2) {
+        dropped_frames_ += output_samples_.size() / channels;
+        return;
+    }
+    put(output_samples_);
+}
+
+std::size_t AudioOutput::queued_frames() const {
+    const int bytes = SDL_GetAudioStreamQueued(stream_);
+    return bytes > 0 ? static_cast<std::size_t>(bytes) / frame_bytes : 0;
+}
+
+void AudioOutput::put(std::span<const std::int16_t> frames) {
+    if (frames.empty()) {
+        return;
+    }
+    if (!SDL_PutAudioStreamData(stream_, frames.data(), static_cast<int>(frames.size_bytes()))) {
+        core::log(core::LogLevel::Warning, core::LogCategory::General,
+                  std::format("audio: cannot queue samples: {}", SDL_GetError()));
+    }
+}
+
+} // namespace sci::app

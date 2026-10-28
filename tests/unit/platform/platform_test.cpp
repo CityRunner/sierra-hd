@@ -9,6 +9,7 @@
 #include <vector>
 
 using sci::platform::GraphicsMode;
+using sci::platform::MusicDevice;
 using sci::platform::parse_config;
 
 SCI_TEST(config_reads_its_keys) {
@@ -34,14 +35,29 @@ SCI_TEST(config_reads_priority_snap) {
     SCI_CHECK(!parse_config("[sierra-hd]\nformat = 1\npriority_snap = yes\n").has_value());
 }
 
+SCI_TEST(config_reads_music_and_volume) {
+    const auto defaults = parse_config("[sierra-hd]\nformat = 1\n");
+    SCI_CHECK(defaults.has_value() && defaults->config.music == MusicDevice::Adlib && defaults->config.volume == 100);
+    const auto set = parse_config("[sierra-hd]\nformat = 1\nmusic = off ; silent\nvolume = 40\n");
+    SCI_CHECK(set.has_value() && set->config.music == MusicDevice::Off && set->config.volume == 40);
+    const auto mt32 = parse_config("[sierra-hd]\nformat = 1\nmusic = mt32\n");
+    SCI_CHECK(mt32.has_value() && mt32->config.music == MusicDevice::Mt32);
+    SCI_CHECK(!parse_config("[sierra-hd]\nformat = 1\nmusic = gm\n").has_value());
+    SCI_CHECK(!parse_config("[sierra-hd]\nformat = 1\nvolume = 101\n").has_value());
+    SCI_CHECK(!parse_config("[sierra-hd]\nformat = 1\nvolume = -1\n").has_value());
+}
+
 SCI_TEST(config_round_trips) {
     sci::platform::Config config;
     config.game_folder = "/home/player/laura bow";
     config.scale = 0;
     config.priority_snap = true;
+    config.music = MusicDevice::Off;
+    config.volume = 75;
     const auto parsed = parse_config(sci::platform::format_config(config));
     SCI_CHECK(parsed.has_value() && parsed->config.game_folder == config.game_folder && parsed->config.scale == 0 &&
               parsed->config.mode == GraphicsMode::Hd && parsed->config.priority_snap && parsed->warnings.empty());
+    SCI_CHECK(parsed.has_value() && parsed->config.music == MusicDevice::Off && parsed->config.volume == 75);
 }
 
 SCI_TEST(config_rejects_what_it_cannot_read) {

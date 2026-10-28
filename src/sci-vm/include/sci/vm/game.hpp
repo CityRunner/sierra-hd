@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "sci/audio/midi_device.hpp"
 #include "sci/resource/resource_manager.hpp"
 #include "sci/vm/events.hpp"
 #include "sci/vm/files.hpp"
@@ -35,6 +36,8 @@ public:
 
     // Virtual time is about to pass by `milliseconds`: present `game`'s
     // screen, pass input on, and return once that much real time has passed.
+    // Meanwhile it calls game.pass_wait as real time passes, so the music
+    // plays during the wait.
     virtual void wait(Game& game, std::uint32_t milliseconds) = 0;
     // The date and time of day now, for kGetTime (ScummVM reads the host's).
     [[nodiscard]] virtual LocalTime local_time() = 0;
@@ -78,6 +81,11 @@ public:
     Game(Game&&) = delete;
     Game& operator=(Game&&) = delete;
 
+    // The device the music plays on (milestone 7), set before run(); none
+    // is the silent driver. It must outlive the game, whose player sends it
+    // its last note-offs when it goes.
+    void set_music_device(audio::MidiDevice* device);
+
     // Runs until the game quits; the fault that stopped it, if any.
     std::optional<std::string> run();
 
@@ -87,6 +95,11 @@ public:
     // Input due at game ticks (a replay file), alongside the host's.
     void schedule(std::span<const InputEvent> events);
     void move_mouse(Point position);
+    // In GameHost::wait: `milliseconds` of the wait have passed in real
+    // time. Runs the music timer calls due by then, so the music plays as
+    // real time passes; the interpreter, stopped in the wait, sees the same
+    // calls in the same order as when they all run at the end of the wait.
+    void pass_wait(std::uint32_t milliseconds);
     // Ends the game at its next event poll, as quitting ScummVM does.
     void quit();
 
