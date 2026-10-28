@@ -11,12 +11,15 @@
 //   priority_snap = off ; on: sprites are hidden behind the picture in
 //                       ; whole 1x pixels, as in the original
 //   mt32_rom =
+//   music = adlib      ; adlib, mt32 or off
+//   volume = 100       ; 0 to 100 (per cent)
 //
 // Lines starting with ';' or '#' are comments, and so is the rest of a
 // line after ';' or '#', except in the paths (game_folder, and mt32_rom,
-// the folder of the MT-32 ROMs, used from milestone 7), which may contain
+// the folder of the MT-32 ROMs), which may contain
 // those characters. Unknown keys are reported and ignored, so that a newer
-// file still loads.
+// file still loads; a missing key keeps its default, so that an older file
+// loads too.
 #pragma once
 
 #include "sci/core/error.hpp"
@@ -30,8 +33,15 @@ namespace sci::platform {
 
 inline constexpr int config_format = 1;
 inline constexpr int max_scale = 16;
+inline constexpr int max_volume = 100;
 
 enum class GraphicsMode : std::int8_t { Hd, Original };
+
+// The music device (milestone 7, spec section 8). Off plays the music on
+// the silent driver: the game's timing, signals and cues are the same, with
+// no sound. Mt32 needs the ROMs in mt32_rom and falls back to AdLib without
+// them.
+enum class MusicDevice : std::int8_t { Adlib, Mt32, Off };
 
 struct Config {
     std::filesystem::path game_folder;
@@ -40,6 +50,9 @@ struct Config {
     // HD occlusion edges snapped to the sprite grid (spec section 6.6).
     bool priority_snap = false;
     std::filesystem::path mt32_rom;
+    MusicDevice music = MusicDevice::Adlib;
+    // The output volume in per cent.
+    int volume = max_volume;
 };
 
 struct ParsedConfig {

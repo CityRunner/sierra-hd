@@ -81,7 +81,7 @@ Reg k_do_sound_fade(Machine& machine, std::span<Reg> args) {
 }
 
 Reg k_do_sound_get_polyphony(Machine& machine, std::span<Reg> args) {
-    return Sound::polyphony(machine, args);
+    return machine.subsystems().sound().polyphony(machine, args);
 }
 
 Reg k_do_sound_stop_all(Machine& machine, // NOLINT(misc-const-correctness): the kernel signature.

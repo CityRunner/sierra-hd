@@ -560,7 +560,9 @@ finish between limits, so that each limit costs at most one small task.
 - SDL3, Nuked OPL3 and mt32emu are vendored when they are first needed:
   SDL3 at the end of milestone 3a (the window layer), Nuked OPL3 and mt32emu
   at milestone 7. Their pins are recorded here and in THIRD_PARTY.md at that
-  point. Milestone 0 has no third-party code: its exit criterion is about
+  point. Done for SDL3 (3.4.18), Nuked OPL3 (commit `765ec96`, see
+  "Milestone 7: the OPL core") and mt32emu (2.8.3, see "Milestone 7:
+  mt32emu"). Milestone 0 has no third-party code: its exit criterion is about
   empty libraries, and vendoring early would only add unused code.
   **Assumed:** this does not change the fixed decision itself (spec section 2).
 - `LICENSE` is the GPL v3 text from ScummVM's `COPYING` at the pinned
@@ -1608,6 +1610,667 @@ scripts' bytecode (after the script patches), not from runs:
 - **run-all-scenarios.sh takes `--jobs <n>`.** **Decided.**
 
 ## Milestone 6b approval (2026-10-23)
+
+- The gate is approved as is and merged: the Linux and Windows matrix is
+  green; macOS is optional.
+
+## Milestone SU dropped (2026-10-28)
+
+- The customer dropped sprite undithering (addendum A2, milestone SU)
+  completely. Sprites in HD mode stay the original cels scaled N x N
+  (milestone 6b), and the milestone 9 playthrough is done without
+  undithering. **Decided** by the customer.
+- The SU work was never merged or pushed: the local branch `milestone-su`
+  (detection and threshold tuning) and its git-ignored images are
+  deleted. Milestone 7 started from main without it (2026-10-23, when SU
+  was first put on hold).
+
+## MT-32 ROMs (2026-10-28)
+
+- The customer supplied Roland ROMs. They are kept on the local machine
+  only, outside the repository (`/home/user/roms/roland`), and are never
+  committed or uploaded; CI runs without them. SHA-256:
+  - `MT32_CONTROL.1987-10-07.v1.07.ROM`
+    `a73a06c23ed38370e58a11fb1b86f7ea4c547061a60d7aa62bae446235fd2dff`
+  - `MT32_CONTROL.1988-09-30.vX.XX-patched.ROM`
+    `c088c026ad99e13204ac4aa157052f443c52424cbd6394a82abd60bab4c34b91`
+  - `MT32_PCM.ROM`
+    `d9164063f293410cf33f2f64cdcea6893b44723fe41938e07ec9aef58b406238`
+  - `CM32L_CONTROL.1989-12-05.v1.02.ROM`
+    `08d68695e5bff6bbcbb751d6e4453db9f5ead0b5f41e86480798a04376dfe090`
+  - `CM32L_PCM.ROM`
+    `0dc50190bb7ea3fb212c970346b771a511772b528801e7eda6d27efda8c40698`
+- The milestone 7 checks use the MT-32 1.07 control ROM with the MT-32
+  PCM ROM (the original MT-32 the game was written for); the CM-32L set
+  is checked too, since the spec accepts both. **Decided.**
+
+## Milestone 7: the OPL core (2026-10-23)
+
+- **Nuked OPL3 is vendored at commit
+  `765ec962e473aeb767e4cba74ffdc8f588ffbfe8`** (2026-08-24, version 1.8 in
+  the source), the head of `master`: upstream has no tags, and this commit
+  carries the 2026 fixes for 4-op channels. Only `opl3.c`, `opl3.h` and
+  `LICENSE` exist upstream; they are copied unchanged into
+  `third_party/nuked-opl3/`, with their SHA-256 in its `VENDORED.md`.
+  The reference ScummVM carries a speed-optimised fork of the older commit
+  `cfedb09` (`audio/softsynth/opl/nuked.cpp`, "1.8-fast.2"); the two later
+  commits change only 4-op channels (set up through register 0x104 of the
+  second bank), which an AdLib driver never writes.
+  ScummVM's output is resampled to its mixer rate, so it is compared by
+  ear, not sample by sample (spec section 12). **Decided.**
+- **Licence:** LGPL 2.1 or later, compatible with the program's GPL v3 or
+  later (LGPL 2.1 section 3, and LGPL 3 being GPL v3 plus permissions); the
+  licence text goes into the release archives. Recorded in THIRD_PARTY.md.
+  **Decided.**
+- **Build:** a static C99 library `sci_nuked_opl3`
+  (`cmake/SciThirdParty.cmake`), built in every configuration including the
+  ARM64 test build without app (the C compiler is now named in the aarch64
+  toolchain file too). Like SDL3 it gets the global floating-point and
+  sanitizer flags but not the project's warning set, so its warnings never
+  fail the build; its header is included as a system header, only in
+  `src/sci-audio/src/opl3.cpp`. Only sci-audio links it. **Decided.**
+- **Determinism:** with `OPL_ENABLE_STEREOEXT=0` (the default, set
+  explicitly) the core has no floating point: the only `sin` and `double`
+  in `opl3.c` are in the stereo extension's panning table, which is also
+  its only mutable global. Everything else is constant tables and state in
+  `opl3_chip`, so instances are independent. The core relies on the
+  arithmetic right shift of negative values (implementation-defined in C),
+  which Clang does on every target. Golden hashes are taken at the native
+  rate (49716 Hz) with `OPL3_Generate`, not `OPL3_GenerateResampled`:
+  resampling is free under spec section 8 and belongs to the mixer.
+  **Decided.**
+- **Register writes** go through Nuked's write buffer
+  (`OPL3_WriteRegBuffered`), as in ScummVM's Nuked wrapper: a write applies
+  at the next sample but at least 2 samples (about 40 us) after the
+  previous one, close to the real bus delays a driver's wait loops honour,
+  and still a pure function of the write and sample sequence. An immediate
+  write is kept for tests. **Assumed:** the AdLib driver (next task) checks
+  this against ScummVM's output by ear.
+- The released-note floor: an operator at full attenuation whose phase
+  still runs outputs -1 on its negative half-wave, as on the chip; a chip
+  that never had a key-on outputs exact zeros. **Decided** (behaviour of
+  the emulator, tested).
+
+## Milestone 7: the AdLib driver (2026-10-23)
+
+- **Ported:** `MidiDriver_AdLib` and `MidiPlayer_AdLib`
+  (`engines/sci/sound/drivers/adlib.cpp`) as `sci::audio::AdlibDriver`,
+  with the dual OPL2 of ScummVM's Nuked wrapper (`OPL::init`, `OPL::write`,
+  `OPL::dualWrite` in `audio/softsynth/opl/nuked.cpp`); in sci-vm's player
+  the driver-facing parts of `MidiParser`, `MidiParser_SCI` and `SciMusic`
+  (`sendToDriver`, `allNotesOff`, `activeNote`, `sendInitCommands`,
+  `initTrack`, the command queue). **Decided.**
+- **SCI0 late, as for the player** (milestone 4a: ScummVM detects late SCI0
+  sound for this game): play mask 0x04, 9 voices (`_numVoiceMax`; 8 only in
+  SCI0 early), and the late `initTrack` header (per channel a voice count
+  and a play mask; channels with the AdLib bit 0x04 get their voices). The
+  early header and the SCI1 parts (velocity tables, channel volumes in the
+  velocity, extra and donated voices, the SCI1.1 rhythm key map with
+  `findVoiceLateSci11` and its voice queue, which nothing else reads) are
+  not ported. **Decided.**
+- **Device interface:** `sci::audio::MidiDevice` (send, init_track,
+  set_volume, play_switch, on_timer), the part of ScummVM's `MidiPlayer`
+  the SCI0 player calls. The silent driver is no device: the player drops
+  the calls. **Decided.**
+- **No device-dependent choice in the player.** ScummVM's player asks the
+  driver for its play mask, rhythm channel (the channel filter), polyphony
+  (kDoSound GetPolyphony), timer rate (the music timing) and reverb. The
+  silent driver already reports the AdLib driver's values (milestone 4a),
+  and `music.cpp` checks with static assertions that they equal
+  `AdlibDriver`'s, so timing, signals and cues are identical with and
+  without the device (tested, and the boot, intro and bedroom-wait
+  scenarios are unchanged). The MT-32 driver reports other values in
+  ScummVM (another play mask, a rhythm channel, more voices); the MT-32
+  task decides how the timing follows the device. **Decided** for AdLib.
+- **The command queue is kept.** As in ScummVM, MIDI messages and track
+  inits sent from kDoSound (ScummVM's main thread) wait until the next
+  music timer call, which sends them before it plays the songs; the
+  global volume and the play switch reach the device at once. In ScummVM
+  this is thread safety; here it gives the same order of device calls, a
+  pure function of the VM's timing. **Decided.**
+- **Parser behaviour towards the device:** the channel volume (controller
+  7) is scaled by the song's volume; all notes off sends a note off for
+  every note the parser started on the timer, then controllers 0x7B and
+  0x40 on all 16 channels (SCI0 maps every channel); init commands go to
+  the channels the song uses, the control channel 15 included; the track
+  init is sent on every play, also of a paused song (ScummVM bug #11476).
+  Not ported: state tracking and channel remapping (`remapChannels`
+  returns at once for SCI0), hanging notes (SCI notes have no length and
+  the parser makes no smart jumps, so none arise), SysEx (the AdLib driver
+  ignores it and reports no delay). **Decided.**
+- **Stereo:** ScummVM opens the driver on a dual OPL2 (`STEREO` true): the
+  left chip is bank 0 of the OPL3 with its channels on the left output
+  (0xC0-0xC8 ORed with 0x50), the right chip bank 1 on the right (0xA0);
+  0x105 = 1 is written at once (not through the bus delay) after the reset;
+  register 5 is never written and waveforms are masked to the four OPL2
+  ones. Panning lowers the level of one side, as the driver does.
+  **Decided.**
+- **Patches:** patch resource 3; without it the bank in ADL.DRV of the
+  early drivers (5684, 5720 or 5727 bytes, at 0x45A); neither is an error
+  (ScummVM: "Failed to initialize sound driver"). The game has patch.003
+  of 2690 bytes (96 instruments) in RESOURCE.001; its ADL.DRV (8997 bytes)
+  is not a size ScummVM reads. The SCI1.1 bank (5382 bytes) is refused as
+  not SCI0. `ResourceManager::file` gives the ADL.DRV bytes. **Decided.**
+- **Out-of-bounds reads of ScummVM are skipped:** a voice that never played
+  (channel -1) or has no patch yet (before the first track init) writes no
+  frequency or level, where ScummVM reads outside its arrays. No sound of
+  the game reaches these paths in the reference's normal flow (every play
+  starts with a track init). **Assumed.**
+- **Rhythm:** the SCI0 AdLib driver has no rhythm channel
+  (`hasRhythmChannel` false, the OPL rhythm register 0xBD stays 0); channel
+  9 plays only with its AdLib play mask bit, as a melodic channel.
+  **Decided.**
+- **Rendering for the golden hashes:** `sci::vm::render_sound` (sci-vm,
+  where the player is) plays one sound resource from its start on a new
+  driver: a music timer call, then the OPL frames up to the next call
+  (frame `floor(n * 49716 / 250)` starts call n), as ScummVM's OPL stream
+  calls its callback and then generates; ScummVM's fixed-point step at the
+  mixer rate is not reproduced (resampling is free). It stops when the
+  song ends (no release tail) or at the frame limit, with loop count 1 and
+  the game's start master volume 11. `tools/sound-render` prints the frames,
+  calls, peak and SHA-256 per sound; all 119 sound resources of the game
+  render, none silent (the quietest, sound 99, peaks at 35; 84 end within
+  20 seconds), the same twice. **Decided** (the next task picks the hashed
+  set).
+- The device is attached in the program by the next task ("Milestone 7:
+  mixer and audio output").
+
+## Milestone 7: the OPL comparison and the sound golden hashes (2026-10-28)
+
+- **OPL register logs in both engines.** Patch 0003 writes every register
+  write of ScummVM's AdLib driver (`MidiDriver_AdLib::setRegister`) to
+  `SIERRA_HD_OPL=<file>`; `sci-vm-trace --opl <file>` plays the music on
+  `AdlibDriver` (otherwise the silent driver) and writes ours from the
+  driver's write hook, at the same level: the value the driver writes to
+  the port, before the dual OPL2's masks. Format and time key in
+  `docs/formats/replay-and-trace.md`, "OPL files". **Decided.**
+- **Time key: the music timer call.** Both engines run the music timer on
+  the virtual clock, once per 4000 us, on the interpreter's thread, so the
+  number of timer calls made is the same at every point of a run; a write
+  carries the count when it is made (0 for the driver's start-up). The
+  OPL sample position was not used: the reference's chip generates in the
+  audio thread at the mixer's pace, not on the virtual clock. **Decided.**
+- **The reference's note ageing moves onto the virtual clock.** ScummVM
+  ages the notes (by which `findVoice` picks the voice for a new note) in
+  `MidiDriver_AdLib::onTimer`, called by the OPL chip's callback in the
+  audio thread; in the deterministic mode that callback now does nothing
+  and the virtual clock calls the ageing right after each music timer call,
+  as our `Music::on_timer` calls `AdlibDriver::on_timer`. Without it the
+  voice choice would depend on the host's audio timing. **Decided.**
+- **Result:** the logs match in boot (3600 ticks, seed 0: 1286 writes over
+  timer calls 0 to 14933, 200 key-ons), intro (30000 ticks: 81604 writes
+  over timer calls 0 to 118318, 11622 key-ons) and bedroom-wait (20000
+  ticks: 1040 writes over timer calls 0 to 13141, 118 key-ons), with all
+  six other comparisons matching too. No port bug showed up. The
+  comparison is the seventh in `run-scenario.sh` (on by default,
+  `SIERRA_HD_COMPARE_OPL=0` skips it). **Decided.**
+- **No per-sound comparison with the reference:** ScummVM cannot play one
+  sound resource alone without new engine code (a sound object, kDoSound
+  calls, the main loop), so the in-game comparison stands for it; the
+  intro plays the game's main themes. **Decided.**
+- **Golden hashes:** all 119 sound resources, each rendered with
+  `render_sound` for its first 20 seconds (84 end sooner), SHA-256 of the
+  samples at 49716 Hz in `tests/golden/sounds.txt`
+  (`sci-sound-render --golden <file> [--check]`). They match on x86-64
+  (release, about 35 s; the same as the debug build) and on ARM64 (the
+  cross-aarch64 build under qemu-user, about 3 minutes). Like the picture
+  hashes they need the game and run locally, not in CI. **Decided.**
+
+## Milestone 7: mixer and audio output (2026-10-28)
+
+- **Who runs what.** The interpreter, the music player, the AdLib driver,
+  the OPL chip and the mixer all run on the main thread; SDL's audio
+  thread only plays (spec section 4.3). After each music timer call the
+  chip generates the frames up to the next call (frame
+  `floor(n * 49716 / 250)` starts call n, as in `render_sound`), the mixer
+  converts them to the device's rate, and they are put into an
+  `SDL_AudioStream` bound to the default playback device
+  (`src/app/src/audio_output.cpp`, a `MidiDevice` wrapping the driver).
+  The stream, locked inside SDL, is the only thing the threads share;
+  there is no state of ours that both touch. The other design (the audio
+  thread generating the chip's output and applying register writes queued
+  with sample stamps) was not taken: it needs our own lock-free queue and
+  gives no lower latency, since the writes only exist once the main
+  thread has run the timer. **Decided.**
+- **The timer calls follow real time during waits.** Virtual time passes
+  only in `Clock::advance`, which calls the host's wait and then ran all
+  the timer calls of the wait at its end: a 100 ms kWait would make 100 ms
+  of music at once, after 100 ms of nothing, and need over 100 ms of
+  queue. Now the host calls `Game::pass_wait(elapsed)` while it waits, and
+  `Clock::run_music_in_wait` runs the calls due by then. The interpreter is
+  stopped in the wait and the timer does not read the clock, so it sees
+  the same calls in the same order; the deterministic runs have no wait
+  hook and do not change (unit test
+  `clock_runs_the_music_timer_during_a_wait`; scenarios below).
+  **Decided.**
+- **Clocks and latency.** The timer calls follow the wall clock
+  (`SDL_GetTicks`, which the host's virtual time tracks); the device plays
+  by its own crystal. The stream's queue is held near a target of
+  max(60 ms, three device buffers): `queue_speed` changes the mixer's
+  resampling step in proportion to the queue's error, by at most 0.2 %
+  (3.5 cents, inaudible), which absorbs any drift the two clocks can have.
+  New audio is dropped above twice the target (after a stall the
+  interpreter then catches up on, so the music stays in step with the
+  game), and the device plays silence when the queue runs dry (a stall of
+  the main thread longer than the queue). The queue starts filled with the
+  target of silence. Latency from a timer call to the speaker is the
+  queue plus SDL's device buffer: about 60 to 100 ms (70 ms plus a 23 ms
+  buffer with the 1024-frame buffers SDL reports at 44100 Hz). Pausing
+  is the game's own (kDoSound pause stops the notes; the timer and the
+  output go on). **Decided.**
+- **Resampler: 4-point cubic Hermite (Catmull-Rom),** in double (spec
+  section 5.3 allows no float). Four multiply-adds per sample; its passband
+  is much flatter than linear interpolation's (which ScummVM's default
+  rate converter uses, and which loses about 3 dB at a third of the input
+  rate), and the OPL's energy above 22 kHz, which a 44100 Hz output folds
+  back, is small. A windowed-sinc polyphase filter would cost several
+  times more for no audible gain on this signal. The mixer also applies
+  the volume and clips to 16 bits; it is not deterministic across
+  platforms and does not need to be (spec section 8). Tests: output length
+  at 22050 to 96000 Hz, a 440 Hz sine within 4 steps at 48000 Hz, a 5 kHz
+  sine within 1 % in level at 44100 Hz, silence, volume, clipping, the
+  speed correction (`tests/unit/audio/mixer_test.cpp`). **Decided.**
+- **Configuration** (format 1 unchanged; a file without the new keys gets
+  the defaults): `music = adlib | mt32 | off` (default `adlib`; `mt32`
+  falls back to AdLib with a warning without usable ROMs, see "the MT-32 driver"; `off` is the
+  silent driver, with the same timing and no audio device) and
+  `volume = 0..100` (per cent, default 100). Without an audio device, or
+  without patch.003, the program logs a warning and plays on the silent
+  driver. Under CI or Xvfb `SDL_AUDIODRIVER=dummy` plays into a device
+  that consumes at the real rate. **Decided.**
+- **Threads under TSan:** `sci-audio-output-tests` (label `threads`) opens
+  the output on SDL's dummy driver and drives the driver from the main
+  thread for half a second of timer calls while SDL's thread pulls: clean
+  under TSan (three runs), and no frame dropped. **Decided.**
+- **Smoke test** (`SDL_AUDIODRIVER=disk`, Xvfb, debug build, 40 s with the
+  container's start-up): SDL reported 44100 Hz with 1024-frame buffers,
+  queue 3072 frames. The file held 24.7 s of 16-bit stereo: silence until
+  the title music started at 1.06 s, then music to the end (RMS about 1100
+  to 1400 per half second, peak 4506, no clipped sample, zero crossings
+  that change with the notes). One gap: 57 ms of silence at 2.89 s cut into
+  a waveform that continues unchanged after it, an underrun (the main
+  thread stalled longer than the queue early in the title, in the debug
+  build); no other run of exact zeros. The customer listens to it on real
+  hardware later. **Assumed** (no sound card here).
+- **Game behaviour unchanged:** boot (3600 ticks, seed 0) and intro
+  (30000 ticks) match the reference in all seven comparisons, the OPL
+  writes as before (boot 1286 writes over timer calls 0 to 14933, intro
+  81604 over 0 to 118318). **Decided.**
+- ~~Open:~~ a long stall of the main thread (for example an HD picture
+  analysed on room entry, up to about 0.5 s in a slow build) still empties
+  the queue and is heard as a gap; the music then resumes in step. Done,
+  see "Milestone 7: gaps in the music".
+
+## Milestone 7: gaps in the music (2026-10-28)
+
+- **Measured** (the main loop instrumented per wait: time in the
+  interpreter, in `HdPictures`, in the composition and in the
+  presentation, and the queue; Xvfb, `SDL_AUDIODRIVER=disk`, 44100 Hz,
+  1024-frame buffers, queue target 3072 frames = 70 ms; analysis cache
+  built). Three causes:
+  1. **HD pictures were made on the main thread, inside the wait** (the
+     host's present). Debug build: 1888 and 1861 ms for the title's two
+     pictures at N = 3, the music generation stopped meanwhile. Release:
+     14 to 16 ms (N = 3), no gap by itself.
+  2. **The first presentation set the renderer up** (texture, first
+     draw): 88 ms in release (69 ms in the presentation), 123 ms in debug,
+     right after the audio had started.
+  3. **After an underrun the queue stayed short.** A stall that leaves
+     the host more than 250 ms behind is dropped by the host (no catch-up,
+     "Milestone 4a"), so the queue was never refilled: after the start-up
+     stalls the debug build ran with 4 to 20 ms of queue instead of 70, and
+     every later hiccup was a gap (56.7 ms at 5.80 s after an 81 ms run of
+     the interpreter; 10.5 ms at 13.85 s after 28 ms of interpreter and
+     39 ms of composition, debug). This is also what the earlier captures
+     heard (57 ms at 2.89 s; 14 + 11 ms near 7.07 s; MT-32 35 ms at
+     7.91 s). The release capture (75 s) had no gap of 1 ms or more, but its
+     queue was down to 5 to 12 ms and it clicked at 70 to 74 s.
+  The ordinary frames are short: release 1 to 2 ms of interpreter and up
+  to 9 ms of presentation per wait (27 ms once); debug up to 28 ms of
+  interpreter and 17 to 44 ms of composition.
+- **Fix 1: HD pictures on a thread of their own.**
+  `HdPictures::request` (the program; `get` stays synchronous for the
+  tools) renders a stack that is not kept on a `BackgroundTask` (one
+  `std::async` thread, one stack at a time, the one asked for last next;
+  the rendering itself still spreads over the executor). The main thread
+  only polls. Spec section 4.3 already puts this work on worker threads;
+  the analysis cache and the executor are only used from that thread in
+  the program. **What is shown meanwhile:** the frame shown stays (as
+  before, when the main thread was busy) for up to 1 s, the room-entry
+  budget ("Milestone 3"); after that the new picture is shown at 1x
+  (`GameFrame::update` with `hold` off composes it without HD images)
+  until the HD images come, and then everything is composed again in HD.
+  A blocky flash at every room entry was the alternative and was not
+  taken; on the reference machine the HD images take well under the
+  second, so only slow builds (debug: 1.8 s) see the 1x picture. The
+  interpreter, the music, the input and the timing go on all the while:
+  nothing the interpreter sees depends on the HD images, so deterministic
+  runs and the timing of signals and cues are unchanged. Tests:
+  `background_task_hands_its_result_to_the_owner` (label `threads`,
+  TSan), `pending_hd_images_hold_the_frame_or_show_the_picture_at_1x`.
+  **Decided.**
+- **Fix 2: the renderer is set up before the music.** The host presents a
+  black frame at the window's N when it is made, before the audio opens.
+  **Decided.**
+- **Fix 3: the queue is topped up after an underrun.** SDL's audio thread
+  counts in an atomic the bytes it wanted and did not find (the stream's
+  get callback; it does nothing else). When the host is in time again
+  (in a wait, about to sleep, so all the music due is made and no
+  catch-up burst follows), `AudioOutput::recover` tops the queue up to the
+  target with silence if the device went without for a quarter of the
+  target or more. The gap that was there grows by up to the target (at
+  most 70 ms more of silence), and the queue has its margin again. A
+  shorter underrun (a few frames with the queue low) is left to the speed
+  correction: topping up would turn a click into a gap. A stall shorter
+  than 250 ms needs no top-up: the host catches up and the queue refills
+  itself. When that catch-up overfills the queue (above twice the
+  target), new audio is now dropped until the queue is back at the target
+  (one cut), not only while it is above the limit (a cut at every timer
+  call around it). Test: `audio_output_tops_the_queue_up_after_an_underrun`
+  (dummy driver, label `threads`). **Decided.**
+- **No larger queue.** The target stays max(60 ms, three device buffers)
+  (latency about 70 ms plus SDL's buffer, unchanged): with the three fixes
+  the longest stall left in a release build is a single presentation of
+  under 30 ms, and a larger queue would only hide stalls, not remove them.
+  **Decided.**
+- **Why it holds.** On a normal machine in a release build the main
+  thread's longest work between two waits is now an interpreter step and
+  a frame (a few ms, at most about 30 ms here), well under the 70 ms
+  queue; the long work runs elsewhere. On a very slow machine (or a debug
+  build) a frame can still take longer than the queue: the music then has
+  a gap, the host drops the lag beyond 250 ms, and the queue is topped up
+  so that one stall costs one gap, not a stream of them.
+- **Verified** (after the fixes; same setup, 60 to 70 s from the start:
+  the title and the change to the intro's first room, pictures 992 and
+  88; `tools/audio-gaps/find_gaps.py`, gaps of 1 ms or more that cut into
+  the waveform, and jumps):
+  - release, AdLib: no gap, no jump (two runs). MT-32: no gap (two runs);
+    no jump in the instrumented run, which dropped 72 ms twice when the
+    queue reached twice the target (the capture's clock, below), and one
+    jump at 35.87 s in the final run, the same kind of drop.
+  - debug, AdLib: no gap, no jump; MT-32: one gap of 39 ms at 1.09 s (the
+    title picture shown at 1x after the 1 s hold: a full composition of
+    72 ms in debug) and one jump at 50.07 s (dropped audio, see below).
+  The disk driver paces itself with whole-millisecond `SDL_Delay`s, so its
+  clock is off by a few tenths of a per cent (1024 frames: about 0.5 %
+  fast), more than the 0.2 % speed correction absorbs: a long capture
+  drifts towards an empty or a full queue and then clicks or drops. That
+  is the capture's clock, not a sound card's (crystals are within about
+  0.01 %); the captures use `SDL_AUDIO_DEVICE_SAMPLE_FRAMES=1020`, which
+  comes closer. The captures are in `reports/images/audio/`
+  (`m7-title-music-adlib-nogaps.wav`, `m7-title-music-mt32-nogaps.wav`,
+  release; git-ignored). **Assumed** (no sound card here).
+- **Game behaviour unchanged:** boot (3600 ticks, seed 0) and intro
+  (30000 ticks) match the reference in all seven comparisons, with the
+  same OPL writes as before (boot 1286 over timer calls 0 to 14933, intro
+  81604 over 0 to 118318). **Decided.**
+
+## Milestone 7: mt32emu (2026-10-28)
+
+- **libmt32emu 2.8.3 is vendored**, tag `libmt32emu_2_8_3`, commit
+  `3b05ec276f9e605af86b0eaef7f5eda43477a31f` (2026-06-06), the latest
+  library release (the tags were renamed from `mt32emu_x_y_z` at 2.8.0; the
+  reference ScummVM carries 2.7.0). Only the synthesiser core is copied,
+  unchanged, from upstream's `mt32emu/src/` to `third_party/mt32emu/mt32emu/`:
+  no file streams, MIDI stream parser, resamplers, C interface, version
+  tagging or tests. A hand-written `config/config.h` replaces the one
+  upstream's CMake generates (static, C++ API only, no version tagging).
+  SHA-256 of every file in `third_party/mt32emu/VENDORED.md`. **Decided.**
+- **Licence:** LGPL 2.1 or later, compatible with GPL v3 or later as for
+  Nuked OPL3 (THIRD_PARTY.md); its `sha1/` is BSD 3-clause, also
+  compatible. `COPYING.LESSER.txt` and the SHA-1 notice go into the release
+  archives (`scripts/package-release.sh`). **Decided.**
+- **Build:** the static C++20 library `sci_mt32emu`
+  (`cmake/SciThirdParty.cmake`), on every platform including the ARM64 test
+  build, with the global floating-point and sanitizer flags, its warnings
+  off (`-w`, `/w` under clang-cl) and its headers as system headers, linked
+  privately by sci-audio and included only in `src/sci-audio/src/mt32.cpp`.
+  C++20 because the renderer shifts negative values left
+  (`Synth.cpp`), defined since C++20 and undefined before: built as C++17,
+  the ASan + UBSan build stopped there with the ROMs. As C++20 the
+  sci-audio tests are clean under ASan + UBSan with and without ROMs.
+  The code has no `try` or `throw`, so it builds without exceptions. For
+  clang-cl the only MSVC-specific code is `#pragma pack` and
+  `__declspec(align(1))` in `Structures.h` (both accepted by clang-cl) and
+  the DLL export attributes, off in a static build; `_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES`
+  is defined as upstream does for MSVC. **Assumed:** the Windows build is
+  checked by the next Windows CI run (not built here).
+- **The wrapper** `sci::audio::Mt32` (`sci/audio/mt32.hpp`) takes the ROMs as
+  bytes: sci-audio does no file I/O, so app reads the files from the
+  configured folder (the driver task). mt32emu identifies them by size and
+  SHA-1; the model is CM-32L for its `ctrl_cm32l*` control ROMs and MT-32
+  otherwise. Errors: an unknown file or a ROM of the wrong kind
+  (InvalidData), half a ROM image, or a pair that does not belong together
+  (Unsupported). Output at 32000 Hz (coarse analogue mode, as in ScummVM)
+  through mt32emu's integer renderer (its default); MIDI at once
+  (`playMsgNow`) or queued at a frame, with mt32emu's MIDI cable delay
+  (1 ms for 3 bytes) for short messages. mt32emu's report handler, which
+  prints to stdout, is replaced by one that keeps the display text only.
+  **Decided.**
+- **ROMs identified** (customer's set, "MT-32 ROMs" above): MT-32 control
+  1.07 as `ctrl_mt32_1_07` "MT-32 Control v1.07" with `pcm_mt32` "MT-32
+  PCM ROM"; CM-32L control 1.02 as `ctrl_cm32l_1_02` "CM-32L/LAPC-I Control
+  v1.02" with `pcm_cm32l` "CM-32L/CM-64/LAPC-I PCM ROM". The MT-32 control
+  ROM with the CM-32L PCM ROM is refused (mt32emu expects the 512 KB PCM
+  ROM). **Decided** (tested).
+- **Floating point:** the integer renderer uses floating point only to
+  build mt32emu's tables at start-up (`log`, `exp2`, `sin` rounded to
+  integers), the pan factors, the output gain factors and the MIDI cable
+  delay in samples. The spec requires determinism of the OPL core only
+  (section 8); mt32emu is not hashed. **Decided.**
+- **Determinism:** mt32emu calls the C library's `rand()` (`TVP.cpp`, a
+  0 to 3 sample jitter of the pitch timer, which the real unit's MCU
+  shows), so its output is a function of the ROMs, the input and
+  `rand()`'s state: two synthesisers fed the same in one process differ,
+  and after `srand(1)` they are the same (tested on x86-64 and on ARM64
+  under qemu). The C libraries' `rand()` differ, so the output differs
+  between platforms. The project's own code never calls `rand()` (a
+  clang-tidy rule), so the game logic is not affected; mt32emu calls it on
+  the thread that renders, which is the main thread. **Decided**; MT-32
+  output is never hashed. **Open:** whether the MT-32 driver's tests want
+  bit-exact output (they can seed `rand()` first, as the unit test does).
+- **Behaviour seen in the tests** (MT-32 1.07): idle output is exact
+  zeros; a released note decays to a floor of about 2 steps that stays;
+  master volume 0 attenuates by about 44 dB, not to silence; a key struck
+  again while its note still sounds keeps that note's level.
+- **ROMs in the tests:** `SIERRA_HD_MT32_ROMS` names the folder; without it
+  the ROM tests pass with a "skipped" note (CI). Locally the folder is
+  mounted read-only (`SIERRA_HD_MOUNTS=/home/user/roms/roland:/roms`); no
+  file from it is in the worktree. **Decided.**
+- **Since done:** the SCI0 MT-32 driver, the ROM folder in the
+  configuration and the fallback to the AdLib ("Milestone 7: the MT-32
+  driver").
+
+## Milestone 7: the MT-32 driver (2026-10-28)
+
+- **Ported:** the SCI0-late path of `MidiPlayer_Midi`
+  (`engines/sci/sound/drivers/midi.cpp`) for an emulated MT-32, as
+  `sci::audio::Mt32Driver` on `sci::audio::Mt32`: `open` (the reset SysEx
+  0x7F0000, then `readMt32Patch` on patch.001: the second display text,
+  the master volume 0x100016 (cut to 100), patches 1-48, the timbres,
+  patches 49-96 after 0xABCD, the rhythm key map and partial reserve after
+  0xDCBA, the first text, the "mystery" SysEx 0x52000A), `close` (the
+  goodbye text), `initTrack` (the default reverb, then the part
+  assignment 0x10000D from the play masks of channels 1-8 and the rhythm
+  flag of channel 9), `send`/`noteOn`/`controlChange`/`setPatch`
+  (programs, volume scaled by the master volume, notes dropped on a
+  channel without a program except on the rhythm channel, no programs on
+  the rhythm channel, aftertouch and 0x4B dropped), `setVolume`,
+  `playSwitch`, `setReverb` and `sysEx` as `MidiDriver_MT32::sysEx`
+  (audio/softsynth/mt32.cpp) hands them on: the driver's SysEx messages are
+  written straight into the synthesiser's memory (mt32emu's `writeSysex`,
+  no header or checksum check), as in ScummVM. Not ported: the General
+  MIDI mapping (its maps are the identity for an MT-32, so only the
+  "no program yet" rule remains), the D-110, the KQ4/LSL2 text order, the
+  early-SCI0 MT32.DRV bank and the SysEx delays (an emulated MT-32 has
+  none). `isMt32GmPatch`'s format check is kept: a GM-format patch is
+  Unsupported, data of neither format InvalidData (ScummVM errors out).
+  **Decided.**
+- **Out-of-range reverb:** ScummVM indexes its reverb table with any value;
+  -1 (a song's controller 0x50 = 127 while the global reverb is still -1)
+  would read before it. The value is stored and nothing is sent.
+  **Assumed** (as for the AdLib's out-of-bounds reads).
+- **Timing of the MIDI:** messages reach mt32emu at once (`playMsgNow`,
+  `writeSysex`) during the timer call, and the 128 frames up to the next
+  call (32000 / 250) are rendered after it, so everything a call sends
+  takes effect at that call's first frame, with no MIDI cable delay: as
+  ScummVM, which opens mt32emu in `MIDIDelayMode_IMMEDIATE` and generates
+  the samples after the timer callback (`MidiDriver_Emulated::readBuffer`).
+  One difference: ScummVM queues short messages (`playMsg`) and writes
+  SysEx at once, so within one timer call a SysEx (the part assignment of
+  a track init) overtakes the short messages queued before it; here all
+  arrive in the order sent, as on the real MT-32. **Assumed:** the
+  comparison with ScummVM (next task) checks whether this is audible.
+- **Player choices per device.** As ScummVM's `SciMusic`, the player now
+  asks the device (`MidiDevice::player_choices`): play mask, voices,
+  rhythm channel. The AdLib and the silent driver keep 0x04, 9 voices, no
+  rhythm channel (static assertions); the MT-32 reports 0x01, 32 voices
+  and the rhythm channel. The timer rate is not asked: ScummVM's emulated
+  MIDI drivers run at 250 calls a second (`MidiDriver_Emulated::_baseFreq`)
+  as the OPL does (static assertion). What changes with the MT-32:
+  - *Which channels play* (`getChannelFilterMask`): channels with bit 0x01
+    instead of 0x04, and channel 9 always. Signals, the loop point, holds,
+    cues and the end are on the control channel 15, which every device
+    plays; events of filtered channels are dropped with their delta times
+    added to the next kept event, so the ticks of everything kept, and the
+    song's length, are the same. Checked on all 119 sounds: the signals
+    and cues (timer call, signal, cumulative cue) and the timer calls to
+    the end are identical on both devices (`sci-sound-render all 60`).
+    Reverb controllers on a filtered channel set the song's reverb only on
+    the device that plays it; the reverb is not visible to SCI0 scripts.
+  - *kDoSound GetPolyphony* returns 32 instead of 9: visible to the
+    scripts. The game calls it once (script 16, offset 0x422) and only
+    compares the result with 3 (PC speaker), so both devices take the same
+    branch; the kernel-call trace of a run on the MT-32 shows 32 there.
+    The deterministic scenario runs stay on the AdLib (or silent) driver.
+  - *SysEx in songs* now reach the device (ScummVM's `MidiParser` sends
+    them; the AdLib ignores them, so the OPL output is unchanged). The
+    parser reads their length as ScummVM does (a VLQ after 0xF0); no sound
+    of the game has one in its MT-32 channels (no SysEx warning in the
+    119-sound run).
+  **Decided.**
+- **Configuration and fallback:** `mt32_rom` (format 1 unchanged) is the
+  folder of the ROMs, as the spec's "path in the configuration": one key,
+  and the user's dumps can keep their names. Every `*.rom` file (any case,
+  at most 1 MiB) is identified by content (`identify_mt32_rom`, mt32emu's
+  size and SHA-1 list); the MT-32 1.07 control ROM is preferred, then
+  other MT-32 versions, then the CM-32L (and CM-32LN), in file-name order
+  among equals, each with a PCM ROM of its model (`sci::platform::
+  open_mt32_roms`, `choose_music_device`). With the customer's folder the
+  1.07 is chosen; the patched MT-32 control ROM is not known to mt32emu
+  and is passed over. No folder, no known control ROM, no matching PCM ROM
+  or a pair mt32emu refuses: a warning in the log and the AdLib. A
+  patch.001 that cannot be read: a warning and the AdLib too; no
+  patch.001: the MT-32 plays without it (as ScummVM for SCI0 late). The
+  ROMs chosen are logged. **Decided.**
+- **rand():** the program seeds it once at start with 1 (`main.cpp`), the
+  sound tool before each MT-32 sound; the project's own code never calls
+  `rand()`, so this only fixes mt32emu's pitch jitter. **Decided.**
+- **Mixer and output:** `AudioOutput` takes either driver with its
+  renderer and native rate; the mixer resamples 32000 Hz as it does 49716
+  Hz. The AdLib path is unchanged (OPL writes and golden hashes below).
+  **Decided.**
+- **Rendering:** `sci::vm::render_sound` on an `Mt32Driver` and
+  `render_sound_mt32` (a new synthesiser per sound with the game's
+  patch.001); `sci-sound-render --device mt32 --roms <folder>`; both
+  devices print the signals and cues (count and SHA-256).
+- **Result (MT-32 1.07):** all 119 sound resources play to their end or
+  for 60 s without an error or warning from the driver or mt32emu (no
+  unknown MIDI event, no SysEx). 105 end within
+  60 s; all are audible except sound 128, whose only channel (14) is no
+  MT-32 part (the SCI0 driver assigns channels 1-9 only, as ScummVM and
+  Sierra's driver do; on the AdLib it plays). The quietest audible one,
+  sound 12, peaks at 394; sound 77 reaches full scale (32767) in
+  mt32emu's own output. The run takes under a minute in the debug build.
+  **Decided.**
+- **Not checked yet:** a comparison with ScummVM's MT-32 output by ear
+  (mt32emu 2.8.3 against ScummVM's 2.7.0, the volume curve) and the
+  CM-32L by ear. The messages sent, the parts assigned per song and the
+  reordering are compared in "the MT-32 comparison" below.
+
+## Milestone 7: the MT-32 comparison (2026-10-28)
+
+- **MIDI logs in both engines.** Patch 0003 writes every message
+  `MidiPlayer_Midi` hands to its MIDI driver (`_driver->send`, and
+  `_driver->sysEx` in `sysExNoDelay`) to `SIERRA_HD_MIDI=<file>`, before
+  `MidiDriver_MT32` and mt32emu's queue, keyed by the music timer call as
+  the OPL log (0 for the driver's open). `sci-vm-trace --music mt32
+  [--roms <folder>] [--midi <file>]` runs the deterministic VM on
+  `Mt32Driver` and writes ours through the new `Mt32Driver::Log::on_send`
+  hook, which sees each message at the same level: a channel message as
+  its 2 or 3 bytes, the driver's SysEx whole (header 41 10 16 12, address,
+  data, checksum, as `sendMt32SysEx` builds it). With `--roms` the driver
+  feeds a synthesiser on the ROMs the program would choose (nothing
+  renders it; the log does not depend on it). Format in
+  `docs/formats/replay-and-trace.md`, "MIDI files". **Decided.**
+- **ScummVM's ROMs:** ScummVM opens `CM32L_CONTROL.ROM`/`CM32L_PCM.ROM`,
+  then `MT32_CONTROL.ROM`/`MT32_PCM.ROM`, from its search path. The
+  reference gets `--extrapath` on a folder outside the repository
+  (`/home/user/roms/mt32-scummvm`) with relative symbolic links under those
+  names to the MT-32 1.07 control ROM and the MT-32 PCM ROM of
+  `/home/user/roms/roland`, mounted as `/roms` (its log: "Falling back to
+  MT32"). No CM-32L names there, so the MT-32 1.07 plays, as on our side.
+  **Decided.**
+- **`run-scenario.sh` with `SIERRA_HD_MUSIC=mt32`** runs both engines on
+  the MT-32 (`--music-driver=mt32`) and compares the MIDI logs
+  (`compare-midi.py`) in place of the OPL writes, with the other six
+  comparisons unchanged. **Decided.**
+- **Result:** all seven comparisons match: boot (3600 ticks, seed 0:
+  12022 calls, 417 messages over timer calls 0 to 15007, 101 note-ons, 68
+  SysEx), intro (30000 ticks: 227303 calls, 14638 messages over 0 to
+  125001, 5244 note-ons, 93 SysEx) and bedroom-wait (20000 ticks: 119178
+  calls, 1165 messages over 0 to 83346, 55 note-ons, 75 SysEx). The open
+  (reset, patch.001 upload, texts), the reverb and part assignment of
+  every song, the goodbye text at the end and every channel message are
+  the same bytes in the same order at the same timer call. No port bug
+  showed up. A changed byte in one line makes the comparison fail
+  (checked). The AdLib runs are unchanged (boot: all seven comparisons,
+  1286 OPL writes). GetPolyphony is not called in these three runs (the
+  game calls it once, in script 16), so its 32 is not in their traces;
+  both engines return 32 (`MidiPlayer_Midi::kVoices`). **Decided.**
+- **The SysEx ordering stays as sent.** The logs match because both are
+  taken at the driver's send point; below it ScummVM reorders: its
+  `MidiDriver_MT32` queues channel messages (`playMsg`, played at the
+  start of the next rendered buffer) and writes SysEx into the
+  synthesiser at once (`writeSysex`), so within a timer call a SysEx
+  overtakes the channel messages sent before it. This happens at song
+  starts: the old song's all-notes-off, hold-off and pitch-bend resets,
+  then the new song's reverb and part assignment (boot 1 timer call,
+  intro 13, bedroom-wait 4). Replaying the logs on a model of the parts
+  (part assignment, note-ons, note-offs, 0x7B) shows the effect: in
+  ScummVM's order the note-offs of that call reach the parts of the new
+  assignment, so notes of the old song are left on (intro: timer calls
+  3508, 4199, 60674 and 70449, 1 to 6 notes each; bedroom-wait: 3508)
+  until their timbre decays; in the order sent none are. That is a
+  ScummVM artefact, not the behaviour of an MT-32 or of Sierra's driver
+  (a real MT-32 receives the bytes serially), so ours keeps the order
+  sent (`playMsgNow`, `writeSysex`). **Decided.**
+- **End-to-end smoke** (debug build, Xvfb, `SDL_AUDIODRIVER=disk`, 40 s,
+  warm analysis cache), `music = mt32`, `mt32_rom = /roms/roland`: the
+  program logs "music: MT-32 on the MT-32 Control v1.07
+  (MT32_CONTROL.1987-10-07.v1.07.ROM) and the MT-32 PCM ROM
+  (MT32_PCM.ROM)"; 29.8 s of 44100 Hz 16-bit stereo, silence until the
+  title music starts at 2.87 s, then music to the end (RMS 370 to 1090 per
+  half second, peak 4583, no clipped sample), and one 35 ms run of exact
+  zeros at 7.91 s cut into a full-level waveform (an underrun, as in the
+  AdLib smoke). The same with `music = adlib`: 30.4 s, music from 2.13 s,
+  RMS about 1000 to 1370, peak 4510, gaps of 14 and 11 ms at 7.07 s. The
+  captures are `reports/images/audio/m7-title-music-mt32-capture.wav` and
+  `m7-title-music-adlib-capture-2.wav` (ignored by the repository) for
+  the customer's listening. **Assumed** (no sound card here).
+
+## Milestone 7: the customer's answers (2026-10-28)
+
+- **By-ear comparison:** the customer listened to our captures and
+  ScummVM's of the title music, on AdLib and on the MT-32, and found that
+  they sound fine.
+- **Room entry while the HD picture is made:** holding the previous frame
+  up to 1 s, then showing the picture at 1x until the HD image is ready,
+  is accepted.
+- **MT-32 ROMs:** MT-32 1.07 first, then CM-32L; the patched control ROM,
+  which mt32emu does not know, is skipped. Confirmed.
+
+## Milestone 7 approval (2026-10-28)
 
 - The gate is approved as is and merged: the Linux and Windows matrix is
   green; macOS is optional.

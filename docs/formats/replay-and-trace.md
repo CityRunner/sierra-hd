@@ -71,6 +71,21 @@ and compares the traces; the reference side is the patch
   saved box and cursor operation writes its layout in 1x screen
   coordinates, in the format below. `tools/vm-trace/compare-layout.py`
   compares two such files.
+- **AdLib driver** (milestone 7). The reference ages the AdLib driver's
+  notes (`MidiDriver_AdLib::onTimer`, by which it picks the voice a new
+  note takes) right after each music timer call of the virtual clock,
+  instead of on the OPL chip's callback in the audio thread.
+- **OPL** (milestone 7). With `SIERRA_HD_OPL=<file>` (reference) or
+  `--opl <file>` (sci-vm-trace, which then plays the music on its AdLib
+  driver), every OPL register write the AdLib driver makes is written in
+  the format below. `tools/vm-trace/compare-opl.py` compares two such
+  files.
+- **MIDI** (milestone 7). With `SIERRA_HD_MIDI=<file>` (reference, run with
+  `--music-driver=mt32`) or `--music mt32 --midi <file>` (sci-vm-trace,
+  which then plays the music on its MT-32 driver), every message the SCI
+  MT-32 driver sends towards the synthesiser is written in the format of
+  "MIDI files" below. `tools/vm-trace/compare-midi.py` compares two such
+  files.
 
 ## Replay files
 
@@ -224,3 +239,59 @@ written as it happens (milestone 6b):
 | `cursor shape <id>` | `hotspot=`, `image=` 16 rows of 16 pixels separated by `/`: `0` black, `f` white, `.` transparent | kSetCursor with a cursor |
 | `cursor show`, `cursor hide` | | the cursor shown or hidden (kSetCursor, the menus) |
 | `cursor pos <x>,<y>` | | kSetCursor with a position, as the script gave it (in the current port) |
+
+## OPL files
+
+One line per register write of the SCI0 AdLib driver, in the order the
+driver makes them (ScummVM's `MidiDriver_AdLib::setRegister`; in sci-vm
+`sci::audio::AdlibDriver::set_register`):
+
+    0 0bd 00
+    0 1bd 00
+    74 041 80
+    74 141 80
+
+- The first field is the **time key**: the number of music timer calls made
+  so far on the virtual clock (0 before the first; a call is counted when
+  it starts). Both engines run the music timer once per 4 ms of virtual
+  time on the interpreter's thread, so a write made in timer call n (a
+  queued MIDI command, a note the song plays) and a write made by a kernel
+  call after it (the volume, the play switch) both carry n. The driver's
+  start-up writes carry 0.
+- The second is the register in three hex digits: `0xx` for the left OPL2
+  (ports 0x220/0x221, bank 0 of the OPL3), `1xx` for the right one (ports
+  0x222/0x223, bank 1). The driver writes each register to the left chip,
+  then the right one, except the panned levels, written per side.
+- The third is the value in two hex digits, as the driver writes it: before
+  the dual OPL2 masks the waveform (0xE0-0xE8) and sets the output bits of
+  0xC0-0xC8, and with writes to register 5 (which the dual OPL2 drops)
+  included. The chip's 0x105 = 1, written by the OPL setup and not by the
+  driver, is not listed.
+
+`sci-sound-render --opl <file>` writes the same lines for one sound played
+alone, keyed by its own timer calls.
+
+## MIDI files
+
+One line per message the SCI0 MT-32 driver sends towards the synthesiser,
+in the order the driver sends them, at the point where ScummVM's
+`MidiPlayer_Midi` hands them to its MIDI driver (`_driver->send`,
+`_driver->sysEx`: before `MidiDriver_MT32` and mt32emu's queue); in sci-vm
+`sci::audio::Mt32Driver::Log::on_send`:
+
+    0 41 10 16 12 7f 00 00 01 00 00
+    0 41 10 16 12 10 00 16 64 76
+    8 41 10 16 12 10 00 0d 01 02 10 10 10 10 10 10 10 70
+    8 c1 09
+    1637 92 4b 00
+
+- The first field is the time key, as in "OPL files": the number of music
+  timer calls made so far (0 for the driver's start-up, before the first).
+- Then the message's bytes, two hex digits each. A channel message is its
+  status and data bytes: two for a program change (`cn`) or channel
+  pressure (`dn`), three otherwise (a note-off is a note-on with velocity
+  0, as the driver sends it). A SysEx message is written as handed to
+  `MidiDriver::sysEx`, without F0 and F7: the driver's own (reset, patch
+  upload, display texts, master volume, reverb, part assignment) as the
+  Roland header `41 10 16 12`, the three address bytes, the data and the
+  checksum.

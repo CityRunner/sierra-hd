@@ -203,6 +203,31 @@ SCI_TEST(music_timer_runs_once_per_tempo_and_sleep_polls_first) {
     SCI_CHECK(clock.ticks() == 1);
 }
 
+SCI_TEST(clock_runs_the_music_timer_during_a_wait) {
+    // The program's host runs the timer calls as real time passes in a wait
+    // (milestone 7); the calls and the time after the wait are the same as
+    // without it.
+    Clock clock;
+    int timer_calls = 0;
+    std::vector<int> seen;
+    clock.set_music_timer([&] { ++timer_calls; }, 4000);
+    clock.set_wait_hook([&](std::uint32_t milliseconds) {
+        SCI_CHECK(milliseconds == 17);
+        clock.run_music_in_wait(5);
+        seen.push_back(timer_calls);
+        clock.run_music_in_wait(9);
+        seen.push_back(timer_calls);
+        clock.run_music_in_wait(100); // Beyond the wait: up to its end.
+        seen.push_back(timer_calls);
+        SCI_CHECK(clock.millis() == 0); // The interpreter's time waits.
+    });
+    clock.advance(17);
+    SCI_CHECK((seen == std::vector{1, 2, 4}));
+    SCI_CHECK(timer_calls == 4 && clock.millis() == 17);
+    clock.run_music_in_wait(100); // Outside a wait: nothing.
+    SCI_CHECK(timer_calls == 4);
+}
+
 SCI_TEST(random_source_matches_the_reference_trace) {
     // Seed 0 becomes 1; the reference's first kRandom calls in the game are
     // Random(0,599) = 483 and Random(0,999) = 883 (build/traces, seed 0).

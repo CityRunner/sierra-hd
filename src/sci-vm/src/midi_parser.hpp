@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The SCI0 MIDI parser: plays the song data of a sound resource on the
-// music timer and raises the signals and cues that scripts wait for. Only
-// what reaches scripts is kept (timing, signals, cues, loops, holds); the
-// driver is silent, so the MIDI messages themselves go nowhere. Ported from
+// music timer and raises the signals and cues that scripts wait for, and
+// sends its MIDI messages to the player's device (Music::send), which drops
+// them when there is none (the silent driver). Ported from
 // ScummVM (https://www.scummvm.org) at revision
 // ed949213a23440447ea402e263daa871394b6bf9, from:
 //   audio/midiparser.{h,cpp} (MidiParser, one track with one subtrack),
@@ -31,6 +31,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -59,9 +60,15 @@ public:
     void set_master_volume(std::uint8_t volume);
     void set_volume(std::uint8_t volume);
 
-    void send_init_commands() { volume_ = 127; }
+    // MidiParser_SCI::sendInitCommands: resets the channels the song uses.
+    void send_init_commands();
+    // MidiParser_SCI::initTrack: the header goes to the device.
+    void init_track();
 
-    void stop() { abort_parse_ = true; }
+    void stop() {
+        abort_parse_ = true;
+        all_notes_off();
+    }
 
     void pause();
 
@@ -113,6 +120,19 @@ private:
     bool process_event(const EventInfo& info, bool fire_events = true);
     bool process_base_event(const EventInfo& info, bool fire_events);
     void stop_playing();
+    // MidiParser_SCI::sendToDriver, SCI0: the channel volume follows the
+    // song's volume; channels are not remapped.
+    void send_to_driver(std::uint32_t midi);
+
+    void send_to_driver(std::uint8_t status, std::uint8_t first, std::uint8_t second) {
+        send_to_driver(status | (static_cast<std::uint32_t>(first) << 8U) |
+                       (static_cast<std::uint32_t>(second) << 16U));
+    }
+
+    // MidiParser::activeNote, without hanging notes: SCI notes have no
+    // length and the parser makes no smart jumps.
+    void active_note(std::uint8_t channel, std::uint8_t note, bool active);
+    void all_notes_off();
 
     void set_tempo(std::uint32_t tempo) { psec_per_tick_ = tempo; } // _ppqn is 1.
 
@@ -132,6 +152,9 @@ private:
     std::uint8_t master_volume_ = 15;
     std::uint8_t volume_ = 127;
     bool reset_on_pause_ = false;
+    // The channels of each note playing, as bits.
+    std::array<std::uint16_t, 128> active_notes_{};
+    std::array<bool, 16> channel_used_{};
 };
 
 } // namespace sci::vm

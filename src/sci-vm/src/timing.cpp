@@ -26,6 +26,8 @@
 
 #include "timing.hpp"
 
+#include <algorithm>
+
 namespace sci::vm {
 
 void Clock::set_music_timer(std::function<void()> timer, std::uint32_t tempo_microseconds) {
@@ -50,16 +52,26 @@ void Clock::read_elapsed(std::uint64_t call) {
 }
 
 void Clock::advance(std::uint32_t milliseconds) {
+    wait_start_ = microseconds_;
+    wait_end_ = microseconds_ + (static_cast<std::uint64_t>(milliseconds) * 1000);
     if (wait_hook_) {
         wait_hook_(milliseconds);
     }
-    microseconds_ += static_cast<std::uint64_t>(milliseconds) * 1000;
-    while (music_timer_ && tempo_ != 0 && music_due_ <= microseconds_) {
-        music_due_ += tempo_;
-        music_timer_();
-    }
+    microseconds_ = wait_end_;
+    run_music_timer(microseconds_);
     if (advance_hook_) {
         advance_hook_();
+    }
+}
+
+void Clock::run_music_in_wait(std::uint32_t milliseconds) {
+    run_music_timer(std::min(wait_start_ + (static_cast<std::uint64_t>(milliseconds) * 1000), wait_end_));
+}
+
+void Clock::run_music_timer(std::uint64_t until) {
+    while (music_timer_ && tempo_ != 0 && music_due_ <= until) {
+        music_due_ += tempo_;
+        music_timer_();
     }
 }
 

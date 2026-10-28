@@ -6,6 +6,7 @@
 #include "files.hpp"
 #include "graphics.hpp"
 #include "machine.hpp"
+#include "sound.hpp"
 #include "subsystems.hpp"
 #include "timing.hpp"
 
@@ -33,6 +34,10 @@ Game::Game(const resource::ResourceManager& resources, GameHost& host, FileStore
 }
 
 Game::~Game() = default;
+
+void Game::set_music_device(audio::MidiDevice* device) {
+    state_->subsystems.sound().set_device(device);
+}
 
 std::optional<std::string> Game::run() {
     Machine& machine = state_->machine;
@@ -84,6 +89,10 @@ void Game::schedule(std::span<const InputEvent> events) {
 
 void Game::move_mouse(Point position) {
     state_->subsystems.events().set_mouse(position);
+}
+
+void Game::pass_wait(std::uint32_t milliseconds) {
+    state_->subsystems.clock().run_music_in_wait(milliseconds);
 }
 
 void Game::quit() {

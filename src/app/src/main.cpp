@@ -8,10 +8,14 @@
 //   sierra-hd --version | --help
 //
 // The configuration file sierra-hd.ini and the hint files (hints/) are
-// next to the executable (spec section 10.2).
+// next to the executable (spec section 10.2). The music plays through SDL3
+// audio (milestone 7, audio_output.hpp).
 
+#include "audio_output.hpp"
 #include "file_store.hpp"
 #include "game_screen.hpp"
+#include "sci/audio/adlib.hpp"
+#include "sci/audio/mt32_driver.hpp"
 #include "sci/core/assert.hpp"
 #include "sci/core/error.hpp"
 #include "sci/core/fp_profile.hpp"
@@ -22,6 +26,7 @@
 #include "sci/platform/game_frame.hpp"
 #include "sci/platform/hd_pictures.hpp"
 #include "sci/platform/identify.hpp"
+#include "sci/platform/mt32_roms.hpp"
 #include "sci/platform/thread_executor.hpp"
 #include "sci/view/cursor.hpp"
 #include "sci/vm/events.hpp"
@@ -36,6 +41,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -596,12 +602,26 @@ sci::app::KeyPress key_press(const SDL_KeyboardEvent& key) {
 // the input on, until the wait's real time has passed.
 class GameHost final : public sci::vm::GameHost {
 public:
+    // How long the frame shown is kept while the HD images of a new picture
+    // are made: the room-entry budget (docs/ASSUMPTIONS.md, "Milestone 3").
+    static constexpr std::uint64_t hd_hold_milliseconds = 1000;
+
     GameHost(SDL_Window* window, SDL_Renderer* renderer, const sci::resource::ResourceManager& manager,
              sci::platform::HdPictures& pictures, sci::platform::Config& config)
         : window_(window), renderer_(renderer), manager_(&manager), presenter_(renderer), config_(&config),
           screen_([&pictures](std::span<const sci::vm::ShownPicture> stack, std::span<const sci::vm::ShownLine> lines,
-                              int scale) { return pictures.get(stack, lines, scale); }),
-          start_(SDL_GetTicks()) {}
+                              int scale) { return pictures.request(stack, lines, scale); }),
+          start_(SDL_GetTicks()) {
+        // A black frame: the first presentation sets the renderer up (tens
+        // of milliseconds, over 100 in a debug build), here before the
+        // music starts rather than as a stall in it.
+        const int scale = scale_for_window();
+        const std::vector<std::uint8_t> black(static_cast<std::size_t>(sci::app::screen_width) *
+                                                  sci::app::screen_height * static_cast<std::size_t>(scale) *
+                                                  static_cast<std::size_t>(scale) * 4,
+                                              0);
+        presenter_.present(black, scale, {});
+    }
 
     [[nodiscard]] sci::vm::LocalTime local_time() override {
         const auto now = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
@@ -620,6 +640,7 @@ public:
     }
 
     void wait(sci::vm::Game& game, std::uint32_t milliseconds) override {
+        const std::uint64_t wait_start = virtual_;
         virtual_ += milliseconds;
         while (true) {
             SDL_Event event;
@@ -628,6 +649,9 @@ public:
             }
             present(game);
             const std::uint64_t now = SDL_GetTicks() - start_;
+            // The music of the time passed so far in this wait.
+            game.pass_wait(static_cast<std::uint32_t>(
+                std::min<std::uint64_t>(now > wait_start ? now - wait_start : 0, milliseconds)));
             if (now >= virtual_) {
                 // Far behind (a slow machine, a dialog): catch up, no burst.
                 if (now > virtual_ + 250) {
@@ -635,9 +659,17 @@ public:
                 }
                 return;
             }
+            // In time: all the music due is made, so an underrun since the
+            // last wait can be made up for (AudioOutput::recover).
+            if (audio_ != nullptr) {
+                audio_->recover();
+            }
             SDL_Delay(static_cast<std::uint32_t>(std::min<std::uint64_t>(virtual_ - now, 4)));
         }
     }
+
+    // The music's output, told when the host is in time (nullptr: none).
+    void set_audio(sci::app::AudioOutput* audio) { audio_ = audio; }
 
 private:
     [[nodiscard]] int scale_for_window() const {
@@ -725,7 +757,7 @@ private:
     void present(sci::vm::Game& game) {
         const sci::vm::ShownScreen shown = game.screen();
         const int scale = scale_for_window();
-        if (!redraw_ && shown.serial == last_serial_ && scale == screen_.scale()) {
+        if (!redraw_ && shown.serial == last_serial_ && scale == screen_.scale() && !screen_.hd_pending()) {
             update_cursor(shown, scale);
             // A drawn cursor that moved is drawn again.
             if (presenter_.draws_cursor() && std::exchange(pointer_moved_, false)) {
@@ -733,7 +765,17 @@ private:
             }
             return;
         }
-        screen_.update(shown, config_->mode, scale, config_->priority_snap);
+        // A picture whose HD images are being made: the frame shown stays
+        // for up to hd_hold_milliseconds, then the picture is shown at 1x
+        // until they come (HdPictures::request).
+        const std::uint64_t ticks = SDL_GetTicks();
+        if (!screen_.waiting()) {
+            hold_start_ = ticks;
+        }
+        screen_.update(shown, config_->mode, scale, config_->priority_snap, ticks - hold_start_ < hd_hold_milliseconds);
+        if (screen_.waiting()) {
+            return;
+        }
         std::vector<sci::app::Rect> dirty;
         for (const sci::render::PixelRect& rect : screen_.take_dirty()) {
             dirty.push_back(sci::app::Rect{.x = rect.x, .y = rect.y, .width = rect.width, .height = rect.height});
@@ -830,6 +872,8 @@ private:
     sci::platform::GameFrame screen_;
     std::uint64_t start_;
     std::uint64_t virtual_ = 0;
+    std::uint64_t hold_start_ = 0;
+    sci::app::AudioOutput* audio_ = nullptr;
     std::uint64_t last_serial_ = ~std::uint64_t{0};
     bool redraw_ = true;
     sci::vm::Point last_mouse_{.x = 160, .y = 100};
@@ -876,6 +920,44 @@ std::optional<Options> parse_options(std::span<char*> args) {
         return std::nullopt;
     }
     return options;
+}
+
+// The music device of the configuration (milestone 7): the MT-32 driver on
+// the user's ROMs with the game's patch.001, or the AdLib driver with the
+// game's patches (also when the MT-32 cannot be opened), through SDL3
+// audio; or none (the silent driver) when the music is off, the patches
+// cannot be read or there is no audio device.
+std::unique_ptr<sci::app::AudioOutput> open_audio(const sci::resource::ResourceManager& manager,
+                                                  const sci::platform::Config& config) {
+    using sci::platform::MusicDevice;
+    sci::platform::MusicChoice choice = sci::platform::choose_music_device(config);
+    if (!choice.log.empty()) {
+        sci::core::log(choice.warning ? sci::core::LogLevel::Warning : sci::core::LogLevel::Info,
+                       sci::core::LogCategory::General, choice.log);
+    }
+    if (choice.device == MusicDevice::Off) {
+        return nullptr;
+    }
+    if (choice.device == MusicDevice::Mt32) {
+        auto patch = sci::audio::load_mt32_patch(manager);
+        if (patch) {
+            const double volume = static_cast<double>(config.volume) / sci::platform::max_volume;
+            return sci::app::AudioOutput::open(std::make_unique<sci::audio::Mt32Driver>(std::move(choice.mt32), *patch),
+                                               volume);
+        }
+        sci::core::log(
+            sci::core::LogLevel::Warning, sci::core::LogCategory::General,
+            std::format("music: the MT-32 patch cannot be read ({}); playing on the AdLib", patch.error().message));
+    }
+    auto patches = sci::audio::load_adlib_patches(manager);
+    if (!patches) {
+        sci::core::log(
+            sci::core::LogLevel::Warning, sci::core::LogCategory::General,
+            std::format("music: no AdLib patches ({}); the music plays without sound", patches.error().message));
+        return nullptr;
+    }
+    return sci::app::AudioOutput::open(std::move(*patches),
+                                       static_cast<double>(config.volume) / sci::platform::max_volume);
 }
 
 // The input events of a replay file; an error message if it cannot be read.
@@ -942,12 +1024,16 @@ int run(const Options& options) {
         sci::platform::HdPictures pictures(analysis, executor);
         sci::app::DirectoryFileStore files(base / "files", game->files);
         GameHost host(window.get(), renderer.get(), game->manager, pictures, *config);
+        // Before the game, which sends it note-offs when it goes.
+        const auto audio = open_audio(game->manager, *config);
         // A different seed every time, as ScummVM seeds its random source;
         // a replay's run starts from a known one.
         const std::uint32_t seed = options.replay
                                        ? options.seed.value_or(0)
                                        : options.seed.value_or(static_cast<std::uint32_t>(SDL_GetPerformanceCounter()));
         sci::vm::Game running(game->manager, host, &files, seed);
+        running.set_music_device(audio.get());
+        host.set_audio(audio.get());
         running.schedule(replay);
         if (const auto fault = running.run()) {
             show_error(window.get(), std::format("The interpreter stopped: {}", *fault));
@@ -973,6 +1059,11 @@ int main(int argc, char** argv) {
     }
     sci::core::set_assertion_handler(&print_assertion);
     sci::core::set_log_sink(&print_log);
+    // mt32emu's pitch jitter is the only user of rand() (the program's own
+    // code never calls it); a fixed seed makes it the same in every run.
+    // NOLINTBEGIN(bugprone-unsafe-functions,bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+    std::srand(1);
+    // NOLINTEND(bugprone-unsafe-functions,bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
     // Spec section 5.3: the floating-point profile, on the main thread too.
     if (const auto profile = sci::core::check_fp_profile(); !profile) {
         std::println(stderr, "{}", profile.error().message);

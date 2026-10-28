@@ -17,9 +17,9 @@ purpose and invariants:
 | sci-vector | Vector analysis of PIC (path 2): planar graph, gap closing, faces, fallbacks, curve fitting (done, milestone 3), hints (done, milestone 3a), stroke integrity (milestone 3b) | sci-core, sci-pic |
 | sci-view | View, loop and cel decoding (done, milestone 2); SCI0 cursors (milestone 6b) | sci-core, sci-resource |
 | sci-text | Fonts (done, milestone 2), messages, vocabulary, Said | sci-core, sci-resource |
-| sci-audio | Sound playback, silent driver, AdLib, MT-32, mixer | sci-core, sci-resource |
+| sci-audio | Sound playback, silent driver, AdLib (the OPL core on Nuked OPL3 and the SCI0 driver, milestone 7), MT-32, mixer | sci-core, sci-resource; Nuked OPL3 and mt32emu (vendored) |
 | sci-render | HD rasteriser (done, milestone 3), original mode, acceptance check, A1 checks (milestone 3b), composition of the game screen (milestone 5) | sci-core, sci-pic, sci-vector, sci-view |
-| sci-vm | Bytecode interpreter, objects, kernel functions, the 1x graphics they drive, the music player with a silent driver, events, virtual clock, random source (boot gate, milestone 4a) | sci-core, sci-resource, sci-pic, sci-view, sci-text |
+| sci-vm | Bytecode interpreter, objects, kernel functions, the 1x graphics they drive, the music player with a silent driver or a sci-audio device (milestone 7), events, virtual clock, random source (boot gate, milestone 4a) | sci-core, sci-resource, sci-pic, sci-view, sci-text, sci-audio |
 | sci-platform (in `src/app/platform`) | The parts of app without a window, shared with the tools: thread executor, game-folder reading, release identification, configuration file, hint loading (done, milestone 3a), analysis cache (milestone 4b), the HD images of the picture shown and the game's frame (milestone 5) | sci-core, sci-resource, sci-pic, sci-vector, sci-render, sci-vm |
 | app (`sierra-hd`) | Window, input, presentation (the room viewer at release v0.1), saves, cache | all libraries |
 
@@ -48,6 +48,8 @@ program:
   against the game, and turns review decisions into hint files.
 - `vm-trace`: runs the game in sci-vm's deterministic mode, writes the
   kernel-call trace and compares it with the reference's (milestone 4).
+- `sound-render`: plays sound resources through the music player and the
+  AdLib driver and prints a hash of the OPL output (milestone 7).
 - `hd-frames`: runs the game without a window on virtual time and writes
   the frames the program would show at chosen ticks, original and HD side
   by side, and measures the composition time (milestone 5).
@@ -60,9 +62,11 @@ program:
   cycle, or an unknown target, fails at configure time.
 - Each library's `include/` directory is public and its `src/` directory is
   private. Another library cannot include another library's internals.
-- External dependencies are not accepted by `sci_add_library` at all. When
-  SDL3 arrives (milestone 3a), a separate helper will admit it for app and
-  the audio output only (spec section 4.2).
+- External dependencies are not accepted by `sci_add_library` at all. The
+  vendored libraries (`cmake/SciThirdParty.cmake`) are linked by name only
+  where spec section 4.2 allows them: SDL3 by app (which holds the audio
+  output too, `src/app/src/audio_output.cpp`), Nuked OPL3 and mt32emu privately by sci-audio, whose public
+  headers do not include them.
 - The dependencies listed above are the planned edges that are already
   needed. Edges such as sci-vm to sci-audio (sound kernel calls) are added
   when the code needs them, and the declaration order keeps the graph
@@ -79,8 +83,11 @@ program:
    and the hint files into a vector scene. sci-render rasterises it at
    320N x 190N, once per room, and composites sprites, text and windows per
    frame.
-4. sci-audio plays sound resources on the audio thread; signals and cues go
-   back to the VM.
+4. sci-vm's music player plays the sound resources on the virtual clock
+   (signals and cues go back to the scripts) and sends MIDI to a sci-audio
+   device; in the program the AdLib driver's chip output is mixed to the
+   device rate on the main thread and handed to SDL's audio thread through
+   an `SDL_AudioStream` (milestone 7).
 5. app presents the frame with dirty rectangles and feeds input to the VM in
    1x coordinates.
 
@@ -217,8 +224,10 @@ Two entry points run the game:
 - `Game` (`include/sci/vm/game.hpp`) runs it for the program, on the
   calling (main) thread. Wherever virtual time would pass, sci-vm calls
   `GameHost::wait`; the host presents `Game::screen()`, passes input on
-  with `Game::input` and returns when that much real time has passed. The
-  host also gives the local time. Replays can be scheduled into a run.
+  with `Game::input` and returns when that much real time has passed,
+  calling `Game::pass_wait` meanwhile so that the music timer calls due
+  run as real time passes (milestone 7). The host also gives the local
+  time. Replays can be scheduled into a run.
 
 ## The program
 

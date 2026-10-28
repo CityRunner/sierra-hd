@@ -124,6 +124,11 @@ patterned walls, roofs, arches and round objects.
 
 ## A2: Sprite undithering (2026-10-21)
 
+**Withdrawn (2026-10-28).** The customer dropped A2 and milestone SU
+completely: sections 1.1, 2, 6.5 and 12 apply as before A2, sprites stay
+as in the original scaled N x N, and the milestone 9 playthrough is done
+without undithering. The text below is kept as a record only.
+
 A2 adds milestone SU and section 6.11. It amends section 1.1 and the output
 decision in section 2 (a fixed decision: **changed with the customer's
 approval**, given with this addendum), and sections 6.5 (shared colour

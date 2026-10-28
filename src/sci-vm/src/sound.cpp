@@ -64,6 +64,7 @@ Sound::~Sound() = default;
 
 void Sound::attach(Machine& machine) {
     music_ = std::make_unique<Music>(machine.faults());
+    music_->set_device(device_);
     // SciMusic::init: in the deterministic mode the virtual clock runs the
     // music timer once per base tempo of the driver.
     machine.subsystems().clock().set_music_timer([this] { music_->on_timer(); }, music_->tempo());
@@ -302,7 +303,7 @@ Reg Sound::fade(Machine& machine, std::span<Reg> args) {
 }
 
 Reg Sound::polyphony(Machine& /*machine*/, std::span<Reg> /*args*/) {
-    return number(Music::voices());
+    return number(music_->voices());
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): kept close to SoundCommandParser::processUpdateCues.

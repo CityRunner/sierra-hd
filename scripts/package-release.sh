@@ -25,6 +25,9 @@ cp "$root/docs/USER-README.md" "$stage/$name/README.md"
 cp "$root/LICENSE" "$stage/$name/licenses/sierra-hd-LICENSE.txt"
 cp "$root/THIRD_PARTY.md" "$stage/$name/licenses/"
 cp "$root/third_party/SDL3/LICENSE.txt" "$stage/$name/licenses/SDL3-LICENSE.txt"
+cp "$root/third_party/nuked-opl3/LICENSE" "$stage/$name/licenses/Nuked-OPL3-LICENSE.txt"
+cp "$root/third_party/mt32emu/COPYING.LESSER.txt" "$stage/$name/licenses/mt32emu-LICENSE.txt"
+cp "$root/third_party/mt32emu/sha1-LICENSE.txt" "$stage/$name/licenses/mt32emu-sha1-LICENSE.txt"
 
 if [[ "$platform" == windows-* ]]; then
     (cd "$stage" && powershell -NoProfile -Command "Compress-Archive -Path '$name' -DestinationPath '$name.zip'")

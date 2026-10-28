@@ -31,6 +31,7 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(SciCompilerFlags)
 include(SciTargets)
+include(SciThirdParty)
 
 # Libraries in dependency order (spec section 4.1); see sci_add_library.
 add_subdirectory(src/sci-core)
@@ -42,9 +43,6 @@ add_subdirectory(src/sci-text)
 add_subdirectory(src/sci-audio)
 add_subdirectory(src/sci-render)
 add_subdirectory(src/sci-vm)
-if(SCI_BUILD_APP)
-    include(SciThirdParty)
-endif()
 add_subdirectory(src/app)
 
 if(SCI_BUILD_TESTS)

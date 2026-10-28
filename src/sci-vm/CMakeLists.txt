@@ -45,8 +45,9 @@ sci_add_library(NAME sci-vm
         src/segments.cpp
         src/selectors.cpp
         src/sound.cpp
+        src/sound_render.cpp
         src/subsystems.cpp
         src/timing.cpp
         src/trigonometry.cpp
         src/workarounds.cpp
-    DEPENDS sci-core sci-resource sci-pic sci-view sci-text)
+    DEPENDS sci-core sci-resource sci-pic sci-view sci-text sci-audio)

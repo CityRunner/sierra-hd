@@ -68,6 +68,13 @@ public:
     [[nodiscard]] std::uint32_t ticks() const { return static_cast<std::uint32_t>(microseconds_ * 60 / 1000000); }
 
     void advance(std::uint32_t milliseconds);
+    // While the wait hook runs: `milliseconds` of the wait have passed in
+    // real time, so the music timer calls due by then run now rather than
+    // all when the wait ends. The music then plays while the host waits;
+    // the interpreter, stopped in the wait, sees the same calls in the same
+    // order either way. Outside a wait (and in the deterministic mode,
+    // which has no wait hook) it does nothing.
+    void run_music_in_wait(std::uint32_t milliseconds);
     // SciEngine::sleep: the event queue is polled once, then time passes.
     void sleep(std::uint32_t milliseconds);
     // kGetTime reads the elapsed time in kernel call `call`. A script that
@@ -91,7 +98,13 @@ public:
     void reset_wait() { last_wait_ = millis(); }
 
 private:
+    // Runs the music timer calls due by `until` (microseconds).
+    void run_music_timer(std::uint64_t until);
+
     std::uint64_t microseconds_ = 0;
+    // The virtual time at the start and the end of the last wait.
+    std::uint64_t wait_start_ = 0;
+    std::uint64_t wait_end_ = 0;
     std::uint64_t music_due_ = 0;
     std::uint32_t tempo_ = 0;
     std::function<void()> music_timer_;

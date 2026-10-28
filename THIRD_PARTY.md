@@ -9,14 +9,25 @@ together with its licence file.
 | Component | Version | Licence | Directory | Used by |
 |---|---|---|---|---|
 | SDL3 | 3.4.18 (`release-3.4.18`, commit `829a65d769d935c4852f8159e964312c0957260a`) | zlib | `third_party/SDL3` | app: window, input, presentation |
+| Nuked OPL3 | 1.8 (commit `765ec962e473aeb767e4cba74ffdc8f588ffbfe8`, 2026-08-24; no release tags upstream) | LGPL 2.1 or later | `third_party/nuked-opl3` | sci-audio: the OPL core of the AdLib device |
+| mt32emu (Munt) | libmt32emu 2.8.3 (tag `libmt32emu_2_8_3`, commit `3b05ec276f9e605af86b0eaef7f5eda43477a31f`, 2026-06-06) | LGPL 2.1 or later; its SHA-1 code (`sha1/`) BSD 3-clause | `third_party/mt32emu` | sci-audio: the MT-32 device |
 
-Planned, with the pin recorded when each is added (docs/ASSUMPTIONS.md,
-"Third-party components"):
+The SHA-256 of each vendored file is in the component's `VENDORED.md`.
 
-| Component | Licence | Needed from |
-|---|---|---|
-| Nuked OPL3 | LGPL 2.1 or later | milestone 7 |
-| mt32emu (Munt) | LGPL 2.1 or later | milestone 7 |
+Licence compatibility: the program is GPL v3 or later. LGPL 2.1 section 3
+lets LGPL code be used under the GPL (v2 or, by its "or later" clause, any
+later version), and LGPL 2.1 or later also permits LGPL 3, which is GPL v3
+plus permissions; Nuked OPL3 and mt32emu linked statically into the GPL v3
+program are therefore covered by the GPL v3 as a whole, with their LGPL
+notices kept and their licence texts shipped in the release archives
+(`licenses/`). The full source of the program, both libraries included, is
+in this repository, which meets LGPL 2.1 section 6 as well. mt32emu's SHA-1
+code is under the 3-clause BSD licence, which is GPL-compatible; its notice
+is shipped in the archives too (`third_party/mt32emu/sha1-LICENSE.txt`).
+
+The MT-32 and CM-32L ROMs that mt32emu needs are Roland's; they are not
+part of the program and never bundled or committed (spec section 8). The
+user supplies them.
 
 ## Ported code
 
