@@ -15,6 +15,7 @@
 #include "file_store.hpp"
 #include "game_screen.hpp"
 #include "sci/audio/adlib.hpp"
+#include "sci/audio/mt32_driver.hpp"
 #include "sci/core/assert.hpp"
 #include "sci/core/error.hpp"
 #include "sci/core/fp_profile.hpp"
@@ -25,6 +26,7 @@
 #include "sci/platform/game_frame.hpp"
 #include "sci/platform/hd_pictures.hpp"
 #include "sci/platform/identify.hpp"
+#include "sci/platform/mt32_roms.hpp"
 #include "sci/platform/thread_executor.hpp"
 #include "sci/view/cursor.hpp"
 #include "sci/vm/events.hpp"
@@ -39,6 +41,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -885,18 +888,32 @@ std::optional<Options> parse_options(std::span<char*> args) {
     return options;
 }
 
-// The music device of the configuration (milestone 7): the AdLib driver with
-// the game's patches through SDL3 audio, or none (the silent driver) when
-// the music is off, the patches cannot be read or there is no audio device.
+// The music device of the configuration (milestone 7): the MT-32 driver on
+// the user's ROMs with the game's patch.001, or the AdLib driver with the
+// game's patches (also when the MT-32 cannot be opened), through SDL3
+// audio; or none (the silent driver) when the music is off, the patches
+// cannot be read or there is no audio device.
 std::unique_ptr<sci::app::AudioOutput> open_audio(const sci::resource::ResourceManager& manager,
                                                   const sci::platform::Config& config) {
     using sci::platform::MusicDevice;
-    if (config.music == MusicDevice::Off) {
+    sci::platform::MusicChoice choice = sci::platform::choose_music_device(config);
+    if (!choice.log.empty()) {
+        sci::core::log(choice.warning ? sci::core::LogLevel::Warning : sci::core::LogLevel::Info,
+                       sci::core::LogCategory::General, choice.log);
+    }
+    if (choice.device == MusicDevice::Off) {
         return nullptr;
     }
-    if (config.music == MusicDevice::Mt32) {
+    if (choice.device == MusicDevice::Mt32) {
+        auto patch = sci::audio::load_mt32_patch(manager);
+        if (patch) {
+            const double volume = static_cast<double>(config.volume) / sci::platform::max_volume;
+            return sci::app::AudioOutput::open(std::make_unique<sci::audio::Mt32Driver>(std::move(choice.mt32), *patch),
+                                               volume);
+        }
         sci::core::log(sci::core::LogLevel::Warning, sci::core::LogCategory::General,
-                       "music: the MT-32 is not supported yet; playing on the AdLib");
+                       std::format("music: the MT-32 patch cannot be read ({}); playing on the AdLib",
+                                   patch.error().message));
     }
     auto patches = sci::audio::load_adlib_patches(manager);
     if (!patches) {
@@ -1007,6 +1024,9 @@ int main(int argc, char** argv) {
     }
     sci::core::set_assertion_handler(&print_assertion);
     sci::core::set_log_sink(&print_log);
+    // mt32emu's pitch jitter is the only user of rand() (the program's own
+    // code never calls it); a fixed seed makes it the same in every run.
+    std::srand(1); // NOLINT(cert-msc51-cpp): deterministic on purpose
     // Spec section 5.3: the floating-point profile, on the main thread too.
     if (const auto profile = sci::core::check_fp_profile(); !profile) {
         std::println(stderr, "{}", profile.error().message);

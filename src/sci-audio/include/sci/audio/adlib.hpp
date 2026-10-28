@@ -126,6 +126,10 @@ public:
     AdlibDriver(AdlibDriver&&) = delete;
     AdlibDriver& operator=(AdlibDriver&&) = delete;
 
+    [[nodiscard]] PlayerChoices player_choices() const override {
+        return {.play_id = play_id, .polyphony = polyphony, .has_rhythm_channel = has_rhythm_channel};
+    }
+
     void send(std::uint32_t message) override;
     void init_track(std::span<const std::uint8_t> header) override;
     void set_volume(std::uint8_t volume) override;

@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <format>
 #include <memory>
+#include <optional>
 #include <mt32emu/File.h>
 #include <mt32emu/ROMInfo.h>
 #include <mt32emu/Synth.h>
@@ -68,6 +69,26 @@ core::Result<Rom> identify(std::span<const std::uint8_t> bytes, MT32Emu::ROMInfo
 }
 
 } // namespace
+
+std::optional<Mt32RomInfo> identify_mt32_rom(std::span<const std::uint8_t> rom) {
+    // ArrayFile reads the bytes in place; they outlive the image here.
+    MT32Emu::ArrayFile file(rom.data(), rom.size());
+    const RomImagePtr image(MT32Emu::ROMImage::makeROMImage(&file));
+    const MT32Emu::ROMInfo* info = image == nullptr ? nullptr : image->getROMInfo();
+    if (info == nullptr || info->pairType != MT32Emu::ROMInfo::Full ||
+        (info->type != MT32Emu::ROMInfo::Control && info->type != MT32Emu::ROMInfo::PCM)) {
+        return std::nullopt;
+    }
+    const std::string_view name = info->shortName;
+    const bool control = info->type == MT32Emu::ROMInfo::Control;
+    const bool cm32l = name.starts_with(control ? "ctrl_cm32l" : "pcm_cm32l");
+    return Mt32RomInfo{
+        .control = control,
+        .model = cm32l ? Mt32Model::Cm32l : Mt32Model::Mt32,
+        .name = std::string(name),
+        .description = info->description,
+    };
+}
 
 struct Mt32::State {
     Rom control;
@@ -140,6 +161,14 @@ void Mt32::play_sysex_now(std::span<const std::uint8_t> sysex) noexcept {
         return;
     }
     state_->synth.playSysexNow(sysex.data(), static_cast<std::uint32_t>(sysex.size()));
+}
+
+void Mt32::write_sysex(std::uint8_t device, std::span<const std::uint8_t> address_and_data) noexcept {
+    // mt32emu reads the three address bytes unchecked.
+    if (address_and_data.size() < 3) {
+        return;
+    }
+    state_->synth.writeSysex(device, address_and_data.data(), static_cast<std::uint32_t>(address_and_data.size()));
 }
 
 bool Mt32::play_at(std::uint32_t message, std::uint32_t timestamp) noexcept {

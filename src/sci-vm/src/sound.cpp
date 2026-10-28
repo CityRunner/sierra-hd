@@ -303,7 +303,7 @@ Reg Sound::fade(Machine& machine, std::span<Reg> args) {
 }
 
 Reg Sound::polyphony(Machine& /*machine*/, std::span<Reg> /*args*/) {
-    return number(Music::voices());
+    return number(music_->voices());
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): kept close to SoundCommandParser::processUpdateCues.

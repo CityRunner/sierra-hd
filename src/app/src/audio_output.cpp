@@ -25,6 +25,23 @@ void warn(std::string_view what) {
 } // namespace
 
 std::unique_ptr<AudioOutput> AudioOutput::open(std::vector<audio::AdlibPatch> patches, double volume) {
+    auto driver = std::make_unique<audio::AdlibDriver>(std::move(patches));
+    audio::AdlibDriver& adlib = *driver;
+    return open(Synth{.driver = std::move(driver),
+                      .rate = audio::Opl3::native_rate,
+                      .render = [&adlib](std::span<std::int16_t> samples) { adlib.opl().generate(samples); }},
+                volume);
+}
+
+std::unique_ptr<AudioOutput> AudioOutput::open(std::unique_ptr<audio::Mt32Driver> driver, double volume) {
+    audio::Mt32Driver& mt32 = *driver;
+    return open(Synth{.driver = std::move(driver),
+                      .rate = audio::Mt32::native_rate,
+                      .render = [&mt32](std::span<std::int16_t> samples) { mt32.synth().render(samples); }},
+                volume);
+}
+
+std::unique_ptr<AudioOutput> AudioOutput::open(Synth synth, double volume) {
     if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
         warn("Cannot start the audio");
         return nullptr;
@@ -47,7 +64,7 @@ std::unique_ptr<AudioOutput> AudioOutput::open(std::vector<audio::AdlibPatch> pa
     }
     std::unique_ptr<AudioOutput> output(new AudioOutput(stream, static_cast<std::uint32_t>(device.freq),
                                                         static_cast<std::size_t>(std::max(device_frames, 0)),
-                                                        std::move(patches), volume));
+                                                        std::move(synth), volume));
     // The device starts paused; it plays the silence queued until the
     // music comes.
     if (!SDL_ResumeAudioStreamDevice(stream)) {
@@ -60,11 +77,11 @@ std::unique_ptr<AudioOutput> AudioOutput::open(std::vector<audio::AdlibPatch> pa
     return output;
 }
 
-AudioOutput::AudioOutput(SDL_AudioStream* stream, std::uint32_t rate, std::size_t device_frames,
-                         std::vector<audio::AdlibPatch> patches, double volume)
+AudioOutput::AudioOutput(SDL_AudioStream* stream, std::uint32_t rate, std::size_t device_frames, Synth synth,
+                         double volume)
     : stream_(stream), rate_(rate),
       target_frames_(std::max<std::size_t>(std::size_t{rate} * target_milliseconds / 1000, device_frames * 3)),
-      driver_(std::move(patches)), mixer_(audio::Opl3::native_rate, rate) {
+      synth_(std::move(synth)), mixer_(synth_.rate, rate) {
     mixer_.set_volume(volume);
     // Start with the target queue of silence, so that the device does not
     // run dry before the first timer calls.
@@ -78,35 +95,49 @@ AudioOutput::~AudioOutput() {
     SDL_QuitSubSystem(SDL_INIT_AUDIO);
 }
 
+audio::PlayerChoices AudioOutput::player_choices() const {
+    return synth_.driver->player_choices();
+}
+
 void AudioOutput::send(std::uint32_t message) {
-    driver_.send(message);
+    synth_.driver->send(message);
 }
 
 void AudioOutput::init_track(std::span<const std::uint8_t> header) {
-    driver_.init_track(header);
+    synth_.driver->init_track(header);
 }
 
 void AudioOutput::set_volume(std::uint8_t volume) {
-    driver_.set_volume(volume);
+    synth_.driver->set_volume(volume);
 }
 
 void AudioOutput::play_switch(bool play) {
-    driver_.play_switch(play);
+    synth_.driver->play_switch(play);
+}
+
+void AudioOutput::sysex(std::span<const std::uint8_t> message) {
+    synth_.driver->sysex(message);
+}
+
+void AudioOutput::set_reverb(std::int8_t reverb) {
+    synth_.driver->set_reverb(reverb);
 }
 
 void AudioOutput::on_timer() {
-    driver_.on_timer();
+    synth_.driver->on_timer();
     ++timer_calls_;
     // The frames up to the next timer call, without drift (as
-    // sci::vm::render_sound): the chip's output is the deterministic one.
-    const std::uint64_t next = timer_calls_ * audio::Opl3::native_rate / audio::AdlibDriver::timer_frequency;
-    opl_samples_.resize(static_cast<std::size_t>(next - opl_frames_) * channels);
-    opl_frames_ = next;
-    driver_.opl().generate(opl_samples_);
+    // sci::vm::render_sound): the OPL chip's output is the deterministic
+    // one. Both drivers run the timer at 250 calls a second.
+    static_assert(audio::AdlibDriver::timer_frequency == audio::Mt32Driver::timer_frequency);
+    const std::uint64_t next = timer_calls_ * synth_.rate / audio::AdlibDriver::timer_frequency;
+    synth_samples_.resize(static_cast<std::size_t>(next - synth_frames_) * channels);
+    synth_frames_ = next;
+    synth_.render(synth_samples_);
     const std::size_t queued = queued_frames();
     mixer_.set_speed(audio::queue_speed(queued, target_frames_));
     output_samples_.clear();
-    mixer_.process(opl_samples_, output_samples_);
+    mixer_.process(synth_samples_, output_samples_);
     // Too far ahead of the device (after a stall the interpreter caught up
     // on): drop rather than let the delay grow.
     if (queued + (output_samples_.size() / channels) > target_frames_ * 2) {

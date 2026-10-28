@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 
@@ -45,6 +46,21 @@ struct Mt32Roms {
     std::string pcm_name;
     std::string pcm_description;
 };
+
+// The kind and the names of one ROM, as mt32emu identifies it from its size
+// and SHA-1 (for choosing among the files of a ROM folder).
+struct Mt32RomInfo {
+    bool control = false; // A control ROM; otherwise a PCM ROM.
+    // The model it belongs to: Cm32l for the CM-32L's control and PCM ROMs
+    // (mt32emu's names ctrl_cm32l* and pcm_cm32l*), Mt32 otherwise.
+    Mt32Model model = Mt32Model::Mt32;
+    std::string name;        // mt32emu's short name, e.g. "ctrl_mt32_1_07".
+    std::string description; // e.g. "MT-32 Control v1.07".
+};
+
+// What mt32emu identifies `rom` as: a whole control or PCM ROM it knows;
+// nothing for any other file (an unknown dump, half a ROM image).
+[[nodiscard]] std::optional<Mt32RomInfo> identify_mt32_rom(std::span<const std::uint8_t> rom);
 
 class Mt32 {
 public:
@@ -81,6 +97,13 @@ public:
     // synthesiser checks the Roland header and checksum itself and ignores
     // a message it does not accept, as the real one does.
     void play_sysex_now(std::span<const std::uint8_t> sysex) noexcept;
+
+    // Writes a System Exclusive message's address and data into the
+    // synthesiser's memory at once, without the Roland header or checksum
+    // (mt32emu's writeSysex; `device` 0x10 is the unit, as the SCI driver
+    // addresses it), as ScummVM's MT-32 driver hands on the SysEx messages
+    // of the SCI driver. Fewer than the three address bytes are ignored.
+    void write_sysex(std::uint8_t device, std::span<const std::uint8_t> address_and_data) noexcept;
 
     // Queues a channel message or a SysEx to play when rendering reaches the
     // frame `timestamp` (on the rendered_frames() clock; a timestamp in the

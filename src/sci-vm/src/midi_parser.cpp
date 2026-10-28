@@ -30,8 +30,11 @@
 #include "faults.hpp"
 #include "music.hpp"
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
 #include <format>
+#include <span>
 #include <utility>
 
 namespace sci::vm {
@@ -448,9 +451,18 @@ bool MidiParser::process_event(const EventInfo& info, bool fire_events) {
 }
 
 bool MidiParser::process_base_event(const EventInfo& info, bool fire_events) {
-    // MidiParser::processEvent. SysEx is dropped: the AdLib driver ignores
-    // it and takes no time for it, so no SysEx delay arises.
+    // MidiParser::processEvent. SysEx goes to the device at once, without a
+    // trailing 0xF7: the AdLib driver ignores it, and neither it nor an
+    // emulated MT-32 asks for a delay after it, so no SysEx delay arises.
     if (info.event == 0xF0) {
+        if (fire_events && info.length > 0 && info.data < data_.size()) {
+            std::span<const std::uint8_t> message =
+                std::span(data_).subspan(info.data, std::min<std::size_t>(info.length, data_.size() - info.data));
+            if (message.back() == 0xF7) {
+                message = message.first(message.size() - 1);
+            }
+            music_->sysex(message);
+        }
         return true;
     }
     if (info.event == 0xFF) {

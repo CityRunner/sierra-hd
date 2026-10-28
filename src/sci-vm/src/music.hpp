@@ -6,7 +6,11 @@
 // that driver's play mask, voice count and timer rate, so timing, signals
 // and cues are as in the reference (spec section 8); a device
 // (sci::audio::MidiDevice, such as the AdLib driver) may be attached to
-// hear it, which changes none of these. Ported from ScummVM
+// hear it. The player asks the device for its play mask, rhythm channel
+// and voice count, as ScummVM does: the AdLib's are the silent driver's,
+// the MT-32's differ, which changes the channels played and the voices
+// kDoSound GetPolyphony reports but neither the timing, signals nor cues
+// (docs/ASSUMPTIONS.md, "Milestone 7: the MT-32 driver"). Ported from ScummVM
 // (https://www.scummvm.org) at revision
 // ed949213a23440447ea402e263daa871394b6bf9, from:
 //   engines/sci/sound/music.{h,cpp} (SciMusic, MusicEntry; SCI0 paths),
@@ -62,6 +66,8 @@ inline constexpr std::uint8_t adlib_play_id = 0x04; // SCI0 late.
 inline constexpr int adlib_polyphony = 9;
 inline constexpr bool adlib_has_rhythm_channel = false;
 inline constexpr std::uint32_t adlib_base_tempo = 1000000 / 250; // OPL callback frequency.
+inline constexpr audio::PlayerChoices silent_choices{
+    .play_id = adlib_play_id, .polyphony = adlib_polyphony, .has_rhythm_channel = adlib_has_rhythm_channel};
 
 // An SCI0 (late) sound resource: a 0x21-byte header, then one MIDI stream
 // whose channels carry play masks per device, and optionally a digital
@@ -144,7 +150,9 @@ public:
     void set_sound_on(bool on);
 
     // The device the songs play on; null is the silent driver. It must
-    // outlive the player or be detached first.
+    // outlive the player or be detached first. Attached before the sounds
+    // are initialised, as in ScummVM (the play mask is applied when a
+    // sound is initialised).
     void set_device(audio::MidiDevice* device) { device_ = device; }
 
     [[nodiscard]] audio::MidiDevice* device() const { return device_; }
@@ -160,7 +168,21 @@ public:
     // MidiPlayer::setVolume, never queued.
     void set_device_volume(std::uint8_t volume);
 
-    [[nodiscard]] static int voices() { return adlib_polyphony; }
+    // What the device (or the silent driver) asks of the player.
+    [[nodiscard]] audio::PlayerChoices player_choices() const {
+        return device_ != nullptr ? device_->player_choices() : silent_choices;
+    }
+
+    // kDoSound GetPolyphony.
+    [[nodiscard]] int voices() const { return player_choices().polyphony; }
+
+    // From the parsers: a song's SysEx message (without 0xF0 and 0xF7), at
+    // once, as MidiParser::processEvent sends it.
+    void sysex(std::span<const std::uint8_t> message) const {
+        if (device_ != nullptr) {
+            device_->sysex(message);
+        }
+    }
 
     [[nodiscard]] std::uint32_t tempo() const { return tempo_; }
 
@@ -177,7 +199,13 @@ public:
 
     [[nodiscard]] std::int8_t global_reverb() const { return global_reverb_; }
 
-    void set_driver_reverb(std::int8_t reverb) { driver_reverb_ = reverb; }
+    // MidiPlayer::setReverb.
+    void set_driver_reverb(std::int8_t reverb) {
+        driver_reverb_ = reverb;
+        if (device_ != nullptr) {
+            device_->set_reverb(reverb);
+        }
+    }
 
 private:
     // A queued device command: a track init if `track_init` is set, else a

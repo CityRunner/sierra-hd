@@ -69,6 +69,16 @@ public:
     void play_switch(bool play) override { calls.push_back(std::format("switch {}", play)); }
 
     void on_timer() override { calls.emplace_back("timer"); }
+
+    void sysex(std::span<const std::uint8_t> message) override {
+        calls.push_back(std::format("sysex {}", message.size()));
+    }
+
+    void set_reverb(std::int8_t reverb) override { calls.push_back(std::format("reverb {}", reverb)); }
+
+    [[nodiscard]] sci::audio::PlayerChoices player_choices() const override { return choices; }
+
+    sci::audio::PlayerChoices choices = sci::vm::silent_choices;
 };
 
 struct Player {

@@ -75,7 +75,7 @@ public:
     Reg master_volume(Machine& machine, std::span<Reg> args);
     Reg update(Machine& machine, std::span<Reg> args);
     Reg fade(Machine& machine, std::span<Reg> args);
-    static Reg polyphony(Machine& machine, std::span<Reg> args);
+    Reg polyphony(Machine& machine, std::span<Reg> args);
 
     // For tests and tools: the music player.
     [[nodiscard]] Music& music() { return *music_; }

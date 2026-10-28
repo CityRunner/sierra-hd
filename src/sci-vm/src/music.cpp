@@ -31,6 +31,7 @@
 
 #include "faults.hpp"
 #include "sci/audio/adlib.hpp"
+#include "sci/audio/mt32_driver.hpp"
 
 #include <algorithm>
 #include <format>
@@ -45,6 +46,9 @@ static_assert(adlib_play_id == audio::AdlibDriver::play_id);
 static_assert(adlib_polyphony == audio::AdlibDriver::polyphony);
 static_assert(adlib_has_rhythm_channel == audio::AdlibDriver::has_rhythm_channel);
 static_assert(adlib_base_tempo == audio::AdlibDriver::base_tempo);
+// The MT-32 runs the music timer at the same rate, so the timing does not
+// depend on the device ("Milestone 7: the MT-32 driver").
+static_assert(adlib_base_tempo == audio::Mt32Driver::base_tempo);
 
 namespace {
 
@@ -322,7 +326,8 @@ void Music::sound_init(MusicEntry& sound) {
         sound.parser->set_master_volume(static_cast<std::uint8_t>(master_volume_));
     }
     sound.pause_counter = 0;
-    const unsigned channel_mask = resource.channel_filter_mask(adlib_play_id, adlib_has_rhythm_channel);
+    const audio::PlayerChoices choices = player_choices();
+    const unsigned channel_mask = resource.channel_filter_mask(choices.play_id, choices.has_rhythm_channel);
     // Looping and hold are off while the song loads.
     const std::uint16_t previous_loop = sound.loop;
     const std::int16_t previous_hold = sound.hold;
