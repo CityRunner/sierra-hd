@@ -46,7 +46,7 @@ bool identity_resource(resource::ResourceType type) {
 core::Sha256Digest game_identity(const resource::ResourceManager& resources) {
     std::vector<resource::ResourceId> ids = resources.list();
     std::erase_if(ids, [](const resource::ResourceId& id) { return !identity_resource(id.type); });
-    std::ranges::sort(ids, [](const resource::ResourceId& a, const resource::ResourceId& b) {
+    std::ranges::stable_sort(ids, [](const resource::ResourceId& a, const resource::ResourceId& b) {
         return std::pair(static_cast<int>(a.type), a.number) < std::pair(static_cast<int>(b.type), b.number);
     });
     core::Sha256 hash;

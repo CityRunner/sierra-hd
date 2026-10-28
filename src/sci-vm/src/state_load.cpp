@@ -51,7 +51,7 @@ void StateReader::fail(std::string message) {
 void StateReader::begin(std::string_view name) {
     const std::string found = string();
     if (!failed_ && found != name) {
-        fail(std::format("expected the component \"{}\", found \"{}\"", name, found));
+        fail(std::format(R"(expected the component "{}", found "{}")", name, found));
     }
 }
 
@@ -151,6 +151,70 @@ AnimateEntry read_animate_entry(StateReader& in) {
     entry.cel_rect = read_rect(in);
     entry.show_bits = in.boolean();
     entry.cast_handle = in.reg();
+    return entry;
+}
+
+SoundStatus read_status(StateReader& in) {
+    switch (in.u8()) {
+    case static_cast<std::uint8_t>(SoundStatus::Stopped):
+        return SoundStatus::Stopped;
+    case static_cast<std::uint8_t>(SoundStatus::Initialized):
+        return SoundStatus::Initialized;
+    case static_cast<std::uint8_t>(SoundStatus::Paused):
+        return SoundStatus::Paused;
+    case static_cast<std::uint8_t>(SoundStatus::Playing):
+        return SoundStatus::Playing;
+    default:
+        in.fail("a song has an unknown status");
+        return SoundStatus::Stopped;
+    }
+}
+
+// A song of the play list (Music::save_state), its resource parsed again.
+std::unique_ptr<MusicEntry> read_song(StateReader& in, Resources& resources, Music& music) {
+    auto entry = std::make_unique<MusicEntry>();
+    MusicEntry& sound = *entry;
+    sound.sound_object = in.reg();
+    const bool has_resource = in.boolean();
+    const bool has_digital_sample = has_resource && in.boolean();
+    sound.resource_id = in.u16();
+    if (has_resource && !in.failed()) {
+        const auto* data = resources.find(ResourceType::Sound, sound.resource_id);
+        if (data != nullptr) {
+            sound.resource = SoundResource::parse(*data, sound.resource_id);
+        }
+        if (!sound.resource || sound.resource->has_digital_sample != has_digital_sample) {
+            in.fail(std::format("sound {} is not in the game files as saved", sound.resource_id));
+        }
+    }
+    sound.time = in.i32();
+    sound.data_inc = in.u16();
+    sound.ticker = in.u16();
+    sound.signal = in.u16();
+    sound.priority = in.i16();
+    sound.loop = in.u16();
+    sound.volume = in.i16();
+    sound.hold = in.i16();
+    sound.reverb = static_cast<std::int8_t>(in.u8());
+    sound.play_bed = in.boolean();
+    sound.override_priority = in.boolean();
+    sound.pause_counter = in.i16();
+    sound.fade_to = in.u8();
+    sound.fade_step = in.i16();
+    sound.fade_ticker = in.u32();
+    sound.fade_ticker_step = in.u32();
+    sound.fade_set_volume = in.boolean();
+    sound.fade_completed = in.boolean();
+    sound.stop_after_fading = in.boolean();
+    sound.status = read_status(in);
+    if (in.boolean()) {
+        sound.parser = std::make_unique<MidiParser>(music);
+        sound.parser->load_state(in, sound);
+    }
+    sound.signal_queue.resize(in.count(2));
+    for (std::uint16_t& signal : sound.signal_queue) {
+        signal = in.u16();
+    }
     return entry;
 }
 
@@ -528,17 +592,26 @@ void Parser::load_state(StateReader& in) {
         node.value = in.i32();
         node.left = in.i32();
         node.right = in.i32();
-        if (type < static_cast<std::uint8_t>(text::NodeType::Word) ||
-            type > static_cast<std::uint8_t>(text::NodeType::Branch)) {
+        switch (type) {
+        case static_cast<std::uint8_t>(text::NodeType::Word):
+            node.type = text::NodeType::Word;
+            break;
+        case static_cast<std::uint8_t>(text::NodeType::Leaf):
+            node.type = text::NodeType::Leaf;
+            break;
+        case static_cast<std::uint8_t>(text::NodeType::Branch):
+            node.type = text::NodeType::Branch;
+            break;
+        default:
             in.fail("a parse tree node has an unknown type");
+            break;
         }
-        node.type = static_cast<text::NodeType>(type);
         const auto in_tree = [&](int index) { return index >= -1 && std::cmp_less(index, nodes.size()); };
         if (!in_tree(node.left) || !in_tree(node.right)) {
             in.fail("a parse tree node points outside the tree");
         }
     }
-    if (!in.failed()) {
+    if (!in.failed() && vocabulary_) {
         vocabulary_->restore_parse(std::move(nodes), pronoun);
     }
 }
@@ -603,53 +676,7 @@ void Music::load_state(StateReader& in, Resources& resources) {
         if (in.failed()) {
             break;
         }
-        entry = std::make_unique<MusicEntry>();
-        MusicEntry& sound = *entry;
-        sound.sound_object = in.reg();
-        const bool has_resource = in.boolean();
-        const bool has_digital_sample = has_resource && in.boolean();
-        sound.resource_id = in.u16();
-        if (has_resource && !in.failed()) {
-            const auto* data = resources.find(ResourceType::Sound, sound.resource_id);
-            if (data != nullptr) {
-                sound.resource = SoundResource::parse(*data, sound.resource_id);
-            }
-            if (!sound.resource || sound.resource->has_digital_sample != has_digital_sample) {
-                in.fail(std::format("sound {} is not in the game files as saved", sound.resource_id));
-            }
-        }
-        sound.time = in.i32();
-        sound.data_inc = in.u16();
-        sound.ticker = in.u16();
-        sound.signal = in.u16();
-        sound.priority = in.i16();
-        sound.loop = in.u16();
-        sound.volume = in.i16();
-        sound.hold = in.i16();
-        sound.reverb = static_cast<std::int8_t>(in.u8());
-        sound.play_bed = in.boolean();
-        sound.override_priority = in.boolean();
-        sound.pause_counter = in.i16();
-        sound.fade_to = in.u8();
-        sound.fade_step = in.i16();
-        sound.fade_ticker = in.u32();
-        sound.fade_ticker_step = in.u32();
-        sound.fade_set_volume = in.boolean();
-        sound.fade_completed = in.boolean();
-        sound.stop_after_fading = in.boolean();
-        const std::uint8_t status = in.u8();
-        if (status > static_cast<std::uint8_t>(SoundStatus::Playing)) {
-            in.fail("a song has an unknown status");
-        }
-        sound.status = static_cast<SoundStatus>(status);
-        if (in.boolean()) {
-            sound.parser = std::make_unique<MidiParser>(*this);
-            sound.parser->load_state(in, sound);
-        }
-        sound.signal_queue.resize(in.count(2));
-        for (std::uint16_t& signal : sound.signal_queue) {
-            signal = in.u16();
-        }
+        entry = read_song(in, resources, *this);
     }
     std::vector<QueuedCommand> queued(in.count(8));
     for (QueuedCommand& command : queued) {
@@ -728,7 +755,7 @@ void Ports::load_state(StateReader& in) {
         read_window_fields(in, *window);
     }
     // A port as Ports::save_state refers to it.
-    const auto reference = [&]() -> Port* {
+    const auto reference = [&] -> Port* {
         switch (in.u8()) {
         case 0:
             return nullptr;

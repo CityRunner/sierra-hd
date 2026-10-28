@@ -29,7 +29,9 @@ constexpr std::size_t checksum_size = 32;
 
 SaveWorld world(std::uint8_t marker = 0) {
     auto game = synthetic_game(marker);
-    SCI_CHECK(game.has_value());
+    if (!game) {
+        std::abort(); // The synthetic folder always opens.
+    }
     return SaveWorld(std::move(*game));
 }
 
@@ -47,7 +49,7 @@ void reseal(std::vector<std::uint8_t>& file) {
 }
 
 bool contains(const std::string& text, const std::string& part) {
-    return text.find(part) != std::string::npos;
+    return text.contains(part);
 }
 
 // Reads `file` into a fresh machine: the error's message, or "" on success.
@@ -143,9 +145,9 @@ SCI_TEST(inconsistent_content_is_reported) {
     // The state's first component renamed, with a valid checksum.
     std::vector<std::uint8_t> file = saved();
     const std::string name = "execution";
-    const auto at = std::search(file.begin(), file.end(), name.begin(), name.end());
-    SCI_CHECK(at != file.end());
-    *at = 'E';
+    const auto found = std::ranges::search(file, name);
+    SCI_CHECK(!found.empty());
+    *found.begin() = 'E';
     reseal(file);
     const std::string error = restore_error(file);
     SCI_CHECK(contains(error, "cannot be restored") && contains(error, "execution"));
