@@ -19,14 +19,28 @@ using sci::audio::Mixer;
 
 namespace {
 
+// The sine by its Taylor series, as std::sin is not used (spec section
+// 5.3): `x` reduced to [-pi, pi], where 20 terms are exact to rounding.
+double sine_of(double x) {
+    constexpr double two_pi = 2.0 * std::numbers::pi;
+    x -= two_pi * std::floor((x + std::numbers::pi) / two_pi);
+    double term = x;
+    double sum = x;
+    for (int k = 1; k < 20; ++k) {
+        term *= -x * x / static_cast<double>((2 * k) * ((2 * k) + 1));
+        sum += term;
+    }
+    return sum;
+}
+
 // A stereo sine of `frequency` Hz at `rate`, amplitude `amplitude`, on both
 // sides (the right one inverted, to tell the sides apart).
 std::vector<std::int16_t> sine(double frequency, std::uint32_t rate, std::size_t frames, double amplitude) {
     std::vector<std::int16_t> samples;
     samples.reserve(frames * 2);
     for (std::size_t i = 0; i < frames; ++i) {
-        const double value =
-            amplitude * std::sin(2.0 * std::numbers::pi * frequency * static_cast<double>(i) / static_cast<double>(rate));
+        const double value = amplitude * sine_of(2.0 * std::numbers::pi * frequency * static_cast<double>(i) /
+                                                 static_cast<double>(rate));
         const auto sample = static_cast<std::int16_t>(std::floor(value + 0.5));
         samples.push_back(sample);
         samples.push_back(static_cast<std::int16_t>(-sample));
@@ -52,7 +66,7 @@ double max_error(const std::vector<std::int16_t>& output, double frequency, std:
     double worst = 0.0;
     for (std::size_t i = 8; i < output.size() / 2; ++i) {
         const double time = static_cast<double>(i) / static_cast<double>(output_rate);
-        const double ideal = amplitude * std::sin(2.0 * std::numbers::pi * frequency * time);
+        const double ideal = amplitude * sine_of(2.0 * std::numbers::pi * frequency * time);
         worst = std::max(worst, std::abs(static_cast<double>(output[i * 2]) - ideal));
         worst = std::max(worst, std::abs(static_cast<double>(output[(i * 2) + 1]) + ideal));
     }

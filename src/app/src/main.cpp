@@ -14,10 +14,10 @@
 #include "audio_output.hpp"
 #include "file_store.hpp"
 #include "game_screen.hpp"
+#include "sci/audio/adlib.hpp"
 #include "sci/core/assert.hpp"
 #include "sci/core/error.hpp"
 #include "sci/core/fp_profile.hpp"
-#include "sci/audio/adlib.hpp"
 #include "sci/core/log.hpp"
 #include "sci/platform/analysis_cache.hpp"
 #include "sci/platform/config.hpp"
@@ -633,8 +633,8 @@ public:
             present(game);
             const std::uint64_t now = SDL_GetTicks() - start_;
             // The music of the time passed so far in this wait.
-            game.pass_wait(static_cast<std::uint32_t>(std::min<std::uint64_t>(
-                now > wait_start ? now - wait_start : 0, milliseconds)));
+            game.pass_wait(static_cast<std::uint32_t>(
+                std::min<std::uint64_t>(now > wait_start ? now - wait_start : 0, milliseconds)));
             if (now >= virtual_) {
                 // Far behind (a slow machine, a dialog): catch up, no burst.
                 if (now > virtual_ + 250) {
@@ -900,9 +900,9 @@ std::unique_ptr<sci::app::AudioOutput> open_audio(const sci::resource::ResourceM
     }
     auto patches = sci::audio::load_adlib_patches(manager);
     if (!patches) {
-        sci::core::log(sci::core::LogLevel::Warning, sci::core::LogCategory::General,
-                       std::format("music: no AdLib patches ({}); the music plays without sound",
-                                   patches.error().message));
+        sci::core::log(
+            sci::core::LogLevel::Warning, sci::core::LogCategory::General,
+            std::format("music: no AdLib patches ({}); the music plays without sound", patches.error().message));
         return nullptr;
     }
     return sci::app::AudioOutput::open(std::move(*patches),

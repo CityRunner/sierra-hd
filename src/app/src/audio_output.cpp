@@ -6,7 +6,6 @@
 #include "sci/core/log.hpp"
 
 #include <SDL3/SDL_init.h>
-
 #include <algorithm>
 #include <format>
 #include <utility>

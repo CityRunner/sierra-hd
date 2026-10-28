@@ -11,7 +11,6 @@
 #include "sci_test.hpp"
 
 #include <SDL3/SDL.h>
-
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -58,7 +57,7 @@ SCI_TEST(audio_output_feeds_sdl_from_the_main_thread) {
     // Half a second of timer calls at their real pace, with notes.
     for (int call = 0; call < 125; ++call) {
         if (call % 25 == 0) {
-            output->send(0x00403090U + (static_cast<std::uint32_t>(call / 25) << 8)); // Note on, channel 0.
+            output->send(0x00403090U + (static_cast<std::uint32_t>(call / 25) << 8U)); // Note on, channel 0.
         }
         output->on_timer();
         SDL_Delay(4);

@@ -36,6 +36,28 @@ std::optional<int> parse_int(std::string_view text) {
     return value;
 }
 
+// Sets the music or the volume; the problem, if the value is not valid.
+std::optional<std::string> apply_audio(Config& config, std::string_view key, std::string_view value) {
+    if (key == "music") {
+        if (value == "adlib") {
+            config.music = MusicDevice::Adlib;
+        } else if (value == "mt32") {
+            config.music = MusicDevice::Mt32;
+        } else if (value == "off") {
+            config.music = MusicDevice::Off;
+        } else {
+            return "music is adlib, mt32 or off";
+        }
+        return std::nullopt;
+    }
+    const auto volume = parse_int(value);
+    if (!volume || *volume < 0 || *volume > max_volume) {
+        return std::format("volume is 0 to {}", max_volume);
+    }
+    config.volume = *volume;
+    return std::nullopt;
+}
+
 // Sets one key; the problem, if the value is not valid.
 std::optional<std::string> apply(ParsedConfig& parsed, std::string_view key, std::string_view value) {
     Config& config = parsed.config;
@@ -61,22 +83,8 @@ std::optional<std::string> apply(ParsedConfig& parsed, std::string_view key, std
             return std::format("scale is auto or 1 to {}", max_scale);
         }
         config.scale = *scale;
-    } else if (key == "music") {
-        if (value == "adlib") {
-            config.music = MusicDevice::Adlib;
-        } else if (value == "mt32") {
-            config.music = MusicDevice::Mt32;
-        } else if (value == "off") {
-            config.music = MusicDevice::Off;
-        } else {
-            return "music is adlib, mt32 or off";
-        }
-    } else if (key == "volume") {
-        const auto volume = parse_int(value);
-        if (!volume || *volume < 0 || *volume > max_volume) {
-            return std::format("volume is 0 to {}", max_volume);
-        }
-        config.volume = *volume;
+    } else if (key == "music" || key == "volume") {
+        return apply_audio(config, key, value);
     } else if (key == "priority_snap") {
         if (value != "on" && value != "off") {
             return "priority_snap is on or off";
@@ -173,8 +181,8 @@ std::string format_config(const Config& config) {
                        "volume = {}\n",
                        config_format, path(config.game_folder), config.mode == GraphicsMode::Hd ? "hd" : "original",
                        max_scale, config.scale == 0 ? std::string("auto") : std::to_string(config.scale),
-                       config.priority_snap ? "on" : "off", path(config.mt32_rom), music_name(config.music),
-                       max_volume, config.volume);
+                       config.priority_snap ? "on" : "off", path(config.mt32_rom), music_name(config.music), max_volume,
+                       config.volume);
 }
 
 } // namespace sci::platform

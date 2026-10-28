@@ -28,7 +28,6 @@
 #include "sci/audio/mixer.hpp"
 
 #include <SDL3/SDL_audio.h>
-
 #include <cstddef>
 #include <cstdint>
 #include <memory>

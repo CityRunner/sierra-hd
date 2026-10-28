@@ -15,9 +15,10 @@ constexpr std::size_t channels = 2;
 
 // Catmull-Rom between `p0` (t = 0) and `p1` (t = 1).
 double interpolate(double before, double p0, double p1, double after, double t) {
-    return p0 + (0.5 * t *
-                 (p1 - before +
-                  t * ((2.0 * before) - (5.0 * p0) + (4.0 * p1) - after + (t * ((3.0 * (p0 - p1)) + after - before)))));
+    const double linear = p1 - before;
+    const double square = (2.0 * before) - (5.0 * p0) + (4.0 * p1) - after;
+    const double cube = (3.0 * (p0 - p1)) + after - before;
+    return p0 + (0.5 * t * (linear + (t * (square + (t * cube)))));
 }
 
 std::int16_t clip(double sample) {
