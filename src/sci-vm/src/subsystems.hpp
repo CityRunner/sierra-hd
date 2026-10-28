@@ -14,6 +14,7 @@
 
 namespace sci::vm {
 
+class StateWriter;
 class Machine;
 class Clock;
 class RandomSource;
@@ -69,6 +70,9 @@ public:
     [[nodiscard]] Parser& parser() { return *parser_; }
 
     [[nodiscard]] Files& files() { return *files_; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
 
 private:
     std::unique_ptr<Clock> clock_;

@@ -37,6 +37,8 @@
 
 namespace sci::vm {
 
+class StateWriter;
+
 class EventQueue {
 public:
     // Input due at a game tick, in order.
@@ -73,6 +75,9 @@ public:
     [[nodiscard]] Point mouse() const { return mouse_; }
 
     void set_mouse(Point position) { mouse_ = position; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
 
 private:
     void take_due(std::uint32_t tick);

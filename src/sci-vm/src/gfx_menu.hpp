@@ -37,6 +37,7 @@
 
 namespace sci::vm {
 
+class StateWriter;
 class Graphics;
 struct Port;
 
@@ -87,6 +88,9 @@ public:
     [[nodiscard]] const std::list<MenuEntry>& menus() const { return list_; }
 
     [[nodiscard]] const std::list<MenuItemEntry>& items() const { return items_; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
 
 private:
     MenuItemEntry* find_item(std::uint16_t menu_id, std::uint16_t item_id);

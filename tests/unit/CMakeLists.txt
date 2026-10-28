@@ -79,9 +79,11 @@ sci_add_unit_test(NAME sci-vm-tests
         vm/path_match_test.cpp
         vm/screen_test.cpp
         vm/script_patcher_test.cpp
+        vm/state_test.cpp
     DEPENDS sci-vm)
-# The tests reach into sci-vm's internals.
-target_include_directories(sci-vm-tests PRIVATE ${PROJECT_SOURCE_DIR}/src/sci-vm/src)
+# The tests reach into sci-vm's internals; the state tests build a resource
+# folder.
+target_include_directories(sci-vm-tests PRIVATE ${PROJECT_SOURCE_DIR}/src/sci-vm/src resource)
 
 # The window layer's key and cursor conversion, compiled from the program's
 # sources (the program itself is no library).

@@ -40,12 +40,14 @@
 #include "game_folder.hpp"
 #include "sci/audio/mt32.hpp"
 #include "sci/core/log.hpp"
+#include "sci/core/sha256.hpp"
 #include "sci/platform/mt32_roms.hpp"
 #include "sci/render/colors.hpp"
 #include "sci/resource/resource_id.hpp"
 #include "sci/text/parser.hpp"
 #include "sci/vm/interpreter.hpp"
 #include "sci/vm/scan.hpp"
+#include "sci/vm/state_hash.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -61,6 +63,7 @@
 #include <optional>
 #include <ostream>
 #include <print>
+#include <ranges>
 #include <set>
 #include <span>
 #include <sstream>
@@ -89,7 +92,8 @@ int usage() {
                          "[--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]\n"
                          "                    [--screens <folder>] [--screen-every <ticks>] [--actors <file>] "
                          "[--parser <file>] [--layout <file>] [--opl <file>]\n"
-                         "                    [--music mt32 [--roms <folder>] [--midi <file>]]\n"
+                         "                    [--music mt32 [--roms <folder>] [--midi <file>]] "
+                         "[--state-hash <tick>[,<tick>...] <file>]\n"
                          "       sci-vm-trace --scan-kernel <game folder> <output file>\n"
                          "       sci-vm-trace --vocabulary <game folder> <output file>");
     return 2;
@@ -260,6 +264,7 @@ int main(int argc, char** argv) {
     std::filesystem::path opl;
     std::filesystem::path midi;
     std::filesystem::path roms;
+    std::filesystem::path state_hash;
     bool on_mt32 = false;
     std::uint32_t screen_every = 60;
     for (std::size_t i = 3; i < args.size(); i += 2) {
@@ -278,6 +283,22 @@ int main(int argc, char** argv) {
             return usage();
         }
         const std::string_view value = args[i + 1];
+        if (flag == "--state-hash") {
+            // Two values: the ticks, increasing, and the file.
+            if (i + 2 >= args.size()) {
+                return usage();
+            }
+            for (const auto part : std::views::split(value, ',')) {
+                const auto tick = parse_number(std::string_view(part.begin(), part.end()));
+                if (!tick || (!options.state_hash_ticks.empty() && *tick <= options.state_hash_ticks.back())) {
+                    return usage();
+                }
+                options.state_hash_ticks.push_back(*tick);
+            }
+            state_hash = args[i + 2];
+            ++i;
+            continue;
+        }
         if (flag == "--replay") {
             const std::ifstream file{std::filesystem::path(value)};
             std::stringstream text;
@@ -446,6 +467,24 @@ int main(int argc, char** argv) {
             midi_file << '\n';
         };
     }
+    std::ofstream state_file;
+    if (!state_hash.empty()) {
+        state_file.open(state_hash);
+        if (!state_file) {
+            std::println(stderr, "cannot write {}", state_hash.string());
+            return 1;
+        }
+        // Per requested tick: the total, the persistent part, then each
+        // component with the length of its serialisation.
+        options.on_state_hash = [&](std::uint32_t requested, std::uint32_t tick, const sci::vm::StateHash& hash) {
+            state_file << std::format("{} {} total {}\n", requested, tick, sci::core::to_hex(hash.total));
+            state_file << std::format("{} {} persistent {}\n", requested, tick, sci::core::to_hex(hash.persistent));
+            for (const sci::vm::StateComponentHash& component : hash.components) {
+                state_file << std::format("{} {} {} {} {}\n", requested, tick, component.name, component.bytes,
+                                          sci::core::to_hex(component.digest));
+            }
+        };
+    }
     // The game folder's files for kFOpen to read, under lower-case names,
     // and nothing written yet: the reference starts with an empty save folder.
     std::map<std::string, std::vector<std::uint8_t>> game_files;
@@ -470,13 +509,15 @@ int main(int argc, char** argv) {
     layout_file.close();
     opl_file.close();
     midi_file.close();
+    state_file.close();
     std::println(stderr, "{} kernel calls in {} ticks", result.calls, result.ticks);
     if (result.fault) {
         std::println(stderr, "stopped: {}", *result.fault);
         return 1;
     }
     return trace && (actors.empty() || actor_file) && (parser.empty() || parser_file) &&
-                   (layout.empty() || layout_file) && (opl.empty() || opl_file) && (midi.empty() || midi_file)
+                   (layout.empty() || layout_file) && (opl.empty() || opl_file) && (midi.empty() || midi_file) &&
+                   (state_hash.empty() || state_file)
                ? 0
                : 1;
 }

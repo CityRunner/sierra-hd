@@ -42,6 +42,7 @@ Inside (`src/`), by ScummVM origin:
 | `parser.hpp`, `k_parse.cpp` | `parser/vocabulary` (the game side; the parser itself is in sci-text) |
 | `gfx_controls.*` | `graphics/controls16` |
 | `gfx_layout.*` | none: how the layout and parser files write rectangles and strings, as patch 0003 does |
+| `state.*` | what to write after `engine/savegame` (`saveLoadWithSerializer`); the VM state and its hash (docs/ASSUMPTIONS.md, "Milestone 8: the VM state") |
 
 ## Invariants
 

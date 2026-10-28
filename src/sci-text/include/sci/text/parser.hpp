@@ -127,6 +127,9 @@ public:
 
     [[nodiscard]] std::span<const ParseNode> nodes() const { return nodes_; }
 
+    // The word the pronouns stand for (Vocabulary::_pronounReference).
+    [[nodiscard]] int pronoun_reference() const { return pronoun_reference_; }
+
 private:
     bool load_words(std::span<const std::uint8_t> data);
     void load_suffixes(std::span<const std::uint8_t> data);

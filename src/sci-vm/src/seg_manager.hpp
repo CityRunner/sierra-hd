@@ -42,6 +42,7 @@
 
 namespace sci::vm {
 
+class StateWriter;
 class ScriptPatcher;
 
 // Whether getting a script's segment loads the script, and whether it
@@ -142,6 +143,9 @@ public:
     [[nodiscard]] std::string get_string(Reg pointer) const;
 
     static constexpr std::size_t unbounded = 0xFFFFFFFF;
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
 
 private:
     [[nodiscard]] SegmentId find_free_segment() const;

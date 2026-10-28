@@ -9,6 +9,7 @@ trace, in the format of the reference ScummVM's trace patch
                  [--screens <folder>] [--screen-every <ticks>] [--actors <file>]
                  [--parser <file>] [--layout <file>] [--opl <file>]
                  [--music mt32 [--roms <folder>] [--midi <file>]]
+                 [--state-hash <tick>[,<tick>...] <file>]
     sci-vm-trace --scan-kernel <game folder> <output file>
     sci-vm-trace --vocabulary <game folder> <output file>
 
@@ -44,6 +45,17 @@ does.
   them (it renders nothing; without it the messages are only logged), and
   `--midi` writes every message the driver sends as `<timer call> <bytes>`
   (`docs/formats/replay-and-trace.md`, "MIDI files"). Not with `--opl`.
+- `--state-hash` writes the hash of the VM state (docs/ASSUMPTIONS.md,
+  "Milestone 8: the VM state") when virtual time first reaches each of the
+  ticks (increasing, comma-separated), taken in the kernel call that let
+  the time pass. Per requested tick: `<tick> <reached> total <sha-256>`,
+  `<tick> <reached> persistent <sha-256>` (all but the execution), then
+  `<tick> <reached> <component> <bytes> <sha-256>` for each component, so
+  that two files show which part of the state differs. Two runs of the
+  same scenario, and runs on x86-64 and ARM64, give the same file:
+
+      sci-vm-trace /game build/boot.txt --replay tests/scenarios/boot.txt \
+          --stop-tick 3600 --state-hash 1000,2000,3600 build/boot-state.txt
 - `--vocabulary` lists the parser's vocabulary as sci-text reads it:
   `word <spelling> <class> <group>` for every word of vocab.000,
   `suffix <typed> <stored> <class mask> <class>` for vocab.901 and

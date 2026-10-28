@@ -14,6 +14,7 @@
 #include "sci/audio/mt32.hpp"
 #include "sci/audio/mt32_driver.hpp"
 #include "sound.hpp"
+#include "state.hpp"
 #include "subsystems.hpp"
 #include "timing.hpp"
 
@@ -173,6 +174,16 @@ private:
     std::unique_ptr<audio::Mt32Driver> mt32_;
 };
 
+// The state hashes due at `tick`: those of the requested ticks reached.
+void report_state(Machine& machine, std::uint32_t tick, const RunOptions& options, std::size_t& next) {
+    if (!options.on_state_hash) {
+        return;
+    }
+    for (; next < options.state_hash_ticks.size() && tick >= options.state_hash_ticks[next]; ++next) {
+        options.on_state_hash(options.state_hash_ticks[next], tick, state_hash(machine));
+    }
+}
+
 } // namespace
 
 RunResult run_deterministic(const resource::ResourceManager& resources, const RunOptions& options) {
@@ -197,8 +208,10 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
             machine.abort(Abort::QuitGame);
         }
     };
+    std::size_t next_state_hash = 0;
     clock.set_advance_hook([&] {
         check_stop();
+        report_state(machine, clock.ticks(), options, next_state_hash);
         if (options.on_tick && subsystems.graphics().attached()) {
             Screen& screen = subsystems.graphics().screen();
             options.on_tick(ScreenMaps{

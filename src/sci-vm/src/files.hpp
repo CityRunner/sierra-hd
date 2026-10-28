@@ -37,6 +37,7 @@
 
 namespace sci::vm {
 
+class StateWriter;
 class Machine;
 
 // kFOpen's modes (kFileOpenMode).
@@ -71,6 +72,9 @@ public:
     std::optional<std::size_t> write(std::uint16_t number, std::string_view text);
     // RunGame closes all files.
     void close_all();
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
 
 private:
     struct Handle {

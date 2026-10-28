@@ -40,6 +40,7 @@
 
 namespace sci::vm {
 
+class StateWriter;
 class Music;
 struct MusicEntry;
 
@@ -80,6 +81,9 @@ public:
     [[nodiscard]] std::uint32_t tick() const { return position_.play_tick; }
 
     [[nodiscard]] bool is_tracking() const { return position_.play_pos.has_value(); }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
 
 private:
     struct EventInfo {

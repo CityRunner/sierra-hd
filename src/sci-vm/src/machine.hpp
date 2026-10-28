@@ -48,6 +48,7 @@
 
 namespace sci::vm {
 
+class StateWriter;
 class Subsystems;
 
 inline constexpr int vm_stack_size = 0x1000;
@@ -213,6 +214,9 @@ public:
 
     // Where the running run_vm started: 0 unless a kernel function invoked it.
     [[nodiscard]] int execution_stack_base() const { return execution_stack_base_; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
 
 private:
     struct Variables {

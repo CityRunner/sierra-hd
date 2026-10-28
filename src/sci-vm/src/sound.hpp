@@ -80,6 +80,8 @@ public:
     // For tests and tools: the music player.
     [[nodiscard]] Music& music() { return *music_; }
 
+    [[nodiscard]] bool has_music() const { return music_ != nullptr; }
+
 private:
     void process_init_sound(Machine& machine, Reg object);
     void process_play_sound(Machine& machine, Reg object);

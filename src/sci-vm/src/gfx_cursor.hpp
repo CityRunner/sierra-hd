@@ -33,6 +33,7 @@
 
 namespace sci::vm {
 
+class StateWriter;
 class Graphics;
 
 class Cursor {
@@ -68,6 +69,9 @@ public:
 
     // The last transition shown, for the renderer.
     [[nodiscard]] int last() const { return last_; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
 
 private:
     void do_transition(int number, bool blackout);

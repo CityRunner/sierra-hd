@@ -2275,6 +2275,132 @@ scripts' bytecode (after the script patches), not from runs:
 - The gate is approved as is and merged: the Linux and Windows matrix is
   green; macOS is optional.
 
+## Milestone 8: the VM state (2026-10-28)
+
+Milestone 8's exit criterion compares "the VM state" before saving and
+after restoring by its hash. This defines that state and its canonical
+serialisation, which is meant to become the core of the save format (the
+next task); `sci::vm::state_hash` (`src/sci-vm/src/state.cpp`) hashes it.
+
+- **The state is everything that influences future execution**, given the
+  game files and the future input. It is written in ten components, in
+  this order; each component's bytes are hashed on their own (SHA-256, the
+  project's `sci::core::Sha256`) so a difference can be located, and all
+  of them together give the total:
+  - `execution`: the execution stack (every field of every frame,
+    including the debug fields, which choose workarounds), which frame is
+    current, the execution stack base, the variable bases (`start`,
+    segment, size), `acc`, `prev`, `rest`, the abort request, the step and
+    kernel-call counters (kGetTime's elapsed-time rule reads the latter),
+    and the whole data stack: uninitialised temporaries read what earlier
+    calls left on it.
+  - `segments`: the segment table in id order (each segment's type and
+    contents, empty slots too), the script-to-segment map, the class
+    table, the ids of the clone, list, node and hunk tables and the two
+    system strings. Scripts: number, the whole buffer (the patched
+    resource plus the strings the game wrote into it), lockers, the
+    deleted mark, the locals segment, and the objects in offset order with
+    their position, name, freed mark, method and property selectors and
+    properties. Tables (clones, lists, nodes, hunks): the size, the free
+    list (first free entry, each entry's successor) and the count in use,
+    then each entry in use; the free list decides which entry the next
+    allocation gets, so it is state. Locals, hunks (type, whether they
+    still have memory, bytes) and dynamic memory are written whole. The
+    data stack's contents belong to `execution`; here only its size.
+  - `machine`: the game object, the restart flag, and the GC countdown
+    (when the next collection runs decides when entries are freed).
+  - `clock`: virtual time, the wait window, the music timer's due time
+    and tempo, the last kWait time, the last elapsed-time read, the
+    throttler, and the last screen update.
+  - `random`: the random source's state and the seed kRestartGame reuses.
+  - `events`: the SCI event queue, the mouse position, and the kGetEvent
+    counter.
+  - `files`: the file handles (open flag, name, the file read and the
+    position in it, what is being written).
+  - `parser`: the vocabulary language, the parser event and its valid
+    flag, the synonyms, and what the last parse left in the vocabulary:
+    the parse tree (kSaid reads it) and the pronoun's word.
+  - `sound`: the music player (tempo, sound on, master volume, reverbs,
+    global pause, time counter, timer calls) and the play list in play
+    order: per song every MusicEntry field, the MIDI parser's position,
+    timing, volumes, held notes and channel use, the signal queue; and
+    the queued commands, their track by its place in the list.
+  - `graphics`: the 1x visual, priority and control maps and the picture
+    validity flag; the ports (the window manager and menu ports, every
+    window with its frame, saved-bits handles, title and style, freed
+    windows still current, the visual order, the id table, the picture
+    window, the current port, the free counter, the priority bands); the
+    picture stack and the lines drawn into it, and the colour pairs that
+    carry over to pictures added later; the cursor's shape and
+    visibility; the transition; the menu bar (menus, items with all their
+    attributes, the current menu and item, the saved-bits handles, the
+    port to return to); the edit control's cursor and blink time; the
+    last cast, which windows removed with reanimation redraw.
+- **Where the state is taken.** A SCI save happens inside kSaveGame and a
+  restore re-enters the game through `Game::replay` after kRestoreGame
+  aborts the running code, as in Sierra's interpreter and ScummVM, so the
+  execution stack at the save is never restored. The hash therefore also
+  has a `persistent` digest of all components but `execution`: that is
+  what a save must hold and what "the same hash as before saving" compares
+  (the next task decides how the restore point is matched). For tests at
+  set ticks, `sci-vm-trace --state-hash` takes the whole state when
+  virtual time first reaches each tick, in the clock's advance hook,
+  inside the kernel call that let time pass (kWait, kGetEvent, ...);
+  there the interpreter's registers are those that call sees.
+- **Canonical:** integers little-endian at fixed widths, whatever the
+  host; containers as a count and their elements in a defined order
+  (segment ids, map keys, play order, visual order); pointers as what
+  they point to (a port by its owner and id, a frame by its index, a
+  queued track by its place in the play list, a variable store by its
+  segment). Values are SCI values (`segment:offset`), whose segment ids
+  are allocated deterministically, so no address or allocator detail
+  enters the stream. Each component starts with its name in the stream.
+- **Excluded, with the reason:**
+  - Everything read from the game files: the resources and their cache,
+    the selector table, the kernel table, the script patcher, the
+    vocabulary's words, suffixes and rules, the view and font caches, the
+    current font object (the current port's font id is state), and the
+    sound resources (a song is written by its resource number and the
+    MIDI parser's copy filtered by channel).
+  - The script fields derived from the buffer when a script loads
+    (exports, synonyms, locals offset and count).
+  - What is shown rather than drawn: the displayed screen, the HD
+    bookkeeping (owner and priority-source maps, the background layer,
+    sprite lists and their generations), the shown picture stack and
+    lines, the cast reported to the tracer. Presentation follows the
+    drawn state at the next show; after a restore the replay redraws.
+  - The audio device and its synthesiser (OPL chip, MT-32 emulation,
+    driver voices, mixer): they receive the player's messages and send
+    nothing back to the game. Their state after a restore is a question
+    for the save format (ScummVM resets the driver and re-plays the
+    songs).
+  - Host input and requests: the replay input not yet due, the quit
+    request, the kernel-call and tracing logs, the parser and layout
+    recorders, the HD caches, the analysis cache and the frame.
+  - Faults: a raised fault ends the run.
+  - The scratch list of kAnimate (rebuilt by every call) and the
+    interpreter's locals inside `run_vm` (a hash taken inside a kernel
+    call sees the state that call sees).
+- **For the save format.** Each part writes itself with a
+  `save_state(StateWriter&) const` member (ScummVM's
+  `saveLoadWithSerializer`, saving side); `StateReader` reads the same
+  primitives back and checks for running out of data. The format can
+  store this stream with a version and header and add `load_state` per
+  part, rebuilding what is excluded above (reloading scripts and
+  checking their buffers, re-parsing songs, reconnecting the ports), or
+  store less where a part can be rebuilt (for example the scripts'
+  string blocks only, as ScummVM does). **Decided** (the definition; the
+  save format is the next task).
+- **Checks:** the hash is equal across two runs of `boot.txt` at ticks
+  1000, 2000 and 3600 and of `intro.txt` at ticks 500, 5000, 12000, 20000
+  and 30000, and equal on ARM64 under qemu (boot at the three ticks,
+  intro at the first three). Unit tests (`tests/unit/vm/state_test.cpp`)
+  change one thing at a time (a local variable, a list node, a freed
+  node, a hunk byte, the accumulator, the clock, the random source, an
+  event, a synonym, a song signal, a port, a control-map pixel) and check
+  that exactly that component's hash changes, and that two machines in
+  equal states at different addresses hash equally.
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with

@@ -14,6 +14,7 @@
 #include "sci/vm/events.hpp"
 #include "sci/vm/files.hpp"
 #include "sci/vm/reg.hpp"
+#include "sci/vm/state_hash.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -106,6 +107,13 @@ struct RunOptions {
     // timer calls made so far (milestone 7, docs/formats/replay-and-trace.md,
     // "MIDI files").
     std::function<void(std::uint32_t timer_call, std::span<const std::uint8_t> message)> on_midi;
+    // The hash of the VM state (milestone 8, docs/ASSUMPTIONS.md, "Milestone
+    // 8: the VM state") at each of these ticks, in increasing order: when
+    // virtual time first reaches the tick, on_state_hash is called with it,
+    // the tick reached (a wait may pass several) and the hash. The state is
+    // taken in the kernel call that let the time pass.
+    std::vector<std::uint32_t> state_hash_ticks;
+    std::function<void(std::uint32_t requested, std::uint32_t tick, const StateHash&)> on_state_hash;
 };
 
 struct RunResult {

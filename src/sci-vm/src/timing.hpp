@@ -39,6 +39,8 @@
 
 namespace sci::vm {
 
+class StateWriter;
+
 class Clock {
 public:
     // Called once per `tempo` microseconds of virtual time (the music
@@ -96,6 +98,9 @@ public:
     void reset_throttle() { throttle_last_ = 0; }
 
     void reset_wait() { last_wait_ = millis(); }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
 
 private:
     // Runs the music timer calls due by `until` (microseconds).

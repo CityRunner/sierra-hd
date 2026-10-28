@@ -39,6 +39,7 @@
 
 namespace sci::vm {
 
+class StateWriter;
 class Resources;
 class ScriptPatcher;
 
@@ -138,6 +139,9 @@ public:
     // The offset added to `offset` by relocation (0 in SCI0), if the
     // relocation table lists it.
     [[nodiscard]] std::optional<std::uint32_t> relocation_offset(std::uint32_t offset) const;
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
 
 private:
     struct Block {

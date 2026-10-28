@@ -37,6 +37,8 @@
 
 namespace sci::vm {
 
+class StateWriter;
+
 inline constexpr unsigned mask_visual = 1U;
 inline constexpr unsigned mask_priority = 2U;
 inline constexpr unsigned mask_control = 4U;
@@ -145,6 +147,9 @@ public:
     [[nodiscard]] int pic_not_valid() const { return pic_not_valid_; }
 
     void set_pic_not_valid(int value) { pic_not_valid_ = value; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
 
 private:
     [[nodiscard]] static std::size_t index(int x, int y) {

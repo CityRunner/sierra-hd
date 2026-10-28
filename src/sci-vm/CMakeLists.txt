@@ -46,6 +46,7 @@ sci_add_library(NAME sci-vm
         src/selectors.cpp
         src/sound.cpp
         src/sound_render.cpp
+        src/state.cpp
         src/subsystems.cpp
         src/timing.cpp
         src/trigonometry.cpp

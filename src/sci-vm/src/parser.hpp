@@ -18,6 +18,7 @@
 
 namespace sci::vm {
 
+class StateWriter;
 class Machine;
 
 using text::Synonym;
@@ -79,6 +80,9 @@ public:
 
     // The record kParse and kSaid fill, or none when not recording.
     [[nodiscard]] ParserRecord* record() { return recording_ ? &record_ : nullptr; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
 
 private:
     void load(Machine& machine, bool foreign);

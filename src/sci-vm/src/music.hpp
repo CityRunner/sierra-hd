@@ -52,6 +52,7 @@
 
 namespace sci::vm {
 
+class StateWriter;
 class Faults;
 
 enum class SoundStatus : std::uint8_t { Stopped = 0, Initialized = 1, Paused = 2, Playing = 3 };
@@ -209,6 +210,9 @@ public:
             device_->set_reverb(reverb);
         }
     }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
 
 private:
     // A queued device command: a track init if `track_init` is set, else a

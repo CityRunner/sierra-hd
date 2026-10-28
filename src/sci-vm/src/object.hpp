@@ -33,6 +33,7 @@
 
 namespace sci::vm {
 
+class StateWriter;
 class SegManager;
 class Script;
 
@@ -105,6 +106,9 @@ public:
     // Takes the property count from the species class. False if there is
     // no species class.
     bool init_base_object(SegManager& segments, Reg address, bool init_super_class = true);
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
 
 private:
     Reg name_{};

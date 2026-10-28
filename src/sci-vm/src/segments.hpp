@@ -197,6 +197,14 @@ public:
 
     [[nodiscard]] std::size_t size() const { return table_.size(); }
 
+    // The free list, for the VM state: the first free entry and each
+    // entry's successor in it (its own index while in use), -1 ending it.
+    [[nodiscard]] int first_free() const { return first_free_; }
+
+    [[nodiscard]] int entries_used() const { return entries_used_; }
+
+    [[nodiscard]] int next_free(std::size_t index) const { return table_[index].next_free; }
+
     [[nodiscard]] T& at(std::size_t index) { return *table_[index].data; }
 
     [[nodiscard]] const T& at(std::size_t index) const { return *table_[index].data; }
