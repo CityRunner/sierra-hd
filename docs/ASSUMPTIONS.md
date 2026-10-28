@@ -2270,6 +2270,11 @@ scripts' bytecode (after the script patches), not from runs:
 - **MT-32 ROMs:** MT-32 1.07 first, then CM-32L; the patched control ROM,
   which mt32emu does not know, is skipped. Confirmed.
 
+## Milestone 7 approval (2026-10-28)
+
+- The gate is approved as is and merged: the Linux and Windows matrix is
+  green; macOS is optional.
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with

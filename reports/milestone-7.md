@@ -1,6 +1,6 @@
 # Milestone 7: sound
 
-Status: **awaiting approval**.
+Status: **approved** (2026-10-28), as is.
 
 Exit criteria (spec section 12): golden hashes of the OPL output for a
 fixed set of sound resources; every sound resource plays without errors on
