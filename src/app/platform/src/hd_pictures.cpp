@@ -59,48 +59,95 @@ vector::Scene with_lines(const vector::Scene& visual, std::span<const vm::ShownL
     return scene;
 }
 
+void HdPictures::make(Entry& entry, AnalysisCache& analysis, core::Executor& executor) {
+    const auto visual = analysis.scene(stack_variant(entry.stack, vector::Plane::Visual));
+    if (visual) {
+        entry.background = entry.lines.empty() ? render::render_hd(**visual, entry.scale, executor)
+                                               : render::render_hd(with_lines(**visual, entry.lines), entry.scale, executor);
+    } else {
+        core::log(core::LogLevel::Warning, core::LogCategory::General,
+                  std::format("Picture {}: {}; shown at 1x", entry.stack.front().number, visual.error().message));
+    }
+    const auto priority = analysis.scene(stack_variant(entry.stack, vector::Plane::Priority));
+    if (priority) {
+        entry.priority = render::render_priority(**priority, entry.scale, executor);
+    } else {
+        core::log(core::LogLevel::Warning, core::LogCategory::General,
+                  std::format("Picture {}: {}; priority at 1x", entry.stack.front().number, priority.error().message));
+    }
+}
+
+const HdPictures::Entry* HdPictures::find(std::span<const vm::ShownPicture> stack,
+                                          std::span<const vm::ShownLine> lines, int scale) {
+    const auto same = [&](const Entry& e) {
+        return e.scale == scale && std::ranges::equal(e.stack, stack) && std::ranges::equal(e.lines, lines);
+    };
+    const auto it = std::ranges::find_if(cache_, same);
+    if (it == cache_.end()) {
+        return nullptr;
+    }
+    cache_.splice(cache_.begin(), cache_, it);
+    return &cache_.front();
+}
+
+const HdPictures::Entry& HdPictures::keep(Entry entry) {
+    cache_.push_front(std::move(entry));
+    if (cache_.size() > kept) {
+        cache_.pop_back();
+    }
+    return cache_.front();
+}
+
+HdImages HdPictures::images(const Entry& entry) {
+    return HdImages{
+        .background = entry.background ? &*entry.background : nullptr,
+        .priority = entry.priority,
+        .pending = false,
+    };
+}
+
 HdImages HdPictures::get(std::span<const vm::ShownPicture> stack, std::span<const vm::ShownLine> lines, int scale) {
     if (stack.empty()) {
         return {};
     }
-    const auto same = [&](const Entry& e) {
-        return e.scale == scale && std::ranges::equal(e.stack, stack) && std::ranges::equal(e.lines, lines);
-    };
-    if (const auto it = std::ranges::find_if(cache_, same); it != cache_.end()) {
-        cache_.splice(cache_.begin(), cache_, it);
-    } else {
-        Entry entry{
-            .stack = {stack.begin(), stack.end()},
-            .lines = {lines.begin(), lines.end()},
-            .scale = scale,
-            .background = {},
-            .priority = {},
-        };
-        const auto visual = analysis_->scene(stack_variant(stack, vector::Plane::Visual));
-        if (visual) {
-            entry.background = lines.empty() ? render::render_hd(**visual, scale, *executor_)
-                                             : render::render_hd(with_lines(**visual, lines), scale, *executor_);
-        } else {
-            core::log(core::LogLevel::Warning, core::LogCategory::General,
-                      std::format("Picture {}: {}; shown at 1x", stack.front().number, visual.error().message));
-        }
-        const auto priority = analysis_->scene(stack_variant(stack, vector::Plane::Priority));
-        if (priority) {
-            entry.priority = render::render_priority(**priority, scale, *executor_);
-        } else {
-            core::log(core::LogLevel::Warning, core::LogCategory::General,
-                      std::format("Picture {}: {}; priority at 1x", stack.front().number, priority.error().message));
-        }
-        cache_.push_front(std::move(entry));
-        if (cache_.size() > kept) {
-            cache_.pop_back();
-        }
+    if (const Entry* entry = find(stack, lines, scale)) {
+        return images(*entry);
     }
-    const Entry& front = cache_.front();
-    return HdImages{
-        .background = front.background ? &*front.background : nullptr,
-        .priority = front.priority,
+    Entry entry{
+        .stack = {stack.begin(), stack.end()},
+        .lines = {lines.begin(), lines.end()},
+        .scale = scale,
+        .background = {},
+        .priority = {},
     };
+    make(entry, *analysis_, *executor_);
+    return images(keep(std::move(entry)));
+}
+
+HdImages HdPictures::request(std::span<const vm::ShownPicture> stack, std::span<const vm::ShownLine> lines,
+                             int scale) {
+    if (stack.empty()) {
+        return {};
+    }
+    if (auto done = task_.take()) {
+        keep(std::move(*done));
+    }
+    if (const Entry* entry = find(stack, lines, scale)) {
+        return images(*entry);
+    }
+    if (!task_.busy()) {
+        // The thread gets its own copy of what it renders.
+        task_.start([entry = Entry{.stack = {stack.begin(), stack.end()},
+                                   .lines = {lines.begin(), lines.end()},
+                                   .scale = scale,
+                                   .background = {},
+                                   .priority = {}},
+                     analysis = analysis_, executor = executor_]() mutable {
+            make(entry, *analysis, *executor);
+            return std::move(entry);
+        });
+    }
+    return HdImages{.background = nullptr, .priority = {}, .pending = true};
 }
 
 } // namespace sci::platform

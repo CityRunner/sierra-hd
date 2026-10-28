@@ -67,3 +67,25 @@ SCI_TEST(audio_output_feeds_sdl_from_the_main_thread) {
     output.reset();
     SDL_Quit();
 }
+
+SCI_TEST(audio_output_tops_the_queue_up_after_an_underrun) {
+    SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "dummy");
+    auto output = sci::app::AudioOutput::open(audible_patches(), 0.5);
+    SCI_CHECK(output != nullptr);
+    if (!output) {
+        return;
+    }
+    // In time: nothing to make up for.
+    SCI_CHECK(!output->recover());
+    // A stall of the main thread three times the queue: SDL's thread runs
+    // dry and plays silence.
+    SDL_Delay(static_cast<std::uint32_t>(output->target_frames() * 3000 / output->rate()));
+    SCI_CHECK(output->queued_frames() == 0);
+    SCI_CHECK(output->recover());
+    SCI_CHECK(output->recoveries() == 1);
+    SCI_CHECK(output->queued_frames() >= output->target_frames() * 3 / 4);
+    // Once is enough.
+    SCI_CHECK(!output->recover());
+    output.reset();
+    SDL_Quit();
+}

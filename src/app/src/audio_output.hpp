@@ -15,14 +15,18 @@
 //   timer call reach the MT-32 at once, so they take effect at the call's
 //   first frame.
 // - SDL's audio thread pulls from that stream. The stream, locked inside
-//   SDL, is the only thing the two threads share; this class has no state
-//   of its own that the audio thread sees.
+//   SDL, is what the two threads share; besides it, the audio thread only
+//   counts, in an atomic, the bytes it wanted and did not find (an
+//   underrun).
 // - The timer calls follow real time (the host runs them during its waits,
 //   sci::vm::Game::pass_wait); the device plays by its own clock. The
 //   queue in the stream is held near a target (queue_speed adjusts the
-//   resampling by up to 0.2 %), new audio is dropped above twice the target
-//   (after a stall that the interpreter then catches up on), and the device
-//   plays silence when the queue runs dry.
+//   resampling by up to 0.2 %). Above twice the target (after a stall that
+//   the interpreter then catches up on), new audio is dropped until the
+//   queue is back at the target. The device plays silence when the queue
+//   runs dry; the host then calls recover once the music due is made, and
+//   the queue is topped up to the target with silence, so that it has its
+//   margin again (docs/ASSUMPTIONS.md, "Milestone 7: gaps in the music").
 
 #pragma once
 
@@ -32,6 +36,7 @@
 #include "sci/audio/mt32_driver.hpp"
 
 #include <SDL3/SDL_audio.h>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -72,14 +77,30 @@ public:
     void set_reverb(std::int8_t reverb) override;
     // The driver's step, then the samples up to the next timer call.
     void on_timer() override;
+    // The host has made all the music due by now (it is about to wait): if
+    // the device went without for a quarter of the target or more since
+    // the last call and the queue is below the target, it is topped up to
+    // the target with silence. After a stall
+    // that the host does not catch up on (more than 250 ms behind) the
+    // queue would otherwise stay short and every later hiccup would be
+    // heard. Returns whether it topped up.
+    bool recover();
 
     // The output rate and the queue target, in frames.
     [[nodiscard]] std::uint32_t rate() const { return rate_; }
 
     [[nodiscard]] std::size_t target_frames() const { return target_frames_; }
 
+    // Frames now waiting in the stream.
+    [[nodiscard]] std::size_t queued_frames() const;
+
     // Frames dropped because the queue was full (for tests and the log).
     [[nodiscard]] std::uint64_t dropped_frames() const { return dropped_frames_; }
+
+    // Underruns recovered from, and the silent frames put in for them.
+    [[nodiscard]] std::uint64_t recoveries() const { return recoveries_; }
+
+    [[nodiscard]] std::uint64_t recovery_frames() const { return recovery_frames_; }
 
 private:
     // The driver, and what makes its output at `rate`.
@@ -92,9 +113,8 @@ private:
     [[nodiscard]] static std::unique_ptr<AudioOutput> open(Synth synth, double volume);
     AudioOutput(SDL_AudioStream* stream, std::uint32_t rate, std::size_t device_frames, Synth synth, double volume);
 
-    // Frames now waiting in the stream.
-    [[nodiscard]] std::size_t queued_frames() const;
     void put(std::span<const std::int16_t> frames);
+    void put_silence(std::size_t frames);
 
     SDL_AudioStream* stream_;
     std::uint32_t rate_;
@@ -104,6 +124,12 @@ private:
     std::uint64_t timer_calls_ = 0;
     std::uint64_t synth_frames_ = 0;
     std::uint64_t dropped_frames_ = 0;
+    std::uint64_t recoveries_ = 0;
+    std::uint64_t recovery_frames_ = 0;
+    // Dropping new audio until the queue is back at the target.
+    bool dropping_ = false;
+    // Written by SDL's audio thread: the bytes it found missing.
+    std::atomic<std::uint64_t> starved_bytes_{0};
     std::vector<std::int16_t> synth_samples_;
     std::vector<std::int16_t> output_samples_;
 };

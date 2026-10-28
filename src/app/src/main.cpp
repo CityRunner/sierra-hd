@@ -602,12 +602,25 @@ sci::app::KeyPress key_press(const SDL_KeyboardEvent& key) {
 // the input on, until the wait's real time has passed.
 class GameHost final : public sci::vm::GameHost {
 public:
+    // How long the frame shown is kept while the HD images of a new picture
+    // are made: the room-entry budget (docs/ASSUMPTIONS.md, "Milestone 3").
+    static constexpr std::uint64_t hd_hold_milliseconds = 1000;
+
     GameHost(SDL_Window* window, SDL_Renderer* renderer, const sci::resource::ResourceManager& manager,
              sci::platform::HdPictures& pictures, sci::platform::Config& config)
         : window_(window), renderer_(renderer), manager_(&manager), presenter_(renderer), config_(&config),
           screen_([&pictures](std::span<const sci::vm::ShownPicture> stack, std::span<const sci::vm::ShownLine> lines,
-                              int scale) { return pictures.get(stack, lines, scale); }),
-          start_(SDL_GetTicks()) {}
+                              int scale) { return pictures.request(stack, lines, scale); }),
+          start_(SDL_GetTicks()) {
+        // A black frame: the first presentation sets the renderer up (tens
+        // of milliseconds, over 100 in a debug build), here before the
+        // music starts rather than as a stall in it.
+        const int scale = scale_for_window();
+        const std::vector<std::uint8_t> black(static_cast<std::size_t>(sci::app::screen_width) * sci::app::screen_height *
+                                                  static_cast<std::size_t>(scale) * static_cast<std::size_t>(scale) * 4,
+                                              0);
+        presenter_.present(black, scale, {});
+    }
 
     [[nodiscard]] sci::vm::LocalTime local_time() override {
         const auto now = std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::system_clock::now());
@@ -645,9 +658,17 @@ public:
                 }
                 return;
             }
+            // In time: all the music due is made, so an underrun since the
+            // last wait can be made up for (AudioOutput::recover).
+            if (audio_ != nullptr) {
+                audio_->recover();
+            }
             SDL_Delay(static_cast<std::uint32_t>(std::min<std::uint64_t>(virtual_ - now, 4)));
         }
     }
+
+    // The music's output, told when the host is in time (nullptr: none).
+    void set_audio(sci::app::AudioOutput* audio) { audio_ = audio; }
 
 private:
     [[nodiscard]] int scale_for_window() const {
@@ -735,7 +756,7 @@ private:
     void present(sci::vm::Game& game) {
         const sci::vm::ShownScreen shown = game.screen();
         const int scale = scale_for_window();
-        if (!redraw_ && shown.serial == last_serial_ && scale == screen_.scale()) {
+        if (!redraw_ && shown.serial == last_serial_ && scale == screen_.scale() && !screen_.hd_pending()) {
             update_cursor(shown, scale);
             // A drawn cursor that moved is drawn again.
             if (presenter_.draws_cursor() && std::exchange(pointer_moved_, false)) {
@@ -743,7 +764,17 @@ private:
             }
             return;
         }
-        screen_.update(shown, config_->mode, scale, config_->priority_snap);
+        // A picture whose HD images are being made: the frame shown stays
+        // for up to hd_hold_milliseconds, then the picture is shown at 1x
+        // until they come (HdPictures::request).
+        const std::uint64_t ticks = SDL_GetTicks();
+        if (!screen_.waiting()) {
+            hold_start_ = ticks;
+        }
+        screen_.update(shown, config_->mode, scale, config_->priority_snap, ticks - hold_start_ < hd_hold_milliseconds);
+        if (screen_.waiting()) {
+            return;
+        }
         std::vector<sci::app::Rect> dirty;
         for (const sci::render::PixelRect& rect : screen_.take_dirty()) {
             dirty.push_back(sci::app::Rect{.x = rect.x, .y = rect.y, .width = rect.width, .height = rect.height});
@@ -840,6 +871,8 @@ private:
     sci::platform::GameFrame screen_;
     std::uint64_t start_;
     std::uint64_t virtual_ = 0;
+    std::uint64_t hold_start_ = 0;
+    sci::app::AudioOutput* audio_ = nullptr;
     std::uint64_t last_serial_ = ~std::uint64_t{0};
     bool redraw_ = true;
     sci::vm::Point last_mouse_{.x = 160, .y = 100};
@@ -999,6 +1032,7 @@ int run(const Options& options) {
                                        : options.seed.value_or(static_cast<std::uint32_t>(SDL_GetPerformanceCounter()));
         sci::vm::Game running(game->manager, host, &files, seed);
         running.set_music_device(audio.get());
+        host.set_audio(audio.get());
         running.schedule(replay);
         if (const auto fault = running.run()) {
             show_error(window.get(), std::format("The interpreter stopped: {}", *fault));

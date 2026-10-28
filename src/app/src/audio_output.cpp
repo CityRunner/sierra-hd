@@ -7,6 +7,7 @@
 
 #include <SDL3/SDL_init.h>
 #include <algorithm>
+#include <atomic>
 #include <format>
 #include <utility>
 
@@ -16,6 +17,16 @@ namespace {
 
 constexpr int channels = 2;
 constexpr std::size_t frame_bytes = sizeof(std::int16_t) * channels;
+
+// On SDL's audio thread, with the stream locked: counts what the device
+// wanted beyond what was queued (it plays silence for it).
+void SDLCALL count_underrun(void* starved_bytes, SDL_AudioStream* /*stream*/, int additional_amount,
+                            int /*total_amount*/) {
+    if (additional_amount > 0) {
+        static_cast<std::atomic<std::uint64_t>*>(starved_bytes)
+            ->fetch_add(static_cast<std::uint64_t>(additional_amount), std::memory_order_relaxed);
+    }
+}
 
 void warn(std::string_view what) {
     core::log(core::LogLevel::Warning, core::LogCategory::General,
@@ -71,6 +82,10 @@ std::unique_ptr<AudioOutput> AudioOutput::open(Synth synth, double volume) {
     std::unique_ptr<AudioOutput> output(new AudioOutput(stream, static_cast<std::uint32_t>(device.freq),
                                                         static_cast<std::size_t>(std::max(device_frames, 0)),
                                                         std::move(synth), volume));
+    if (!SDL_SetAudioStreamGetCallback(stream, count_underrun, &output->starved_bytes_)) {
+        warn("Cannot watch the audio queue");
+        return nullptr;
+    }
     // The device starts paused; it plays the silence queued until the
     // music comes.
     if (!SDL_ResumeAudioStreamDevice(stream)) {
@@ -91,11 +106,15 @@ AudioOutput::AudioOutput(SDL_AudioStream* stream, std::uint32_t rate, std::size_
     mixer_.set_volume(volume);
     // Start with the target queue of silence, so that the device does not
     // run dry before the first timer calls.
-    const std::vector<std::int16_t> silence(target_frames_ * channels, 0);
-    put(silence);
+    put_silence(target_frames_);
 }
 
 AudioOutput::~AudioOutput() {
+    if (recoveries_ != 0 || dropped_frames_ != 0) {
+        core::log(core::LogLevel::Info, core::LogCategory::General,
+                  std::format("audio: {} underruns made up for with {} ms of silence, {} ms dropped", recoveries_,
+                              recovery_frames_ * 1000 / rate_, dropped_frames_ * 1000 / rate_));
+    }
     // Stops SDL's audio thread using the stream and closes the device.
     SDL_DestroyAudioStream(stream_);
     SDL_QuitSubSystem(SDL_INIT_AUDIO);
@@ -145,17 +164,44 @@ void AudioOutput::on_timer() {
     output_samples_.clear();
     mixer_.process(synth_samples_, output_samples_);
     // Too far ahead of the device (after a stall the interpreter caught up
-    // on): drop rather than let the delay grow.
-    if (queued + (output_samples_.size() / channels) > target_frames_ * 2) {
-        dropped_frames_ += output_samples_.size() / channels;
+    // on): drop rather than let the delay grow, until the queue is back at
+    // the target, so that the music is cut once rather than at every call
+    // around the limit.
+    const std::size_t frames = output_samples_.size() / channels;
+    if (queued + frames > target_frames_ * 2) {
+        dropping_ = true;
+    } else if (queued + frames <= target_frames_) {
+        dropping_ = false;
+    }
+    if (dropping_) {
+        dropped_frames_ += frames;
         return;
     }
     put(output_samples_);
 }
 
+bool AudioOutput::recover() {
+    // A short underrun (a few frames of jitter with the queue low) is left
+    // to the speed correction: topping up would turn a click into a gap.
+    const std::uint64_t starved = starved_bytes_.exchange(0, std::memory_order_relaxed) / frame_bytes;
+    const std::size_t queued = queued_frames();
+    if (starved < target_frames_ / 4 || queued >= target_frames_) {
+        return false;
+    }
+    ++recoveries_;
+    recovery_frames_ += target_frames_ - queued;
+    put_silence(target_frames_ - queued);
+    return true;
+}
+
 std::size_t AudioOutput::queued_frames() const {
     const int bytes = SDL_GetAudioStreamQueued(stream_);
     return bytes > 0 ? static_cast<std::size_t>(bytes) / frame_bytes : 0;
+}
+
+void AudioOutput::put_silence(std::size_t frames) {
+    const std::vector<std::int16_t> silence(frames * channels, 0);
+    put(silence);
 }
 
 void AudioOutput::put(std::span<const std::int16_t> frames) {

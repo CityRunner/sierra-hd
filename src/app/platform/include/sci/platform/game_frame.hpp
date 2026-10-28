@@ -29,8 +29,18 @@ class GameFrame {
 public:
     explicit GameFrame(HdSource source) : source_(std::move(source)) {}
 
-    // Brings the frame up to date with `shown`.
-    void update(const vm::ShownScreen& shown, GraphicsMode mode, int scale, bool snap);
+    // Brings the frame up to date with `shown`. While the HD images are
+    // pending (HdImages::pending), the frame stays as it is if `hold` is
+    // set (waiting() then says so); otherwise the picture is composed at 1x
+    // until they come, and then again in HD.
+    void update(const vm::ShownScreen& shown, GraphicsMode mode, int scale, bool snap, bool hold = false);
+
+    // The last update kept the frame, waiting for HD images.
+    [[nodiscard]] bool waiting() const { return waiting_; }
+
+    // HD images are pending: an update can change the frame although the
+    // shown screen did not change.
+    [[nodiscard]] bool hd_pending() const { return waiting_ || without_hd_; }
 
     [[nodiscard]] const std::vector<std::uint8_t>& frame() const { return frame_; }
 
@@ -61,6 +71,9 @@ private:
     GraphicsMode mode_ = GraphicsMode::Original;
     int scale_ = 0;
     bool snap_ = false;
+    bool waiting_ = false;
+    // The picture is composed at 1x while its HD images are pending.
+    bool without_hd_ = false;
     std::vector<render::PixelRect> dirty_;
     std::size_t last_composed_ = 0;
 };

@@ -31,7 +31,7 @@ constexpr int tile_rows = (height + tile - 1) / tile;
 } // namespace
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): change detection and tiling in one pass.
-void GameFrame::update(const vm::ShownScreen& shown, GraphicsMode mode, int scale, bool snap) {
+void GameFrame::update(const vm::ShownScreen& shown, GraphicsMode mode, int scale, bool snap, bool hold) {
     if (shown.visual.size() != pixel_count || shown.owner.size() != pixel_count ||
         shown.background_visual.size() != pixel_count || shown.sprite_layer.size() != pixel_count) {
         return; // Nothing shown yet.
@@ -41,10 +41,16 @@ void GameFrame::update(const vm::ShownScreen& shown, GraphicsMode mode, int scal
     if (hd) {
         images = source_(shown.pictures, shown.lines, scale);
     }
+    waiting_ = hd && images.pending && hold;
+    if (waiting_) {
+        return;
+    }
+    const bool without_hd = hd && images.pending;
     const bool picture_changed =
         !std::ranges::equal(shown.pictures, pictures_) || !std::ranges::equal(shown.lines, lines_);
-    const bool full =
-        scale != scale_ || mode != mode_ || snap != snap_ || visual_.size() != pixel_count || (hd && picture_changed);
+    const bool full = scale != scale_ || mode != mode_ || snap != snap_ || visual_.size() != pixel_count ||
+                      (hd && picture_changed) || without_hd != without_hd_;
+    without_hd_ = without_hd;
     if (scale != scale_) {
         scale_ = scale;
         frame_.assign(pixel_count * static_cast<std::size_t>(scale) * static_cast<std::size_t>(scale) * 4, 0);

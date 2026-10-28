@@ -124,6 +124,37 @@ SCI_TEST(an_update_composes_only_the_changed_tiles) {
     SCI_CHECK(frame.frame() == expected);
 }
 
+SCI_TEST(pending_hd_images_hold_the_frame_or_show_the_picture_at_1x) {
+    const CompositionFixture fixture(scale);
+    const Shown shown(fixture);
+    bool ready = false;
+    GameFrame frame([&fixture, &ready](std::span<const sci::vm::ShownPicture> /*stack*/,
+                                       std::span<const sci::vm::ShownLine> /*lines*/, int /*scale*/) {
+        return ready ? HdImages{.background = &fixture.background(), .priority = fixture.hd_priority()}
+                     : HdImages{.background = nullptr, .priority = {}, .pending = true};
+    });
+    // Held: nothing composed, the frame as it was.
+    frame.update(shown.screen(fixture, 1), GraphicsMode::Hd, scale, false, true);
+    SCI_CHECK(frame.waiting() && frame.hd_pending());
+    SCI_CHECK(frame.frame().empty() && frame.take_dirty().empty());
+    // Not held any more: the picture at 1x.
+    frame.update(shown.screen(fixture, 1), GraphicsMode::Hd, scale, false, false);
+    SCI_CHECK(!frame.waiting() && frame.hd_pending());
+    sci::render::ComposeInput input = fixture.input(false);
+    input.hd_background = nullptr;
+    input.hd_priority = {};
+    std::vector<std::uint8_t> expected(frame.frame().size());
+    sci::render::compose(input, scale, {.x = 0, .y = 0, .width = 320, .height = 200}, expected);
+    SCI_CHECK(frame.frame() == expected);
+    (void)frame.take_dirty();
+    // The images came: everything again, in HD, with the same shown screen.
+    ready = true;
+    frame.update(shown.screen(fixture, 1), GraphicsMode::Hd, scale, false, true);
+    SCI_CHECK(!frame.hd_pending());
+    SCI_CHECK(frame.last_composed() == CompositionFixture::pixels);
+    SCI_CHECK(frame.frame() == fixture.compose(false));
+}
+
 SCI_TEST(original_mode_needs_no_hd_images) {
     const CompositionFixture fixture(scale);
     const Shown shown(fixture);

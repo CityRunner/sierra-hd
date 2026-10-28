@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The code that runs on worker threads, on worker threads: the app's
-// ThreadExecutor, and the rendering and checks that libraries spread over
-// an executor (spec sections 4.2 and 4.3). Their results must equal the
-// serial ones. These are the tests with the label "threads", which the
+// ThreadExecutor and BackgroundTask, and the rendering and checks that
+// libraries spread over an executor (spec sections 4.2 and 4.3). Their
+// results must equal the serial ones. These are the tests with the label "threads", which the
 // work-in-progress CI runs under TSan (docs/ASSUMPTIONS.md, "CI cost
 // policy").
 
@@ -11,6 +11,7 @@
 #include "sci/core/executor.hpp"
 #include "sci/pic/draw_pic.hpp"
 #include "sci/pic/parse_pic.hpp"
+#include "sci/platform/background_task.hpp"
 #include "sci/platform/thread_executor.hpp"
 #include "sci/render/integrity.hpp"
 #include "sci/render/original.hpp"
@@ -19,9 +20,11 @@
 #include "sci_test.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <thread>
 #include <vector>
@@ -67,6 +70,36 @@ SCI_TEST(thread_executor_runs_every_task_once) {
         executor.run(0, [&](std::size_t) { once = false; });
         SCI_CHECK(once);
     }
+}
+
+SCI_TEST(background_task_hands_its_result_to_the_owner) {
+    sci::platform::BackgroundTask<std::vector<int>> task;
+    SCI_CHECK(!task.busy() && !task.take().has_value());
+    // The owner polls while the work runs; the work's input is its own copy.
+    std::vector<int> input{1, 2, 3};
+    std::atomic<bool> go{false};
+    task.start([input, &go] {
+        while (!go.load()) {
+            std::this_thread::yield();
+        }
+        std::vector<int> doubled;
+        for (const int value : input) {
+            doubled.push_back(value * 2);
+        }
+        return doubled;
+    });
+    input.clear();
+    SCI_CHECK(task.busy() && !task.take().has_value());
+    go.store(true);
+    std::optional<std::vector<int>> result;
+    while (!(result = task.take())) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    SCI_CHECK(*result == (std::vector<int>{2, 4, 6}));
+    SCI_CHECK(!task.busy());
+    // Free again; a task still running when it goes is waited for.
+    task.start([] { return std::vector<int>{7}; });
+    SCI_CHECK(task.busy());
 }
 
 SCI_TEST(rendering_on_threads_equals_rendering_in_order) {
