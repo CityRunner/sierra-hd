@@ -227,7 +227,32 @@ they are derived from the game's music):
 
 ## CI minutes
 
-CI_MINUTES
+**The gate is green** (run 40753022510, commit `ef49fe9`). It ran:
+- style and static analysis;
+- Linux x86-64 and ARM64 in release, ASan+UBSan and TSan, which includes
+  the new threaded audio tests;
+- the fuzzers;
+- Windows x64 and ARM64, the first Windows builds of Nuked OPL3 and
+  mt32emu.
+
+macOS is optional and was not run.
+
+Measured with `scripts/ci-minutes.py --branch milestone-7`:
+
+| Platform | Jobs | Minutes | Included minutes | List price |
+|---|---|---|---|---|
+| Linux x86-64 | 6 | 64 | 64 | $0.38 |
+| Linux ARM64 | 3 | 22 | 22 | $0.11 |
+| Windows x64 | 1 | 10 | 20 | $0.10 |
+| Windows ARM64 | 1 | 4 | 8 | $0.04 |
+| **Total** (1 run) | | **100** | **114** | **$0.63** |
+
+- **Cost:** none. The repository is public, so standard runners are free.
+- **Runs:** one, the gate run of this pull request.
+  - Every push of `milestone-7` before the pull request was checked
+    locally first, and pushes start no run.
+  - The report's later commits change only documentation and start no
+    run.
 
 ## Deviations from the spec
 
