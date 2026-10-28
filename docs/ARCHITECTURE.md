@@ -64,8 +64,8 @@ program:
   private. Another library cannot include another library's internals.
 - External dependencies are not accepted by `sci_add_library` at all. The
   vendored libraries (`cmake/SciThirdParty.cmake`) are linked by name only
-  where spec section 4.2 allows them: SDL3 by app (and, later, the audio
-  output), Nuked OPL3 privately by sci-audio, whose public headers do not
+  where spec section 4.2 allows them: SDL3 by app (which holds the audio
+  output too, `src/app/src/audio_output.cpp`), Nuked OPL3 privately by sci-audio, whose public headers do not
   include it.
 - The dependencies listed above are the planned edges that are already
   needed. Edges such as sci-vm to sci-audio (sound kernel calls) are added
@@ -83,8 +83,11 @@ program:
    and the hint files into a vector scene. sci-render rasterises it at
    320N x 190N, once per room, and composites sprites, text and windows per
    frame.
-4. sci-audio plays sound resources on the audio thread; signals and cues go
-   back to the VM.
+4. sci-vm's music player plays the sound resources on the virtual clock
+   (signals and cues go back to the scripts) and sends MIDI to a sci-audio
+   device; in the program the AdLib driver's chip output is mixed to the
+   device rate on the main thread and handed to SDL's audio thread through
+   an `SDL_AudioStream` (milestone 7).
 5. app presents the frame with dirty rectangles and feeds input to the VM in
    1x coordinates.
 
@@ -221,8 +224,10 @@ Two entry points run the game:
 - `Game` (`include/sci/vm/game.hpp`) runs it for the program, on the
   calling (main) thread. Wherever virtual time would pass, sci-vm calls
   `GameHost::wait`; the host presents `Game::screen()`, passes input on
-  with `Game::input` and returns when that much real time has passed. The
-  host also gives the local time. Replays can be scheduled into a run.
+  with `Game::input` and returns when that much real time has passed,
+  calling `Game::pass_wait` meanwhile so that the music timer calls due
+  run as real time passes (milestone 7). The host also gives the local
+  time. Replays can be scheduled into a run.
 
 ## The program
 

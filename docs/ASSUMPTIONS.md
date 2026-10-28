@@ -1771,8 +1771,8 @@ scripts' bytecode (after the script patches), not from runs:
   render, none silent (the quietest, sound 99, peaks at 35; 84 end within
   20 seconds), the same twice. **Decided** (the next task picks the hashed
   set).
-- **Open:** the device is not yet attached in the program (audio output,
-  mixer and device selection are later tasks).
+- The device is attached in the program by the next task ("Milestone 7:
+  mixer and audio output").
 
 ## Milestone 7: the OPL comparison and the sound golden hashes (2026-10-28)
 
@@ -1814,6 +1814,86 @@ scripts' bytecode (after the script patches), not from runs:
   (release, about 35 s; the same as the debug build) and on ARM64 (the
   cross-aarch64 build under qemu-user, about 3 minutes). Like the picture
   hashes they need the game and run locally, not in CI. **Decided.**
+
+## Milestone 7: mixer and audio output (2026-10-28)
+
+- **Who runs what.** The interpreter, the music player, the AdLib driver,
+  the OPL chip and the mixer all run on the main thread; SDL's audio
+  thread only plays (spec section 4.3). After each music timer call the
+  chip generates the frames up to the next call (frame
+  `floor(n * 49716 / 250)` starts call n, as in `render_sound`), the mixer
+  converts them to the device's rate, and they are put into an
+  `SDL_AudioStream` bound to the default playback device
+  (`src/app/src/audio_output.cpp`, a `MidiDevice` wrapping the driver).
+  The stream, locked inside SDL, is the only thing the threads share;
+  there is no state of ours that both touch. The other design (the audio
+  thread generating the chip's output and applying register writes queued
+  with sample stamps) was not taken: it needs our own lock-free queue and
+  gives no lower latency, since the writes only exist once the main
+  thread has run the timer. **Decided.**
+- **The timer calls follow real time during waits.** Virtual time passes
+  only in `Clock::advance`, which calls the host's wait and then ran all
+  the timer calls of the wait at its end: a 100 ms kWait would make 100 ms
+  of music at once, after 100 ms of nothing, and need over 100 ms of
+  queue. Now the host calls `Game::pass_wait(elapsed)` while it waits, and
+  `Clock::run_music_in_wait` runs the calls due by then. The interpreter is
+  stopped in the wait and the timer does not read the clock, so it sees
+  the same calls in the same order; the deterministic runs have no wait
+  hook and do not change (unit test
+  `clock_runs_the_music_timer_during_a_wait`; scenarios below).
+  **Decided.**
+- **Clocks and latency.** The timer calls follow the wall clock
+  (`SDL_GetTicks`, which the host's virtual time tracks); the device plays
+  by its own crystal. The stream's queue is held near a target of
+  max(60 ms, three device buffers): `queue_speed` changes the mixer's
+  resampling step in proportion to the queue's error, by at most 0.2 %
+  (3.5 cents, inaudible), which absorbs any drift the two clocks can have.
+  New audio is dropped above twice the target (after a stall the
+  interpreter then catches up on, so the music stays in step with the
+  game), and the device plays silence when the queue runs dry (a stall of
+  the main thread longer than the queue). The queue starts filled with the
+  target of silence. Latency from a timer call to the speaker is the
+  queue plus SDL's device buffer: about 60 to 100 ms (70 ms plus a 23 ms
+  buffer with the 1024-frame buffers SDL reports at 44100 Hz). Pausing
+  is the game's own (kDoSound pause stops the notes; the timer and the
+  output go on). **Decided.**
+- **Resampler: 4-point cubic Hermite (Catmull-Rom),** in double (spec
+  section 5.3 allows no float). Four multiply-adds per sample; its passband
+  is much flatter than linear interpolation's (which ScummVM's default
+  rate converter uses, and which loses about 3 dB at a third of the input
+  rate), and the OPL's energy above 22 kHz, which a 44100 Hz output folds
+  back, is small. A windowed-sinc polyphase filter would cost several
+  times more for no audible gain on this signal. The mixer also applies
+  the volume and clips to 16 bits; it is not deterministic across
+  platforms and does not need to be (spec section 8). Tests: output length
+  at 22050 to 96000 Hz, a 440 Hz sine within 4 steps at 48000 Hz, a 5 kHz
+  sine within 1 % in level at 44100 Hz, silence, volume, clipping, the
+  speed correction (`tests/unit/audio/mixer_test.cpp`). **Decided.**
+- **Configuration** (format 1 unchanged; a file without the new keys gets
+  the defaults): `music = adlib | mt32 | off` (default `adlib`; `mt32`
+  falls back to AdLib with a warning until the MT-32 task; `off` is the
+  silent driver, with the same timing and no audio device) and
+  `volume = 0..100` (per cent, default 100). Without an audio device, or
+  without patch.003, the program logs a warning and plays on the silent
+  driver. Under CI or Xvfb `SDL_AUDIODRIVER=dummy` plays into a device
+  that consumes at the real rate. **Decided.**
+- **Threads under TSan:** `sci-audio-output-tests` (label `threads`) opens
+  the output on SDL's dummy driver and drives the driver from the main
+  thread for half a second of timer calls while SDL's thread pulls: clean
+  under TSan (three runs), and no frame dropped. **Decided.**
+- **Smoke test** (`SDL_AUDIODRIVER=disk`, Xvfb, debug build, 40 s with the
+  container's start-up): SDL reported 44100 Hz with 1024-frame buffers,
+  queue 3072 frames. The file held 24.7 s of 16-bit stereo: silence until
+  the title music started at 1.06 s, then music to the end (RMS about 1100
+  to 1400 per half second, peak 4506, no clipped sample, zero crossings
+  that change with the notes). One gap: 57 ms of silence at 2.89 s cut into
+  a waveform that continues unchanged after it, an underrun (the main
+  thread stalled longer than the queue early in the title, in the debug
+  build); no other run of exact zeros. The customer listens to it on real
+  hardware later. **Assumed** (no sound card here).
+- **Open:** a long stall of the main thread (for example an HD picture
+  analysed on room entry, up to about 0.5 s in a slow build) still empties
+  the queue and is heard as a gap; the music then resumes in step.
 
 ## Spec items carried forward
 

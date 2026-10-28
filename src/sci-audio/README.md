@@ -22,6 +22,15 @@ device layer under it is here (milestone 7).
   velocity and master volume. `load_adlib_patches` reads patch.003 (or the
   bank in an early ADL.DRV) through sci-resource. Milestone 7.
 
+- `sci/audio/mixer.hpp`: `Mixer`, the software mixer: the device's stereo
+  output at its rate (49716 Hz) to the output device's rate, by 4-point
+  cubic Hermite interpolation, with a volume, clipping to 16 bits and a
+  small speed correction (`queue_speed`) that holds the output queue near
+  its target as the clocks drift. Doubles, no threads, no I/O. Milestone 7.
+
+The audio output itself (SDL3, the hand-off to the audio thread) is in app
+(`src/app/src/audio_output.cpp`), which owns the window-system dependency.
+
 Rendering a sound resource through the player and the driver is
 `sci::vm::render_sound` (sci-vm, as the player is there), and the tool
 `tools/sound-render`.
@@ -34,6 +43,8 @@ Rendering a sound resource through the player and the driver is
   the native rate is what the golden hashes check
   (`tests/unit/audio/opl3_test.cpp`). Resampling to the device rate is
   outside the hashes.
+- The mixer may use floating point (double) and need not be bit-exact: its
+  output is never hashed (spec section 8).
 - The AdLib driver is integer-only and deterministic too; the player's
   timing, signals and cues are the same with it as with the silent driver
   (`tests/unit/vm/music_device_test.cpp`).
