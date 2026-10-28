@@ -9,8 +9,6 @@
 // reference is checked before it is used, so that a damaged stream ends in
 // a message rather than a crash.
 
-#include "state.hpp"
-
 #include "events.hpp"
 #include "files.hpp"
 #include "gfx_animate.hpp"
@@ -30,6 +28,7 @@
 #include "seg_manager.hpp"
 #include "segments.hpp"
 #include "sound.hpp"
+#include "state.hpp"
 #include "subsystems.hpp"
 #include "timing.hpp"
 
@@ -797,11 +796,12 @@ void Ports::load_state(StateReader& in) {
     // The ports the rest of the engine expects, and windows wherever the
     // engine takes a port for a window.
     const auto is_window = [&](const Port* port) {
-        return port != nullptr && (std::ranges::any_of(owned, [&](const auto& entry) { return entry.second.get() == port; }) ||
-                                   std::ranges::any_of(zombies, [&](const auto& window) { return window.get() == port; }));
+        return port != nullptr &&
+               (std::ranges::any_of(owned, [&](const auto& entry) { return entry.second.get() == port; }) ||
+                std::ranges::any_of(zombies, [&](const auto& window) { return window.get() == port; }));
     };
-    if (!wmgr || !menu || current == nullptr || by_id.size() < first_script_window_id ||
-        by_id[0] != wmgr.get() || by_id[1] != wmgr.get()) {
+    if (!wmgr || !menu || current == nullptr || by_id.size() < first_script_window_id || by_id[0] != wmgr.get() ||
+        by_id[1] != wmgr.get()) {
         in.fail("the ports lack the window manager, the menu port or the current port");
         return;
     }

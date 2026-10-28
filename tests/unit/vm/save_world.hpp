@@ -31,12 +31,14 @@ namespace sci::test {
 // locals (the globals), then the terminator. `marker` changes the first
 // local's initial value, making another "release" of the game.
 inline Bytes synthetic_script0(std::uint8_t marker = 0) {
+    // clang-format off
     return Bytes{
-        7,  0, 8, 0, 1, 0, 0, 0,          // Exports: one, at 0.
-        10, 0, 12, 0, marker, 0, 0, 0, 0, // Locals: four words.
-        0,  0, 0, 0,                      //
-        0,  0,                            // Terminator.
+        7, 0, 8, 0, 1, 0, 0, 0,       // Exports: one, at 0.
+        10, 0, 12, 0,                 // Locals: four words.
+        marker, 0, 0, 0, 0, 0, 0, 0,
+        0, 0,                         // Terminator.
     };
+    // clang-format on
 }
 
 inline std::optional<resource::ResourceManager> synthetic_game(std::uint8_t marker = 0) {

@@ -13,8 +13,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include <vector>
 #include <utility>
+#include <vector>
 
 // NOLINTNEXTLINE(readability-identifier-naming): name fixed by libFuzzer.
 extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size) {

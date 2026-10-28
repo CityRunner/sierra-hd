@@ -57,9 +57,9 @@ struct ScreenMaps {
 };
 
 struct SaveCheck {
-    std::size_t bytes = 0;      // The save file's size.
-    StateHash saved;            // The state written.
-    StateHash restored;         // The fresh machine's state after reading it.
+    std::size_t bytes = 0;            // The save file's size.
+    StateHash saved;                  // The state written.
+    StateHash restored;               // The fresh machine's state after reading it.
     std::optional<std::string> error; // Why reading failed, if it did.
 };
 

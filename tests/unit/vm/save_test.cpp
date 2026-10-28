@@ -17,8 +17,8 @@
 #include <fstream>
 #include <span>
 #include <string>
-#include <vector>
 #include <utility>
+#include <vector>
 
 using sci::test::SaveWorld;
 using sci::test::synthetic_game;
@@ -113,8 +113,8 @@ SCI_TEST(another_format_version_is_refused_naming_both) {
 
 SCI_TEST(a_truncated_save_is_refused) {
     const std::vector<std::uint8_t> file = saved();
-    for (const std::size_t size : {std::size_t{4}, std::size_t{12}, std::size_t{30}, file.size() / 2,
-                                   file.size() - 1}) {
+    for (const std::size_t size :
+         {std::size_t{4}, std::size_t{12}, std::size_t{30}, file.size() / 2, file.size() - 1}) {
         const std::vector<std::uint8_t> part(file.begin(), file.begin() + static_cast<std::ptrdiff_t>(size));
         const std::string error = restore_error(part);
         SCI_CHECK(contains(error, "not a sierra-hd saved game") || contains(error, "truncated") ||
