@@ -193,9 +193,10 @@ they are derived from the game's music):
   - the order of SysEx and notes inside one timer call on the MT-32, where
     ScummVM leaves a few old notes sounding at four song changes of the
     intro (documented in ASSUMPTIONS).
-- **Listening.** This machine has no sound card, so the listening itself
-  is the customer's (the spec: "otherwise the customer does the
-  listening check at milestone 7"). **The result is to be recorded here.**
+- **Listening.** This machine has no sound card, so the listening was the
+  customer's (the spec: "otherwise the customer does the listening check
+  at milestone 7"). **Result (2026-10-28):** the customer listened to the
+  four captures: "Sounds fine to me."
 
 ## Tests and style
 
@@ -242,14 +243,12 @@ None from section 2.
 
 ## Open questions
 
-1. **The by-ear comparison.** Please listen to the four captures and tell
-   me what you hear: tempo, instruments, balance and anything missing or
-   wrong. I will record it here.
-2. **Showing a room while its HD picture is made.** The previous frame
+None. The questions of this milestone were answered on 2026-10-28:
+1. **The by-ear comparison:** the customer's answer was "Sounds fine to
+   me." It is recorded above.
+2. **Showing a room while its HD picture is made:** the previous frame
    stays up to 1 s, then the room shows at 1x until the HD image is
-   ready. In a release build this takes 14–16 ms, so it is seen only on a
-   slow machine. Is this acceptable, or should the 1x picture show at once
-   (a short blocky flash at room entry)?
-3. **The patched MT-32 control ROM** in your archive
-   (`...vX.XX-patched.ROM`) is not known to mt32emu, so it is skipped. The
-   program uses the 1.07 ROM and the CM-32L set. Is that what you want?
+   ready. The customer accepts this.
+3. **The MT-32 ROMs:** the program uses MT-32 1.07, or the CM-32L set, and
+   skips the patched control ROM that mt32emu does not know. The customer
+   confirmed this.

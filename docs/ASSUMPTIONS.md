@@ -2259,6 +2259,17 @@ scripts' bytecode (after the script patches), not from runs:
   `m7-title-music-adlib-capture-2.wav` (ignored by the repository) for
   the customer's listening. **Assumed** (no sound card here).
 
+## Milestone 7: the customer's answers (2026-10-28)
+
+- **By-ear comparison:** the customer listened to our captures and
+  ScummVM's of the title music, on AdLib and on the MT-32, and found that
+  they sound fine.
+- **Room entry while the HD picture is made:** holding the previous frame
+  up to 1 s, then showing the picture at 1x until the HD image is ready,
+  is accepted.
+- **MT-32 ROMs:** MT-32 1.07 first, then CM-32L; the patched control ROM,
+  which mt32emu does not know, is skipped. Confirmed.
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with
