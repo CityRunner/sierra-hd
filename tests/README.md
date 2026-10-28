@@ -33,6 +33,14 @@ Tests that need the game files run locally, never in CI:
   --golden tests/golden/sounds.txt --check` (`tools/sound-render/README.md`,
   also on ARM64 under qemu-user), and the OPL register logs of the
   scenario runs (`tools/vm-trace/README.md`).
+- MT-32 (milestone 7): the tests of `sci::audio::Mt32` in
+  `sci-audio-tests` need the user's Roland ROMs, which are never in the
+  repository or in CI. Without `SIERRA_HD_MT32_ROMS` they pass with a
+  "skipped" note; with it, they use the ROMs in that folder
+  (`src/sci-audio/README.md`):
+
+      SIERRA_HD_MOUNTS=/path/to/roms:/roms docker/run.sh \
+          env SIERRA_HD_MT32_ROMS=/roms build/debug/tests/unit/sci-audio-tests
 - Hints (milestone 3a): the hint-anchor check, `sci-hint-tool <game> check
   hints` (`tools/hint-tool/README.md`). CI checks the hint files against
   their schema without the game (`scripts/check-hints.py`).

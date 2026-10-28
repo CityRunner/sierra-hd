@@ -36,7 +36,7 @@ enum class Mt32Model : std::uint8_t {
 
 // What mt32emu identified the ROMs as, from their size and SHA-1.
 struct Mt32Roms {
-    Mt32Model model;
+    Mt32Model model = Mt32Model::Mt32;
     // mt32emu's short names and descriptions, e.g. "ctrl_mt32_1_07" and
     // "MT-32 Control v1.07", "pcm_mt32" and "MT-32 PCM ROM".
     std::string control_name;

@@ -560,8 +560,9 @@ finish between limits, so that each limit costs at most one small task.
 - SDL3, Nuked OPL3 and mt32emu are vendored when they are first needed:
   SDL3 at the end of milestone 3a (the window layer), Nuked OPL3 and mt32emu
   at milestone 7. Their pins are recorded here and in THIRD_PARTY.md at that
-  point. Done for SDL3 (3.4.18) and Nuked OPL3 (commit `765ec96`, see
-  "Milestone 7: the OPL core"); mt32emu follows. Milestone 0 has no third-party code: its exit criterion is about
+  point. Done for SDL3 (3.4.18), Nuked OPL3 (commit `765ec96`, see
+  "Milestone 7: the OPL core") and mt32emu (2.8.3, see "Milestone 7:
+  mt32emu"). Milestone 0 has no third-party code: its exit criterion is about
   empty libraries, and vendoring early would only add unused code.
   **Assumed:** this does not change the fixed decision itself (spec section 2).
 - `LICENSE` is the GPL v3 text from ScummVM's `COPYING` at the pinned
@@ -1898,6 +1899,78 @@ scripts' bytecode (after the script patches), not from runs:
 - **Open:** a long stall of the main thread (for example an HD picture
   analysed on room entry, up to about 0.5 s in a slow build) still empties
   the queue and is heard as a gap; the music then resumes in step.
+
+## Milestone 7: mt32emu (2026-10-28)
+
+- **libmt32emu 2.8.3 is vendored**, tag `libmt32emu_2_8_3`, commit
+  `3b05ec276f9e605af86b0eaef7f5eda43477a31f` (2026-06-06), the latest
+  library release (the tags were renamed from `mt32emu_x_y_z` at 2.8.0; the
+  reference ScummVM carries 2.7.0). Only the synthesiser core is copied,
+  unchanged, from upstream's `mt32emu/src/` to `third_party/mt32emu/mt32emu/`:
+  no file streams, MIDI stream parser, resamplers, C interface, version
+  tagging or tests. A hand-written `config/config.h` replaces the one
+  upstream's CMake generates (static, C++ API only, no version tagging).
+  SHA-256 of every file in `third_party/mt32emu/VENDORED.md`. **Decided.**
+- **Licence:** LGPL 2.1 or later, compatible with GPL v3 or later as for
+  Nuked OPL3 (THIRD_PARTY.md); its `sha1/` is BSD 3-clause, also
+  compatible. `COPYING.LESSER.txt` and the SHA-1 notice go into the release
+  archives (`scripts/package-release.sh`). **Decided.**
+- **Build:** the static C++17 library `sci_mt32emu`
+  (`cmake/SciThirdParty.cmake`), on every platform including the ARM64 test
+  build, with the global floating-point and sanitizer flags, its warnings
+  off (`-w`, `/w` under clang-cl) and its headers as system headers, linked
+  privately by sci-audio and included only in `src/sci-audio/src/mt32.cpp`.
+  The code has no `try` or `throw`, so it builds without exceptions. For
+  clang-cl the only MSVC-specific code is `#pragma pack` and
+  `__declspec(align(1))` in `Structures.h` (both accepted by clang-cl) and
+  the DLL export attributes, off in a static build; `_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES`
+  is defined as upstream does for MSVC. **Assumed:** the Windows build is
+  checked by the next Windows CI run (not built here).
+- **The wrapper** `sci::audio::Mt32` (`sci/audio/mt32.hpp`) takes the ROMs as
+  bytes: sci-audio does no file I/O, so app reads the files from the
+  configured folder (the driver task). mt32emu identifies them by size and
+  SHA-1; the model is CM-32L for its `ctrl_cm32l*` control ROMs and MT-32
+  otherwise. Errors: an unknown file or a ROM of the wrong kind
+  (InvalidData), half a ROM image, or a pair that does not belong together
+  (Unsupported). Output at 32000 Hz (coarse analogue mode, as in ScummVM)
+  through mt32emu's integer renderer (its default); MIDI at once
+  (`playMsgNow`) or queued at a frame, with mt32emu's MIDI cable delay
+  (1 ms for 3 bytes) for short messages. mt32emu's report handler, which
+  prints to stdout, is replaced by one that keeps the display text only.
+  **Decided.**
+- **ROMs identified** (customer's set, "MT-32 ROMs" above): MT-32 control
+  1.07 as `ctrl_mt32_1_07` "MT-32 Control v1.07" with `pcm_mt32` "MT-32
+  PCM ROM"; CM-32L control 1.02 as `ctrl_cm32l_1_02` "CM-32L/LAPC-I Control
+  v1.02" with `pcm_cm32l` "CM-32L/CM-64/LAPC-I PCM ROM". The MT-32 control
+  ROM with the CM-32L PCM ROM is refused (mt32emu expects the 512 KB PCM
+  ROM). **Decided** (tested).
+- **Floating point:** the integer renderer uses floating point only to
+  build mt32emu's tables at start-up (`log`, `exp2`, `sin` rounded to
+  integers), the pan factors, the output gain factors and the MIDI cable
+  delay in samples. The spec requires determinism of the OPL core only
+  (section 8); mt32emu is not hashed. **Decided.**
+- **Determinism:** mt32emu calls the C library's `rand()` (`TVP.cpp`, a
+  0 to 3 sample jitter of the pitch timer, which the real unit's MCU
+  shows), so its output is a function of the ROMs, the input and
+  `rand()`'s state: two synthesisers fed the same in one process differ,
+  and after `srand(1)` they are the same (tested on x86-64 and on ARM64
+  under qemu). The C libraries' `rand()` differ, so the output differs
+  between platforms. The project's own code never calls `rand()` (a
+  clang-tidy rule), so the game logic is not affected; mt32emu calls it on
+  the thread that renders, which is the main thread. **Decided**; MT-32
+  output is never hashed. **Open:** whether the MT-32 driver's tests want
+  bit-exact output (they can seed `rand()` first, as the unit test does).
+- **Behaviour seen in the tests** (MT-32 1.07): idle output is exact
+  zeros; a released note decays to a floor of about 2 steps that stays;
+  master volume 0 attenuates by about 44 dB, not to silence; a key struck
+  again while its note still sounds keeps that note's level.
+- **ROMs in the tests:** `SIERRA_HD_MT32_ROMS` names the folder; without it
+  the ROM tests pass with a "skipped" note (CI). Locally the folder is
+  mounted read-only (`SIERRA_HD_MOUNTS=/home/user/roms/roland:/roms`); no
+  file from it is in the worktree. **Decided.**
+- **Not yet:** the SCI0 MT-32 driver (ScummVM's `MidiPlayer_Midi`), the
+  ROM path in the configuration and the fallback to AdLib without ROMs
+  (spec section 8) are the next task.
 
 ## Spec items carried forward
 

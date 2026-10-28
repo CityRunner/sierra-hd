@@ -33,13 +33,13 @@ using sci::core::ErrorCode;
 
 namespace {
 
-constexpr std::string_view roms_variable = "SIERRA_HD_MT32_ROMS";
+constexpr const char* roms_variable = "SIERRA_HD_MT32_ROMS";
 
 using Rom = std::optional<std::vector<std::uint8_t>>;
 
 // The ROM folder, or nothing (and a note) when it is not given.
 std::optional<std::filesystem::path> rom_folder() {
-    const char* folder = std::getenv(roms_variable.data()); // NOLINT(concurrency-mt-unsafe): no threads here
+    const char* folder = std::getenv(roms_variable); // NOLINT(concurrency-mt-unsafe): no threads here
     if (folder == nullptr || *folder == '\0') {
         std::println("  skipped: {} is not set", roms_variable);
         return std::nullopt;
@@ -63,12 +63,15 @@ Rom read_rom(const std::filesystem::path& folder, std::initializer_list<std::str
 Rom mt32_control(const std::filesystem::path& folder) {
     return read_rom(folder, {"MT32_CONTROL.1987-10-07.v1.07.ROM", "MT32_CONTROL.ROM"});
 }
+
 Rom mt32_pcm(const std::filesystem::path& folder) {
     return read_rom(folder, {"MT32_PCM.ROM"});
 }
+
 Rom cm32l_control(const std::filesystem::path& folder) {
     return read_rom(folder, {"CM32L_CONTROL.1989-12-05.v1.02.ROM", "CM32L_CONTROL.ROM"});
 }
+
 Rom cm32l_pcm(const std::filesystem::path& folder) {
     return read_rom(folder, {"CM32L_PCM.ROM"});
 }
@@ -123,8 +126,8 @@ std::vector<std::uint8_t> data_set(std::array<std::uint8_t, 3> address, std::spa
 
 // Note on, key 60, velocity 100 on MIDI channel 2: part 1 of an MT-32 after
 // power-on (piano).
-constexpr std::uint32_t note_on = 0x91 | (60U << 8U) | (100U << 16U);
-constexpr std::uint32_t note_off = 0x81 | (60U << 8U);
+constexpr std::uint32_t note_on = 0x91U | (60U << 8U) | (100U << 16U);
+constexpr std::uint32_t note_off = 0x81U | (60U << 8U);
 
 } // namespace
 
@@ -221,7 +224,7 @@ SCI_TEST(mt32_is_silent_when_idle_and_plays_a_note) {
     // steps 5 s after the note off; docs/ASSUMPTIONS.md, "Milestone 7:
     // mt32emu").
     synth->play_now(note_off);
-    static_cast<void>(render(*synth, 3 * Mt32::native_rate));
+    static_cast<void>(render(*synth, std::size_t{3} * Mt32::native_rate));
     SCI_CHECK(peak(render(*synth, 1000)) <= 4);
 }
 
@@ -235,8 +238,8 @@ SCI_TEST(mt32_plays_timestamped_messages_at_their_frame) {
     const auto samples = render(*synth, 16000);
     // Silent up to the timestamp (plus the MIDI cable's 1 ms for 3 bytes),
     // sounding after it.
-    SCI_CHECK(peak(std::span(samples).first(2 * 8000)) == 0);
-    SCI_CHECK(peak(std::span(samples).subspan(2 * 8100)) > 1000);
+    SCI_CHECK(peak(std::span(samples).first(std::size_t{2} * 8000)) == 0);
+    SCI_CHECK(peak(std::span(samples).subspan(std::size_t{2} * 8100)) > 1000);
 }
 
 SCI_TEST(mt32_accepts_sysex) {
@@ -293,18 +296,20 @@ SCI_TEST(mt32_output_is_the_same_on_every_run) {
             return;
         }
         if (run < 2) {
-            // NOLINTNEXTLINE(bugprone-unsafe-functions,cert-msc51-cpp): the state mt32emu reads
+            // The state mt32emu reads, not a random source of ours.
+            // NOLINTBEGIN(bugprone-unsafe-functions,bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
             std::srand(1);
+            // NOLINTEND(bugprone-unsafe-functions,bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
         }
         // A chord on part 1, a drum on the rhythm part (channel 10), a
         // program change on part 2, all through the queue and at once.
         synth->play_now(note_on);
-        synth->play_now(0x91 | (64U << 8U) | (90U << 16U));
-        SCI_CHECK(synth->play_at(0x99 | (36U << 8U) | (127U << 16U), 4000));
-        SCI_CHECK(synth->play_at(0xc2 | (48U << 8U), 6000));
-        SCI_CHECK(synth->play_at(0x92 | (67U << 8U) | (110U << 16U), 6500));
+        synth->play_now(0x91U | (64U << 8U) | (90U << 16U));
+        SCI_CHECK(synth->play_at(0x99U | (36U << 8U) | (127U << 16U), 4000));
+        SCI_CHECK(synth->play_at(0xc2U | (48U << 8U), 6000));
+        SCI_CHECK(synth->play_at(0x92U | (67U << 8U) | (110U << 16U), 6500));
         SCI_CHECK(synth->play_at(note_off, 20000));
-        runs.push_back(render(*synth, 2 * Mt32::native_rate));
+        runs.push_back(render(*synth, std::size_t{2} * Mt32::native_rate));
     }
     SCI_CHECK(peak(runs[0]) > 1000);
     SCI_CHECK(runs[0] == runs[1]);

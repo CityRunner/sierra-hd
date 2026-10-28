@@ -27,6 +27,7 @@ namespace {
 class Reports final : public MT32Emu::ReportHandler {
 public:
     void printDebug(const char* /*fmt*/, va_list /*list*/) override {}
+
     void showLCDMessage(const char* message) override { display = message; }
 
     std::string display;
@@ -35,6 +36,7 @@ public:
 struct RomImageDeleter {
     void operator()(const MT32Emu::ROMImage* image) const noexcept { MT32Emu::ROMImage::freeROMImage(image); }
 };
+
 using RomImagePtr = std::unique_ptr<const MT32Emu::ROMImage, RomImageDeleter>;
 
 // One ROM: its bytes, mt32emu's view of them and what it identified.
@@ -58,9 +60,9 @@ core::Result<Rom> identify(std::span<const std::uint8_t> bytes, MT32Emu::ROMInfo
                                 std::format("the {} is the {}, not a {}", what, info->description, what));
     }
     if (info->pairType != MT32Emu::ROMInfo::Full) {
-        return core::make_error(core::ErrorCode::Unsupported,
-                                std::format("the {} is one half of a ROM ({}); a whole image is needed", what,
-                                            info->description));
+        return core::make_error(
+            core::ErrorCode::Unsupported,
+            std::format("the {} is one half of a ROM ({}); a whole image is needed", what, info->description));
     }
     return rom;
 }
@@ -113,7 +115,8 @@ core::Result<std::unique_ptr<Mt32>> Mt32::open(std::span<const std::uint8_t> con
     return std::unique_ptr<Mt32>(new Mt32(std::move(state)));
 }
 
-Mt32::Mt32(std::unique_ptr<State> state) noexcept : state_(std::move(state)) {}
+Mt32::Mt32(std::unique_ptr<State> state) noexcept : state_(std::move(state)) {
+}
 
 // State's members go in reverse order: the synthesiser before the ROM images
 // it was opened on.

@@ -22,6 +22,15 @@ device layer under it is here (milestone 7).
   velocity and master volume. `load_adlib_patches` reads patch.003 (or the
   bank in an early ADL.DRV) through sci-resource. Milestone 7.
 
+- `sci/audio/mt32.hpp`: `Mt32`, a Roland MT-32 or CM-32L on mt32emu
+  (`third_party/mt32emu`, LGPL 2.1 or later): opened on the user's control
+  and PCM ROMs, passed in as bytes (app reads the files; sci-audio does no
+  file I/O), which mt32emu identifies (`roms()`: model, ROM names and
+  versions); MIDI messages and SysEx at once or at a frame; stereo int16
+  output at the native rate of 32000 Hz. Wrong, unknown or mismatched ROMs
+  are an error, not an abort. The SCI0 MT-32 driver on it is the next task.
+  Milestone 7.
+
 - `sci/audio/mixer.hpp`: `Mixer`, the software mixer: the device's stereo
   output at its rate (49716 Hz) to the output device's rate, by 4-point
   cubic Hermite interpolation, with a volume, clipping to 16 bits and a
@@ -45,6 +54,26 @@ Rendering a sound resource through the player and the driver is
   outside the hashes.
 - The mixer may use floating point (double) and need not be bit-exact: its
   output is never hashed (spec section 8).
+- The MT-32 synthesiser (mt32emu) is not hashed and need not be
+  deterministic across platforms: its renderer is integer-only, but a pitch
+  jitter comes from the C library's `rand()`, so its output is a function
+  of the ROMs, the input and `rand()`'s state (docs/ASSUMPTIONS.md,
+  "Milestone 7: mt32emu").
 - The AdLib driver is integer-only and deterministic too; the player's
   timing, signals and cues are the same with it as with the silent driver
   (`tests/unit/vm/music_device_test.cpp`).
+
+## MT-32 ROMs in the tests
+
+The tests of `Mt32` (`tests/unit/audio/mt32_test.cpp`) that need ROMs read
+them from the folder in `SIERRA_HD_MT32_ROMS`, and pass with a "skipped"
+note when it is not set or a file is missing (CI has no ROMs). Files:
+`MT32_CONTROL.1987-10-07.v1.07.ROM` (or `MT32_CONTROL.ROM`),
+`MT32_PCM.ROM`, `CM32L_CONTROL.1989-12-05.v1.02.ROM` (or
+`CM32L_CONTROL.ROM`) and `CM32L_PCM.ROM`. In the container the folder is
+mounted read-only:
+
+    SIERRA_HD_MOUNTS=/path/to/roms:/roms docker/run.sh \
+        env SIERRA_HD_MT32_ROMS=/roms build/debug/tests/unit/sci-audio-tests
+
+The ROMs are Roland's and never committed or uploaded.
