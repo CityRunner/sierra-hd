@@ -9,8 +9,9 @@
 // thread. Samples are produced at the synthesiser's native rate of 32000 Hz
 // (mt32emu's coarse analogue output mode, as ScummVM uses it); resampling to
 // the output device's rate is the mixer's job. mt32emu's integer renderer is
-// used: for a given ROM pair and the same sequence of calls the output is the
-// same on every run (tested), but unlike the OPL core it is not hashed and
+// used, but a small pitch jitter comes from the C library's rand(): the
+// output is a function of the ROMs, the calls and rand()'s state (the same
+// after the same srand(), tested). Unlike the OPL core it is not hashed and
 // need not match across platforms (docs/ASSUMPTIONS.md, "Milestone 7:
 // mt32emu").
 
@@ -26,9 +27,9 @@
 namespace sci::audio {
 
 // The synthesiser a control ROM belongs to. The CM-32L (and LAPC-I) has the
-// MT-32's sounds plus 33 sound effects on part 10's keys, and a few
-// differences in its reverb and in its handling of some messages; mt32emu
-// emulates each from its ROM.
+// MT-32's sounds plus sound effects on the rhythm part's upper keys, and a
+// few differences in its reverb and in its handling of some messages;
+// mt32emu emulates each from its ROM.
 enum class Mt32Model : std::uint8_t {
     Mt32,
     Cm32l,
