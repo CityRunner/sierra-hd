@@ -211,6 +211,15 @@ Mt32& Mt32Driver::synth() {
 void Mt32Driver::play(std::uint32_t message) {
     if (log_ != nullptr) {
         log_->midi.push_back(message);
+        if (log_->on_send) {
+            const std::array<std::uint8_t, 3> bytes{
+                static_cast<std::uint8_t>(message & 0xFFU),
+                static_cast<std::uint8_t>((message >> 8U) & 0xFFU),
+                static_cast<std::uint8_t>((message >> 16U) & 0xFFU),
+            };
+            const unsigned command = message & 0xF0U;
+            log_->on_send(std::span(bytes).first(command == 0xC0U || command == 0xD0U ? 2 : 3));
+        }
     }
     if (synth_ != nullptr) {
         synth_->play_now(message);
@@ -240,12 +249,24 @@ void Mt32Driver::send_sysex(std::uint32_t address, std::span<const std::uint8_t>
         return;
     }
     std::vector<std::uint8_t> message{
+        0x41,
+        sysex_device,
+        0x16,
+        0x12,
         static_cast<std::uint8_t>((address >> 16U) & 0xFFU),
         static_cast<std::uint8_t>((address >> 8U) & 0xFFU),
         static_cast<std::uint8_t>(address & 0xFFU),
     };
     message.insert(message.end(), data.begin(), data.end());
-    write_sysex(sysex_device, message);
+    unsigned checksum = 0;
+    for (std::size_t i = 4; i < message.size(); ++i) {
+        checksum -= message[i];
+    }
+    message.push_back(static_cast<std::uint8_t>(checksum & 0x7FU));
+    if (log_ != nullptr && log_->on_send) {
+        log_->on_send(message);
+    }
+    write_sysex(sysex_device, std::span<const std::uint8_t>(message).subspan(4, message.size() - 5));
 }
 
 void Mt32Driver::send_patch(const Mt32Patch& patch) {
@@ -430,6 +451,9 @@ void Mt32Driver::init_track(std::span<const std::uint8_t> header) {
 void Mt32Driver::sysex(std::span<const std::uint8_t> message) {
     // MidiDriver_MT32::sysEx for an unframed message: a Roland DT1 (0x12)
     // or DAT (0x42) is written without its header and checksum.
+    if (log_ != nullptr && log_->on_send) {
+        log_->on_send(message);
+    }
     if (!message.empty() && message[0] == 0xF0) {
         if (log_ != nullptr) {
             log_->sysex.emplace_back(message.begin(), message.end());

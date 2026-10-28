@@ -20,7 +20,9 @@
 # note ageing runs after each music timer call of the virtual clock instead
 # of on the OPL callback, and with SIERRA_HD_OPL=<file> every OPL register
 # write of the AdLib driver is written there with the number of the music
-# timer call. Used by tools/vm-trace to compare sci-vm with ScummVM
+# timer call; with SIERRA_HD_MIDI=<file> every MIDI message and SysEx the
+# SCI MIDI driver (MidiPlayer_Midi, the MT-32 path) hands to the MIDI driver,
+# also with the timer call. Used by tools/vm-trace to compare sci-vm with ScummVM
 # (engines/sci/sierra_hd_trace.cpp describes the details).
 diff -ruN a/engines/sci/engine/kevent.cpp b/engines/sci/engine/kevent.cpp
 --- a/engines/sci/engine/kevent.cpp
@@ -778,7 +780,7 @@ diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
 diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 --- a/engines/sci/sierra_hd_trace.cpp
 +++ b/engines/sci/sierra_hd_trace.cpp
-@@ -0,0 +1,654 @@
+@@ -0,0 +1,696 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -873,6 +875,15 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 + *   the left OPL2 (port 0x220) and 1xx for the right one (port 0x222); the
 + *   value two hex digits, as the driver writes it (before the dual OPL2
 + *   masks waveform and channel output bits).
++ * - With SIERRA_HD_MIDI=<file>, every message the SCI MIDI driver
++ *   (MidiPlayer_Midi, the MT-32 path) hands to the MIDI driver writes one
++ *   line there, before the emulator's queue:
++ *     <timer call> <byte> <byte> ...
++ *   The timer call as for SIERRA_HD_OPL; the bytes two hex digits each: a
++ *   channel message as its status and data bytes (two for a program change
++ *   or channel pressure, three otherwise), a SysEx message as passed to
++ *   MidiDriver::sysEx (for the driver's own: Roland header 41 10 16 12,
++ *   address, data and checksum, without F0 and F7).
 + */
 +
 +#define FORBIDDEN_SYMBOL_ALLOW_ALL
@@ -947,6 +958,7 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	Common::String said;
 +	FILE *layout = nullptr;
 +	FILE *opl = nullptr;
++	FILE *midi = nullptr;
 +	uint32 musicCalls = 0;
 +	void (*driverTimer)(void *) = nullptr;
 +	void *driverTimerParam = nullptr;
@@ -1108,6 +1120,12 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +				if (!s.opl)
 +					error("sierra-hd: cannot write the OPL file %s", opl);
 +			}
++			const char *midi = getenv("SIERRA_HD_MIDI");
++			if (midi && *midi) {
++				s.midi = fopen(midi, "w");
++				if (!s.midi)
++					error("sierra-hd: cannot write the MIDI file %s", midi);
++			}
 +			const char *parser = getenv("SIERRA_HD_PARSER");
 +			if (parser && *parser) {
 +				s.parser = fopen(parser, "w");
@@ -1135,6 +1153,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +			fflush(s.layout);
 +		if (s.opl)
 +			fflush(s.opl);
++		if (s.midi)
++			fflush(s.midi);
 +		g_sci->quitGame();
 +	}
 +	// A script that never returns to the event loop would not see the quit:
@@ -1151,6 +1171,8 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +			fclose(s.layout);
 +		if (s.opl)
 +			fclose(s.opl);
++		if (s.midi)
++			fclose(s.midi);
 +		warning("sierra-hd: the game did not stop at the limit; ending the process");
 +		exit(0);
 +	}
@@ -1268,6 +1290,28 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 +	State &s = state();
 +	if (s.opl)
 +		fprintf(s.opl, "%u %03x %02x\n", s.musicCalls, reg & 0x1ff, value & 0xff);
++}
++
++void sierraHdMidiSend(uint32 b) {
++	State &s = state();
++	if (!s.midi)
++		return;
++	// Two bytes for a program change or channel pressure, three otherwise.
++	const byte command = b & 0xf0;
++	if (command == 0xc0 || command == 0xd0)
++		fprintf(s.midi, "%u %02x %02x\n", s.musicCalls, b & 0xff, (b >> 8) & 0xff);
++	else
++		fprintf(s.midi, "%u %02x %02x %02x\n", s.musicCalls, b & 0xff, (b >> 8) & 0xff, (b >> 16) & 0xff);
++}
++
++void sierraHdMidiSysEx(const byte *msg, uint16 length) {
++	State &s = state();
++	if (!s.midi)
++		return;
++	fprintf(s.midi, "%u", s.musicCalls);
++	for (uint16 i = 0; i < length; ++i)
++		fprintf(s.midi, " %02x", msg[i]);
++	fputc('\n', s.midi);
 +}
 +
 +void sierraHdTraceKernel(const char *name, int argc, const reg_t *argv, reg_t result) {
@@ -1436,7 +1480,7 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 --- a/engines/sci/sierra_hd_trace.h
 +++ b/engines/sci/sierra_hd_trace.h
-@@ -0,0 +1,89 @@
+@@ -0,0 +1,94 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -1489,6 +1533,11 @@ diff -ruN a/engines/sci/sierra_hd_trace.h b/engines/sci/sierra_hd_trace.h
 +// SIERRA_HD_OPL: reg is 0x000-0x0ff for the left OPL2, 0x100-0x1ff for the
 +// right one.
 +void sierraHdOplWrite(int reg, int value);
++// What the SCI MIDI driver (MidiPlayer_Midi) hands to the MIDI driver
++// (milestone 7), written to SIERRA_HD_MIDI: a channel message as its status
++// and data bytes, a SysEx message as passed to MidiDriver::sysEx.
++void sierraHdMidiSend(uint32 b);
++void sierraHdMidiSysEx(const byte *msg, uint16 length);
 +// Writes one kernel call to the trace.
 +void sierraHdTraceKernel(const char *name, int argc, const reg_t *argv, reg_t result);
 +// The next replayed event due at the current tick, if any.
@@ -1594,6 +1643,144 @@ diff -ruN a/engines/sci/sound/drivers/adlib.cpp b/engines/sci/sound/drivers/adli
  			_opl->write(0x222, reg);
  			_opl->write(0x223, value);
  		}
+diff -ruN a/engines/sci/sound/drivers/midi.cpp b/engines/sci/sound/drivers/midi.cpp
+--- a/engines/sci/sound/drivers/midi.cpp
++++ b/engines/sci/sound/drivers/midi.cpp
+@@ -34,9 +34,21 @@
+ #include "sci/sound/drivers/gm_names.h"
+ #include "sci/sound/drivers/mididriver.h"
+ #include "sci/sound/drivers/map-mt32-to-gm.h"
++#include "sci/sierra_hd_trace.h"
+ 
+ namespace Sci {
+ 
++// sierra-hd: every channel message MidiPlayer_Midi hands to the MIDI driver
++// is written to SIERRA_HD_MIDI first (sysExNoDelay does the same for SysEx).
++static void sierraHdSend(MidiDriver *driver, uint32 b) {
++	sierraHdMidiSend(b);
++	driver->send(b);
++}
++
++static void sierraHdSend(MidiDriver *driver, byte status, byte firstOp, byte secondOp) {
++	sierraHdSend(driver, status | ((uint32)firstOp << 8) | ((uint32)secondOp << 16));
++}
++
+ #ifdef ENABLE_SCI32
+ static const byte defaultSci32GMPatch[] = {
+ 	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+@@ -324,7 +336,7 @@
+ 	}
+ 
+ 	_channels[channel].playing = true;
+-	_driver->send(0x90 | channel, note, velocity);
++	sierraHdSend(_driver, 0x90 | channel, note, velocity);
+ }
+ 
+ void MidiPlayer_Midi::controlChange(int channel, int control, int value) {
+@@ -374,7 +386,7 @@
+ 	}
+ 
+ 	if (standard_midi_controller)
+-		_driver->send(0xb0 | channel, control, value);
++		sierraHdSend(_driver, 0xb0 | channel, control, value);
+ }
+ 
+ void MidiPlayer_Midi::setPatch(int channel, int patch) {
+@@ -396,8 +408,8 @@
+ 
+ 		if (_patchMap[patch] == MIDI_UNMAPPED) {
+ 			debugC(kDebugLevelSound, "[Midi] Channel %i set to unmapped patch %i", channel, patch);
+-			_driver->send(0xb0 | channel, 0x7b, 0);
+-			_driver->send(0xb0 | channel, 0x40, 0);
++			sierraHdSend(_driver, 0xb0 | channel, 0x7b, 0);
++			sierraHdSend(_driver, 0xb0 | channel, 0x40, 0);
+ 			return;
+ 		}
+ 
+@@ -408,8 +420,8 @@
+ 
+ 		if (_channels[channel].keyShift != _keyShift[patch]) {
+ 			_channels[channel].keyShift = _keyShift[patch];
+-			_driver->send(0xb0 | channel, 0x7b, 0);
+-			_driver->send(0xb0 | channel, 0x40, 0);
++			sierraHdSend(_driver, 0xb0 | channel, 0x7b, 0);
++			sierraHdSend(_driver, 0xb0 | channel, 0x40, 0);
+ 			resetVol = true;
+ 		}
+ 
+@@ -431,7 +443,7 @@
+ 		debugC(kDebugLevelSound, "[Midi] Selected drumkit %i (requested %i)", patchToSend, patch);
+ 	}
+ 
+-	_driver->send(0xc0 | channel, patchToSend, 0);
++	sierraHdSend(_driver, 0xc0 | channel, patchToSend, 0);
+ 
+ 	// Send a pointless command to work around a firmware bug in common
+ 	// USB-MIDI cables. If the first MIDI command in a USB packet is a
+@@ -442,7 +454,7 @@
+ 	// Known to be affected: alsa, coremidi
+ 	// Known *not* to be affected: windows (only seems to send one MIDI
+ 	// command per USB packet even if the device allows larger packets).
+-	_driver->send(0xb0 | channel, 0x0a, _channels[channel].pan);
++	sierraHdSend(_driver, 0xb0 | channel, 0x0a, _channels[channel].pan);
+ }
+ 
+ void MidiPlayer_Midi::send(uint32 b) {
+@@ -477,7 +489,7 @@
+ 	case 0xd0: // Channel pressure (aftertouch)
+ 		break;
+ 	case 0xe0:
+-		_driver->send(b);
++		sierraHdSend(_driver, b);
+ 		break;
+ 	default:
+ 		warning("Ignoring MIDI event %02x", command);
+@@ -526,7 +538,7 @@
+ 		setVolume(_masterVolume);
+ 	else {
+ 		for (uint i = 1; i < 10; i++)
+-			_driver->send(0xb0 | i, 7, 0);
++			sierraHdSend(_driver, 0xb0 | i, 7, 0);
+ 	}
+ }
+ 
+@@ -837,7 +849,7 @@
+ 
+ 				op1 = midi[i++];
+ 				op2 = midi[i++];
+-				_driver->send(command, op1, op2);
++				sierraHdSend(_driver, command, op1, op2);
+ 				break;
+ 			case 0xc0:
+ 			case 0xd0:
+@@ -845,7 +857,7 @@
+ 					error("MIDI command exceeds data size");
+ 
+ 				op1 = midi[i++];
+-				_driver->send(command, op1, 0);
++				sierraHdSend(_driver, command, op1, 0);
+ 				break;
+ 			default:
+ 				error("Failed to find MIDI command byte");
+@@ -1304,8 +1316,8 @@
+ 	if (_mt32Type == kMt32TypeD110) {
+ 		// D-110, no reset SysEx exists
+ 		for (uint i = 0; i < MIDI_CHANNELS; ++i) {
+-			_driver->send(0xb0 | i, 0x7b, 0); // All notes off
+-			_driver->send(0xb0 | i, 0x79, 0); // Reset all controllers
++			sierraHdSend(_driver, 0xb0 | i, 0x7b, 0); // All notes off
++			sierraHdSend(_driver, 0xb0 | i, 0x79, 0); // Reset all controllers
+ 		}
+ 
+ 		if (getSciVersion() == SCI_VERSION_0_EARLY) {
+@@ -1449,6 +1461,7 @@
+ }
+ 
+ uint16 MidiPlayer_Midi::sysExNoDelay(const byte *msg, uint16 length) {
++	sierraHdMidiSysEx(msg, length);
+ 	_driver->sysEx(msg, length);
+ 
+ 	uint16 delay = 0;
 diff -ruN a/engines/sci/sound/music.cpp b/engines/sci/sound/music.cpp
 --- a/engines/sci/sound/music.cpp
 +++ b/engines/sci/sound/music.cpp

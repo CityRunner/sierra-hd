@@ -45,6 +45,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <span>
@@ -112,10 +113,20 @@ public:
     // as its address and data (the SCI driver's, without header and
     // checksum) or, for a framed one, whole; `sysex_at` is the number of
     // channel messages sent before each SysEx message.
+    //
+    // `on_send` (if set) sees every message at the point where
+    // MidiPlayer_Midi hands it to ScummVM's MT-32 driver (`_driver->send`,
+    // `_driver->sysEx`), in order, as sci-vm-trace --midi writes it
+    // (docs/formats/replay-and-trace.md, "MIDI files"): a channel message
+    // as its status and data bytes (two for a program change or channel
+    // pressure, three otherwise), the SCI driver's own SysEx messages whole
+    // (Roland header 41 10 16 12, address, data, checksum) and a song's
+    // SysEx message as the player passes it on.
     struct Log {
         std::vector<std::uint32_t> midi;
         std::vector<std::vector<std::uint8_t>> sysex;
         std::vector<std::size_t> sysex_at;
+        std::function<void(std::span<const std::uint8_t>)> on_send;
     };
 
     // MidiPlayer_Midi::open on an emulated MT-32: resets the synthesiser

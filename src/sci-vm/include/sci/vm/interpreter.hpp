@@ -18,11 +18,16 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
+
+namespace sci::audio {
+class Mt32;
+}
 
 namespace sci::vm {
 
@@ -89,6 +94,18 @@ struct RunOptions {
     // (milestone 7, docs/formats/replay-and-trace.md, "OPL files"). The
     // chip itself generates no samples.
     std::function<void(std::uint32_t timer_call, std::uint16_t reg, std::uint8_t value)> on_opl;
+    // When set, the music plays on the MT-32 driver with the game's
+    // patch.001 (sci::audio::Mt32Driver) instead, as ScummVM's
+    // MidiPlayer_Midi on an emulated MT-32: kDoSound GetPolyphony returns
+    // 32 and the songs' MT-32 channels play. It gives the synthesiser the
+    // driver feeds (nothing renders it), or null to only log the messages.
+    // Not together with on_opl.
+    std::function<std::unique_ptr<audio::Mt32>()> mt32;
+    // With mt32: called with every message the driver sends (as
+    // sci::audio::Mt32Driver::Log::on_send sees it) and the number of music
+    // timer calls made so far (milestone 7, docs/formats/replay-and-trace.md,
+    // "MIDI files").
+    std::function<void(std::uint32_t timer_call, std::span<const std::uint8_t> message)> on_midi;
 };
 
 struct RunResult {

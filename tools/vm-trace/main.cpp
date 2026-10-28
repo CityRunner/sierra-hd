@@ -9,6 +9,7 @@
 //                [--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]
 //                [--screens <folder>] [--screen-every <ticks>] [--actors <file>]
 //                [--parser <file>] [--layout <file>] [--opl <file>]
+//                [--music mt32 [--roms <folder>] [--midi <file>]]
 //   sci-vm-trace --scan-kernel <game folder> <output file>
 //   sci-vm-trace --vocabulary <game folder> <output file>
 //
@@ -17,7 +18,11 @@
 // what kParse and kSaid made of the input; --layout the windows, text,
 // controls, menus and cursor in 1x; --opl plays the music on the AdLib
 // driver and writes its OPL register writes, keyed by the music timer call
-// (docs/formats/replay-and-trace.md).
+// (docs/formats/replay-and-trace.md). --music mt32 plays the music on the
+// MT-32 driver instead (GetPolyphony returns 32), feeding a synthesiser
+// opened on the ROMs of --roms (sci::platform::open_mt32_roms; it renders
+// nothing) or none; --midi writes every message the driver sends, keyed by
+// the music timer call.
 //
 // --vocabulary lists the parser's vocabulary as sci-text reads it: every
 // word of vocab.000 ("word <spelling> <class> <group>", in hex), the
@@ -33,7 +38,9 @@
 // script patches applied.
 
 #include "game_folder.hpp"
+#include "sci/audio/mt32.hpp"
 #include "sci/core/log.hpp"
+#include "sci/platform/mt32_roms.hpp"
 #include "sci/render/colors.hpp"
 #include "sci/resource/resource_id.hpp"
 #include "sci/text/parser.hpp"
@@ -82,6 +89,7 @@ int usage() {
                          "[--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]\n"
                          "                    [--screens <folder>] [--screen-every <ticks>] [--actors <file>] "
                          "[--parser <file>] [--layout <file>] [--opl <file>]\n"
+                         "                    [--music mt32 [--roms <folder>] [--midi <file>]]\n"
                          "       sci-vm-trace --scan-kernel <game folder> <output file>\n"
                          "       sci-vm-trace --vocabulary <game folder> <output file>");
     return 2;
@@ -250,6 +258,9 @@ int main(int argc, char** argv) {
     std::filesystem::path parser;
     std::filesystem::path layout;
     std::filesystem::path opl;
+    std::filesystem::path midi;
+    std::filesystem::path roms;
+    bool on_mt32 = false;
     std::uint32_t screen_every = 60;
     for (std::size_t i = 3; i < args.size(); i += 2) {
         const std::string_view flag = args[i];
@@ -303,6 +314,18 @@ int main(int argc, char** argv) {
             opl = value;
             continue;
         }
+        if (flag == "--midi") {
+            midi = value;
+            continue;
+        }
+        if (flag == "--roms") {
+            roms = value;
+            continue;
+        }
+        if (flag == "--music" && value == "mt32") {
+            on_mt32 = true;
+            continue;
+        }
         const auto parsed = parse_number(value);
         if (!parsed) {
             return usage();
@@ -319,9 +342,31 @@ int main(int argc, char** argv) {
             return usage();
         }
     }
+    if (!on_mt32 && (!midi.empty() || !roms.empty())) {
+        return usage();
+    }
+    if (on_mt32 && !opl.empty()) {
+        return usage();
+    }
     const auto manager = sci::tools::open_game(args[1]);
     if (!manager) {
         return 1;
+    }
+    std::unique_ptr<sci::audio::Mt32> synth;
+    if (!roms.empty()) {
+        auto selection = sci::platform::open_mt32_roms(roms);
+        if (!selection) {
+            std::println(stderr, "MT-32: {}", selection.error().message);
+            return 1;
+        }
+        const sci::audio::Mt32Roms& names = selection->synth->roms();
+        std::println(stderr, "MT-32: {} ({}) with {} ({})", names.control_description,
+                     selection->control.filename().string(), names.pcm_description,
+                     selection->pcm.filename().string());
+        synth = std::move(selection->synth);
+    }
+    if (on_mt32) {
+        options.mt32 = [&] { return std::move(synth); };
     }
     std::ofstream trace{std::filesystem::path(args[2])};
     if (!trace) {
@@ -387,6 +432,21 @@ int main(int argc, char** argv) {
             opl_file << std::format("{} {:03x} {:02x}\n", timer_call, reg, value);
         };
     }
+    std::ofstream midi_file;
+    if (!midi.empty()) {
+        midi_file.open(midi);
+        if (!midi_file) {
+            std::println(stderr, "cannot write {}", midi.string());
+            return 1;
+        }
+        options.on_midi = [&](std::uint32_t timer_call, std::span<const std::uint8_t> message) {
+            midi_file << timer_call;
+            for (const std::uint8_t byte : message) {
+                midi_file << std::format(" {:02x}", byte);
+            }
+            midi_file << '\n';
+        };
+    }
     // The game folder's files for kFOpen to read, under lower-case names,
     // and nothing written yet: the reference starts with an empty save folder.
     std::map<std::string, std::vector<std::uint8_t>> game_files;
@@ -410,13 +470,15 @@ int main(int argc, char** argv) {
     parser_file.close();
     layout_file.close();
     opl_file.close();
+    midi_file.close();
     std::println(stderr, "{} kernel calls in {} ticks", result.calls, result.ticks);
     if (result.fault) {
         std::println(stderr, "stopped: {}", *result.fault);
         return 1;
     }
     return trace && (actors.empty() || actor_file) && (parser.empty() || parser_file) &&
-                   (layout.empty() || layout_file) && (opl.empty() || opl_file)
+                   (layout.empty() || layout_file) && (opl.empty() || opl_file) &&
+                   (midi.empty() || midi_file)
                ? 0
                : 1;
 }

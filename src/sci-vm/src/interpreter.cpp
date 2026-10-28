@@ -11,6 +11,8 @@
 #include "music.hpp"
 #include "parser.hpp"
 #include "sci/audio/adlib.hpp"
+#include "sci/audio/mt32.hpp"
+#include "sci/audio/mt32_driver.hpp"
 #include "sound.hpp"
 #include "subsystems.hpp"
 #include "timing.hpp"
@@ -98,29 +100,49 @@ void report_cast(const Animate& animate, std::vector<CastEntry>& cast) {
     }
 }
 
-// The AdLib driver of RunOptions::on_opl and its register log. It is opened
-// before the player, as ScummVM's SciMusic::init does, so its start-up
-// writes come before the first timer call, and it is detached from the
-// player before it goes (the player's parsers send note-offs when they are
-// destroyed).
-class OplLog {
+// The music device of RunOptions::on_opl (the AdLib driver and its
+// register log) or RunOptions::mt32 (the MT-32 driver and its MIDI log).
+// It is opened before the player, as ScummVM's SciMusic::init does, so its
+// start-up messages come before the first timer call, and it is detached
+// from the player before it goes (the player's parsers send note-offs when
+// they are destroyed).
+class MusicLog {
 public:
-    OplLog(const RunOptions& options, Sound& sound) : options_(&options), sound_(&sound) {}
+    MusicLog(const RunOptions& options, Sound& sound) : options_(&options), sound_(&sound) {}
 
-    ~OplLog() {
-        if (music_ != nullptr) {
+    ~MusicLog() {
+        if (adlib_ || mt32_) {
             sound_->music().set_device(nullptr);
         }
     }
 
-    OplLog(const OplLog&) = delete;
-    OplLog& operator=(const OplLog&) = delete;
-    OplLog(OplLog&&) = delete;
-    OplLog& operator=(OplLog&&) = delete;
+    MusicLog(const MusicLog&) = delete;
+    MusicLog& operator=(const MusicLog&) = delete;
+    MusicLog(MusicLog&&) = delete;
+    MusicLog& operator=(MusicLog&&) = delete;
 
-    // Without on_opl, nothing. Otherwise the driver with the game's patches
-    // becomes the player's device; the error if the patches cannot be read.
+    // Without on_opl or mt32, nothing. Otherwise the driver with the game's
+    // patches becomes the player's device; the error if the patches cannot
+    // be read.
     std::optional<std::string> open(const resource::ResourceManager& resources) {
+        if (options_->mt32) {
+            if (options_->on_opl) {
+                return "the OPL log needs the AdLib driver";
+            }
+            auto patch = audio::load_mt32_patch(resources);
+            if (!patch) {
+                return patch.error().message;
+            }
+            if (options_->on_midi) {
+                log_.on_send = [this](std::span<const std::uint8_t> message) {
+                    options_->on_midi(music_ != nullptr ? music_->timer_calls() : 0, message);
+                };
+            }
+            mt32_ = std::make_unique<audio::Mt32Driver>(options_->mt32(), *patch,
+                                                        options_->on_midi ? &log_ : nullptr);
+            sound_->set_device(mt32_.get());
+            return std::nullopt;
+        }
         if (!options_->on_opl) {
             return std::nullopt;
         }
@@ -128,17 +150,17 @@ public:
         if (!patches) {
             return patches.error().message;
         }
-        driver_ =
+        adlib_ =
             std::make_unique<audio::AdlibDriver>(std::move(*patches), [this](std::uint16_t reg, std::uint8_t value) {
                 options_->on_opl(music_ != nullptr ? music_->timer_calls() : 0, reg, value);
             });
-        sound_->set_device(driver_.get());
+        sound_->set_device(adlib_.get());
         return std::nullopt;
     }
 
     // The player is attached: its timer calls key the log from now on.
     void attached() {
-        if (driver_) {
+        if (adlib_ || mt32_) {
             music_ = &sound_->music();
         }
     }
@@ -147,7 +169,9 @@ private:
     const RunOptions* options_;
     Sound* sound_;
     const Music* music_ = nullptr;
-    std::unique_ptr<audio::AdlibDriver> driver_;
+    std::unique_ptr<audio::AdlibDriver> adlib_;
+    audio::Mt32Driver::Log log_;
+    std::unique_ptr<audio::Mt32Driver> mt32_;
 };
 
 } // namespace
@@ -205,13 +229,13 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
         ++calls;
         check_stop();
     });
-    OplLog opl(options, subsystems.sound());
-    if (auto error = opl.open(resources)) {
+    MusicLog music_log(options, subsystems.sound());
+    if (auto error = music_log.open(resources)) {
         return RunResult{.fault = std::move(error), .ticks = 0, .calls = 0};
     }
     if (!machine.faults().raised()) {
         subsystems.attach(machine);
-        opl.attached();
+        music_log.attached();
         if (machine.init_game()) {
             machine.run_game();
         }
