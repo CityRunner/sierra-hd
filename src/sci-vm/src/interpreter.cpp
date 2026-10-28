@@ -8,12 +8,18 @@
 #include "gfx_screen.hpp"
 #include "graphics.hpp"
 #include "machine.hpp"
+#include "music.hpp"
 #include "parser.hpp"
+#include "sci/audio/adlib.hpp"
+#include "sound.hpp"
 #include "subsystems.hpp"
 #include "timing.hpp"
 
 #include <format>
 #include <iterator>
+#include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -92,6 +98,58 @@ void report_cast(const Animate& animate, std::vector<CastEntry>& cast) {
     }
 }
 
+// The AdLib driver of RunOptions::on_opl and its register log. It is opened
+// before the player, as ScummVM's SciMusic::init does, so its start-up
+// writes come before the first timer call, and it is detached from the
+// player before it goes (the player's parsers send note-offs when they are
+// destroyed).
+class OplLog {
+public:
+    OplLog(const RunOptions& options, Sound& sound) : options_(&options), sound_(&sound) {}
+
+    ~OplLog() {
+        if (music_ != nullptr) {
+            sound_->music().set_device(nullptr);
+        }
+    }
+
+    OplLog(const OplLog&) = delete;
+    OplLog& operator=(const OplLog&) = delete;
+    OplLog(OplLog&&) = delete;
+    OplLog& operator=(OplLog&&) = delete;
+
+    // Without on_opl, nothing. Otherwise the driver with the game's patches
+    // becomes the player's device; the error if the patches cannot be read.
+    std::optional<std::string> open(const resource::ResourceManager& resources) {
+        if (!options_->on_opl) {
+            return std::nullopt;
+        }
+        auto patches = audio::load_adlib_patches(resources);
+        if (!patches) {
+            return patches.error().message;
+        }
+        driver_ =
+            std::make_unique<audio::AdlibDriver>(std::move(*patches), [this](std::uint16_t reg, std::uint8_t value) {
+                options_->on_opl(music_ != nullptr ? music_->timer_calls() : 0, reg, value);
+            });
+        sound_->set_device(driver_.get());
+        return std::nullopt;
+    }
+
+    // The player is attached: its timer calls key the log from now on.
+    void attached() {
+        if (driver_) {
+            music_ = &sound_->music();
+        }
+    }
+
+private:
+    const RunOptions* options_;
+    Sound* sound_;
+    const Music* music_ = nullptr;
+    std::unique_ptr<audio::AdlibDriver> driver_;
+};
+
 } // namespace
 
 RunResult run_deterministic(const resource::ResourceManager& resources, const RunOptions& options) {
@@ -147,8 +205,13 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
         ++calls;
         check_stop();
     });
+    OplLog opl(options, subsystems.sound());
+    if (auto error = opl.open(resources)) {
+        return RunResult{.fault = std::move(error), .ticks = 0, .calls = 0};
+    }
     if (!machine.faults().raised()) {
         subsystems.attach(machine);
+        opl.attached();
         if (machine.init_game()) {
             machine.run_game();
         }

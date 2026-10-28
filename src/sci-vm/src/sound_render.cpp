@@ -28,6 +28,11 @@ core::Result<RenderedSound> render_sound(std::span<const std::uint8_t> sound, in
     if (!entry->resource) {
         return core::make_error(core::ErrorCode::InvalidData, std::format("sound.{:03} is too short", number));
     }
+    // Cleared again before `music` goes.
+    if (options.on_opl) {
+        driver.set_write_hook(
+            [&](std::uint16_t reg, std::uint8_t value) { options.on_opl(music.timer_calls(), reg, value); });
+    }
     music.sound_init(*entry);
     MusicEntry& song = music.add(std::move(entry));
     music.sound_play(song);
@@ -56,6 +61,7 @@ core::Result<RenderedSound> render_sound(std::span<const std::uint8_t> sound, in
     // The player's last note-offs go to the driver before it is detached.
     music.clear_play_list();
     music.set_device(nullptr);
+    driver.set_write_hook({});
     if (faults.raised()) {
         return core::make_error(core::ErrorCode::Unsupported, faults.message());
     }
@@ -72,7 +78,11 @@ core::Result<RenderedSound> render_sound(const resource::ResourceManager& resour
     if (!sound) {
         return std::unexpected(std::move(sound.error()));
     }
-    const auto driver = std::make_unique<audio::AdlibDriver>(std::move(*patches));
+    audio::AdlibDriver::WriteHook hook;
+    if (options.on_opl) {
+        hook = [&](std::uint16_t reg, std::uint8_t value) { options.on_opl(0, reg, value); };
+    }
+    const auto driver = std::make_unique<audio::AdlibDriver>(std::move(*patches), std::move(hook));
     return render_sound(sound->data, number, *driver, options);
 }
 

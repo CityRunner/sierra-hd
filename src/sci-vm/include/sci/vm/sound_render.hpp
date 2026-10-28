@@ -14,6 +14,7 @@
 #include "sci/core/error.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <span>
 #include <vector>
 
@@ -31,6 +32,12 @@ struct SoundRenderOptions {
     // kDoSound's master volume, 0-15; 11 is the game's start value
     // (docs/ASSUMPTIONS.md, "Sound").
     std::uint16_t master_volume = 11;
+    // Called with every register write the driver makes and the number of
+    // music timer calls made so far, as sci-vm-trace --opl writes them
+    // (docs/formats/replay-and-trace.md, "OPL files"); the driver's start-up
+    // writes are seen only by the overload that creates the driver.
+    // NOLINTNEXTLINE(readability-redundant-member-init): designated initializers may leave it out.
+    std::function<void(std::uint32_t timer_call, std::uint16_t reg, std::uint8_t value)> on_opl = {};
 };
 
 struct RenderedSound {

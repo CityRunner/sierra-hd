@@ -7,7 +7,9 @@
   each target replays its corpus as a CTest test.
 - `golden/`: golden hashes. `synthetic_test.cpp` renders synthetic pictures
   and runs in CI on every platform; `pictures.txt` holds the hashes of every
-  picture of the tested release, checked locally.
+  picture of the tested release, checked locally; `sounds.txt` the OPL
+  output of every sound resource (milestone 7,
+  `tools/sound-render/README.md`), checked locally too.
 - `threads/`: the code that runs on worker threads (the app's
   `ThreadExecutor`, rendering and checks spread over it), compared with the
   serial results. CTest label `threads`: draft pull requests run only these
@@ -27,6 +29,10 @@ Tests that need the game files run locally, never in CI:
 - The HD pipeline (milestone 3): `tools/hd-report/README.md` (acceptance
   check) and `tools/golden-hashes/README.md` (golden hashes, also on ARM64
   under qemu-user).
+- Sound (milestone 7): the OPL golden hashes, `sci-sound-render <game>
+  --golden tests/golden/sounds.txt --check` (`tools/sound-render/README.md`,
+  also on ARM64 under qemu-user), and the OPL register logs of the
+  scenario runs (`tools/vm-trace/README.md`).
 - Hints (milestone 3a): the hint-anchor check, `sci-hint-tool <game> check
   hints` (`tools/hint-tool/README.md`). CI checks the hint files against
   their schema without the game (`scripts/check-hints.py`).

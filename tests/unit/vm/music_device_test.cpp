@@ -216,3 +216,33 @@ SCI_TEST(a_synthetic_song_renders_until_its_end) {
     sci::audio::AdlibDriver driver(audible_patches());
     SCI_CHECK(!sci::vm::render_sound(std::vector<std::uint8_t>(10), 1, driver, {.max_frames = 100}).has_value());
 }
+
+SCI_TEST(the_opl_log_of_a_render_is_keyed_by_the_timer_call) {
+    std::vector<std::tuple<std::uint32_t, std::uint16_t, std::uint8_t>> writes;
+    sci::audio::AdlibDriver driver(audible_patches());
+    sci::vm::SoundRenderOptions options{
+        .max_frames = 10 * sci::audio::Opl3::native_rate,
+        .loop = 1,
+        .master_volume = 15,
+    };
+    options.on_opl = [&](std::uint32_t call, std::uint16_t reg, std::uint8_t value) {
+        writes.emplace_back(call, reg, value);
+    };
+    const auto rendered = sci::vm::render_sound(one_note_song, 1, driver, options);
+    SCI_CHECK(rendered.has_value());
+    SCI_CHECK(!writes.empty());
+    SCI_CHECK(std::ranges::is_sorted(writes, {}, [](const auto& write) { return std::get<0>(write); }));
+    // The note's key-on on the left chip in the first timer call (the
+    // queued commands go out then), its key-off 30 ticks (125 calls) later.
+    const auto key = [&](bool on) {
+        return std::ranges::find_if(writes, [&](const auto& write) {
+            return std::get<1>(write) == 0xB0 && ((std::get<2>(write) & 0x20U) != 0) == on;
+        });
+    };
+    SCI_CHECK(key(true) != writes.end() && std::get<0>(*key(true)) == 1);
+    SCI_CHECK(key(false) != writes.end() && std::get<0>(*key(false)) == 126);
+    // The hook is gone after the render.
+    writes.clear();
+    driver.send(0x90U | (60U << 8U) | (127U << 16U));
+    SCI_CHECK(writes.empty());
+}

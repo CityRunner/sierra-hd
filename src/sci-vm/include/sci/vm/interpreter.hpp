@@ -82,6 +82,13 @@ struct RunOptions {
     // a line of the layout file after its tick and call number (milestone
     // 6b, docs/formats/replay-and-trace.md), without the line break.
     std::function<void(std::uint32_t call, std::uint32_t tick, std::string_view)> on_layout;
+    // When set, the music plays on the AdLib driver with the game's patches
+    // (sci::audio::AdlibDriver; without it on the silent driver, which
+    // changes nothing else), and this is called with every register write
+    // the driver makes and the number of music timer calls made so far
+    // (milestone 7, docs/formats/replay-and-trace.md, "OPL files"). The
+    // chip itself generates no samples.
+    std::function<void(std::uint32_t timer_call, std::uint16_t reg, std::uint8_t value)> on_opl;
 };
 
 struct RunResult {

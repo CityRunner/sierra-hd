@@ -40,7 +40,9 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace sci::resource {
@@ -106,9 +108,18 @@ public:
         friend bool operator==(const RegisterWrite&, const RegisterWrite&) = default;
     };
 
+    // Called with every register write the driver makes, as ScummVM's
+    // MidiDriver_AdLib::setRegister sends it to a port: `reg` is 0x000-0x0FF
+    // for the left OPL2, 0x100-0x1FF for the right one, and the value is
+    // the driver's, before the dual OPL2 masks waveform and output bits
+    // (and before register 5 is dropped). For the OPL logs compared with
+    // the reference (docs/formats/replay-and-trace.md, "OPL files").
+    using WriteHook = std::function<void(std::uint16_t reg, std::uint8_t value)>;
+
     // MidiDriver_AdLib::openAdLib: resets the chip into dual OPL2 mode and
-    // writes the driver's start-up registers.
-    explicit AdlibDriver(std::vector<AdlibPatch> patches);
+    // writes the driver's start-up registers, which `hook` (if any) sees
+    // too.
+    explicit AdlibDriver(std::vector<AdlibPatch> patches, WriteHook hook = {});
     ~AdlibDriver() override = default;
     AdlibDriver(const AdlibDriver&) = delete;
     AdlibDriver& operator=(const AdlibDriver&) = delete;
@@ -127,6 +138,9 @@ public:
     // Every register write from now on is also appended to `log` (null
     // stops it). For tests.
     void set_register_log(std::vector<RegisterWrite>* log) { register_log_ = log; }
+
+    // Replaces the write hook; empty stops it.
+    void set_write_hook(WriteHook hook) { write_hook_ = std::move(hook); }
 
 private:
     enum class Side : std::uint8_t { Left, Right, Both };
@@ -178,6 +192,7 @@ private:
     bool play_switch_ = true;
     int master_volume_ = 15;
     std::vector<RegisterWrite>* register_log_ = nullptr;
+    WriteHook write_hook_;
 };
 
 } // namespace sci::audio
