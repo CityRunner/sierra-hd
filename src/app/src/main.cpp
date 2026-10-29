@@ -693,6 +693,8 @@ public:
 private:
     // How often the fast waits present the screen, in real milliseconds.
     static constexpr std::uint64_t fast_frame_milliseconds = 16;
+    // How often they log the tick reached, in game milliseconds.
+    static constexpr std::uint64_t fast_progress_milliseconds = 600000;
 
     // A wait that does not wait: the input is passed on, the music of the
     // whole wait is made at once (the queue drops what does not fit,
@@ -711,6 +713,11 @@ private:
             last_fast_present_ = now;
         }
         game.pass_wait(milliseconds);
+        // Progress, every ten minutes of game time.
+        if (virtual_ / fast_progress_milliseconds != (virtual_ - milliseconds) / fast_progress_milliseconds) {
+            sci::core::log(sci::core::LogLevel::Info, sci::core::LogCategory::General,
+                           std::format("fast: tick {} after {} s", game.ticks(), (now - start_) / 1000));
+        }
     }
 
     [[nodiscard]] int scale_for_window() const {
