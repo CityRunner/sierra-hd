@@ -229,9 +229,33 @@ Room exits (the room properties at 28, 30, 32: east, south, west): 3 E10
 S14 W9; 4 E12 S33 W10; 6 E7 S18 W12; 7 S8 W6; 12 S23 W17; 14 E10 W13; 18
 E8; 23 E24 S29 W22; 24 E8 W23; 29 E30 W28; 30 W29.
 
-Planned route: 14 to 3 for Ethel at timer 800 (about tick 155230), 10
-and the study 31, then 4, 12, 6 and 18 for Clarence, and room 22 once
-timer 371 has run out.
+- Bit 1, Rudy outdoors (region 281, `rudyActions`, loaded in Act IV while
+  global 114 is below 2, and in Act VII). Timer 369: the first 281 room
+  sets it to 800 (global 114 to 0); he shows at 700 in room 3, then 600
+  room 9, 500 13, 400 25, 300 26, 200 27, 100 21 (`local54` = 22, 21, 27,
+  26, 25, 13, 9, 3, 10); at the end of his walk timer 369 is 1, which
+  opens room 22's fight.
+
+Tried so far (sci-vm, `--globals` and frames):
+
+- 14 north into 3 (arrives about tick 155060 at the bottom right; room 3
+  starts timer 369): Ethel shows at timer 800 (clock about 155206, bit 4),
+  Rudy at timer 700 (clock about 155662, bit 1); both walk off west.
+- **The clock waits for a key.** Script 406 (the clock) stays on screen
+  and its `handleEvent` eats every click and key until one closes it. It
+  is one object for all scenes: when a second scene starts it while the
+  first is still up, it never ends and Laura never gets control back
+  (input ignored to the end of the run). Enter after each clock (155400,
+  155900) avoids it.
+- Room 3 east into 10: the right arrow key from the path at the bottom
+  right (clicks at the right edge stop at the fence).
+- Room 10: down the left side, to the foot of the steps, up arrow: Laura
+  walks in through the French doors (typing "open the door" answers "Just
+  do that yourself."). The study's description, then Lillian (bit 2,
+  about tick 159700; "What an interesting collection of weapons...", "Oh,
+  Laura... you startled me!"), over by about 162000.
+- Timer 369 is 1 from about tick 161800, so room 22's fight is open
+  (bit 8, as bit 1 is set): 10 south into 21, east into 22.
 
 ## Images
 
