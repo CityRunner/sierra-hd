@@ -1,4 +1,17 @@
 sierra-hd replay 1
+# The playthrough of The Colonel's Bequest, with seed 0: one replay from
+# the start to the ending, built one act at a time (milestone 9,
+# docs/playthrough.md). tests/playthrough/checkpoints.txt says where the
+# game is at the end of each act; tools/playthrough/check.sh runs the
+# replay so far in both engines and checks it.
+# Left clicks walk Laura to 10 pixels above the point clicked, or close the
+# message on screen; Enter closes a message too. The first visit of a room
+# shows its description.
+#
+# Start: the copy protection (the answer for seed 0), then "No" to "Have
+# you previously attended a performance?", which plays the whole opening
+# (rooms 777 to 783, then 209) and starts Act I in the bedroom (room 44,
+# about tick 27000).
 600 key 13
 650 key 20480
 670 key 20480
@@ -14,6 +27,9 @@ sierra-hd replay 1
 1000 move 210 127
 1002 down 210 127 0
 1006 up 210 127 0
+# Act I (8:00 PM). Room 44: the "Act I" card, the room's description,
+# Lillian goes to freshen up, Laura's thoughts, her father's advice, the
+# notebook; each closed with Enter. Then out of the west door.
 29500 key 13
 29700 key 13
 30200 key 13
@@ -25,6 +41,8 @@ sierra-hd replay 1
 31600 move 0 157
 31602 down 0 157 0
 31606 up 0 157 0
+# Room 43: close the description, through the west door into the
+# Colonel's room.
 31900 move 160 199
 31902 down 160 199 0
 31906 up 160 199 0
@@ -37,6 +55,9 @@ sierra-hd replay 1
 32600 move 20 140
 32602 down 20 140 0
 32606 up 20 140 0
+# Room 42: the Colonel and Fifi (event bit 8, the clock at about tick
+# 32750). Enter closes the messages while Fifi tidies the room. Out of the
+# east door.
 32700 key 13
 33100 key 13
 33500 key 13
@@ -52,6 +73,8 @@ sierra-hd replay 1
 36500 move 319 155
 36502 down 319 155 0
 36506 up 319 155 0
+# Room 43 -> 47 (close the description, along the landing, down the
+# left staircase) -> 37 (close the description, round the banister).
 36800 move 160 199
 36802 down 160 199 0
 36806 up 160 199 0
@@ -74,12 +97,16 @@ sierra-hd replay 1
 39200 move 200 160
 39202 down 200 160 0
 39206 up 200 160 0
+# Room 37: to the parlor door at the back on the right.
 39500 move 229 90
 39502 down 229 90 0
 39506 up 229 90 0
 40100 move 255 98
 40102 down 255 98 0
 40106 up 255 98 0
+# Room 38, the parlor: Gertie and Clarence at the bar (event bit 2, the
+# clock at about tick 40400). Gertie's timer starts (1800 game cycles,
+# global 369).
 40300 key 13
 40700 key 13
 41100 key 13
@@ -88,3 +115,111 @@ sierra-hd replay 1
 42300 key 13
 42700 key 13
 43100 key 13
+# Back to 37 and through the door at the back on the left into the
+# billiard room.
+43300 move 60 125
+43302 down 60 125 0
+43306 up 60 125 0
+43600 move 0 108
+43602 down 0 108 0
+43606 up 0 108 0
+43900 move 65 98
+43902 down 65 98 0
+43906 up 65 98 0
+# Room 36: Gloria and Rudy at the billiard table (event bit 1, the clock
+# at about tick 44600).
+44400 key 13
+44800 key 13
+45200 key 13
+45600 key 13
+46000 key 13
+46400 key 13
+46800 key 13
+# Back through 37 to the parlor while Gertie's timer runs: the parrot,
+# Gertie ("Please leave us be, Laura.").
+47000 move 270 125
+47002 down 270 125 0
+47006 up 270 125 0
+47300 move 319 108
+47302 down 319 108 0
+47306 up 319 108 0
+47700 move 255 98
+47702 down 255 98 0
+47706 up 255 98 0
+48300 key 13
+48500 text look at the parrot
+48700 key 13
+48900 text talk to gertie
+49100 key 13
+49300 key 13
+49500 key 13
+# Once the timer has run out: out to 37 and back into the parlor, where
+# Gertie has gone to bed (global 173 bit 2).
+54600 move 60 125
+54602 down 60 125 0
+54606 up 60 125 0
+54900 move 0 108
+54902 down 0 108 0
+54906 up 0 108 0
+55200 move 255 98
+55202 down 255 98 0
+55206 up 255 98 0
+# Out to 37 and on north into the back hallway 33 (its description),
+# back south, round the banister to the foot of the left staircase and up
+# into 47.
+55900 move 60 125
+55902 down 60 125 0
+55906 up 60 125 0
+56200 move 0 108
+56202 down 0 108 0
+56206 up 0 108 0
+56500 move 30 50
+56502 down 30 50 0
+56506 up 30 50 0
+57100 key 13
+57300 move 160 199
+57302 down 160 199 0
+57306 up 160 199 0
+57600 move 115 188
+57602 down 115 188 0
+57606 up 115 188 0
+58200 move 25 190
+58202 down 25 190 0
+58206 up 25 190 0
+58700 move 45 30
+58702 down 45 30 0
+58706 up 45 30 0
+# Room 47: to the closet door ("open the door": "It's just an empty
+# closet."), onto the landing, into the hallway and west through its first
+# door into Gloria and Gertie's room.
+59300 move 90 122
+59302 down 90 122 0
+59306 up 90 122 0
+59700 move 60 118
+59702 down 60 118 0
+59706 up 60 118 0
+60000 text open the door
+60300 key 13
+60500 move 105 119
+60502 down 105 119 0
+60506 up 105 119 0
+60900 move 135 135
+60902 down 135 135 0
+60906 up 135 135 0
+61200 move 112 120
+61202 down 112 120 0
+61206 up 112 120 0
+61500 move 96 119
+61502 down 96 119 0
+61506 up 96 119 0
+61800 move 80 118
+61802 down 80 118 0
+61806 up 80 118 0
+# Room 46: Gertie asleep (event bit 4, the clock at about tick 62050):
+# Act I's four events are witnessed. Out of the east door into 47: the
+# room change starts Act II (tick 62840).
+62000 key 13
+62400 key 13
+62800 move 319 112
+62802 down 319 112 0
+62806 up 319 112 0
