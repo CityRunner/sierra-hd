@@ -95,9 +95,18 @@ SCI_TEST(save_folder_without_its_folder_is_empty) {
 
 SCI_TEST(save_folder_leaves_out_other_files) {
     const TempFolder temp("sierra-hd-save-folder-other");
-    for (const char* name : {"sierra-hd-000.sav", "sierra-hd-100.sav", "sierra-hd-1.sav", "sierra-hd-0001.sav",
-                             "sierra-hd-00a.sav", "sierra-hd-005.SAV", "sierra-hd-005.sav.bak", "colonel.005",
-                             "laura.sav", "SIERRA-HD-006.sav"}) {
+    for (const char* name : {
+             "sierra-hd-000.sav",
+             "sierra-hd-100.sav",
+             "sierra-hd-1.sav",
+             "sierra-hd-0001.sav",
+             "sierra-hd-00a.sav",
+             "sierra-hd-005.SAV",
+             "sierra-hd-005.sav.bak",
+             "colonel.005",
+             "laura.sav",
+             "SIERRA-HD-006.sav",
+         }) {
         write_file(temp.path() / name, "x");
     }
     // A folder with a slot's name is not a save.
