@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <format>
+#include <memory>
 #include <span>
 #include <string>
 #include <utility>
@@ -259,6 +260,41 @@ SCI_TEST(a_restore_sets_the_play_switch_and_keeps_the_host_master_volume) {
     // game's kDoSound MasterVolume set before the restore.
     SCI_CHECK(music.master_volume() == 12);
     music.set_device(nullptr);
+}
+
+SCI_TEST(a_restore_takes_the_global_reverb_from_the_save_and_the_song_times_from_the_host) {
+    sci::vm::MemorySaveStore saves;
+    KernelWorld game(saves);
+    sci::vm::Music& music = game.world.subsystems.sound().music();
+    // A song without a resource (as the synthetic world's), which
+    // soundInitSnd does not number on a restore; the counter is then at 1.
+    auto song = std::make_unique<sci::vm::MusicEntry>();
+    song->sound_object = sci::vm::make_reg(1, 2);
+    music.sound_init(*song);
+    (void)music.add(std::move(song));
+    const std::size_t saved_songs = music.size();
+    music.set_driver_reverb(3);
+    SCI_CHECK(!game.save(0, "Reverb").is_null());
+    // The host's driver reverb and counter (at 3) before the restore.
+    music.set_driver_reverb(5);
+    auto other = std::make_unique<sci::vm::MusicEntry>();
+    other->sound_object = sci::vm::make_reg(1, 4);
+    music.sound_init(*other);
+    music.sound_init(*other);
+    (void)music.add(std::move(other));
+    SCI_CHECK(game.restore(101));
+    SCI_CHECK(!game.machine().faults().raised());
+    // SciMusic::saveLoadWithSerializer: the reverb saved is the driver's,
+    // and setGlobalReverb makes it the global reverb; the driver keeps its
+    // own (no song of the game before plays).
+    SCI_CHECK(music.global_reverb() == 3 && music.driver_reverb() == 5);
+    // MusicEntry::time is not saved, and the counter runs on.
+    SCI_CHECK(music.size() == saved_songs);
+    for (std::size_t i = 0; i < music.size(); ++i) {
+        SCI_CHECK(music.at(i).time == 0);
+        SCI_CHECK(music.at(i).sound_object != sci::vm::make_reg(1, 4));
+    }
+    SCI_CHECK(music.host_settings().time_counter == 3);
 }
 
 SCI_TEST(a_restore_keeps_the_host_time_and_sets_the_play_time_back) {

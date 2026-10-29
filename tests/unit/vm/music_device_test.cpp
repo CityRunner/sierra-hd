@@ -350,3 +350,54 @@ SCI_TEST(the_player_passes_reverb_and_sysex_to_the_device) {
     player.music.clear_play_list();
     player.music.set_device(nullptr);
 }
+
+SCI_TEST(a_track_init_sets_the_driver_reverb_to_the_device_default) {
+    // MidiPlayer_Midi::initTrack sets the driver's reverb to the patch's
+    // default before every SCI0 song: getReverb, which a save records,
+    // reports it.
+    Player player;
+    RecordingDevice device;
+    device.choices.default_reverb = 6;
+    player.music.set_device(&device);
+    player.music.set_driver_reverb(2);
+    MusicEntry& sound = player.add(one_note_song, 1);
+    player.music.sound_play(sound);
+    SCI_CHECK(player.music.driver_reverb() == 2); // The init waits for the timer.
+    player.music.on_timer();
+    SCI_CHECK(player.music.driver_reverb() == 6);
+    // Without a default (the AdLib), the driver's reverb stays.
+    device.choices.default_reverb = -1;
+    player.music.set_driver_reverb(2);
+    player.music.sound_play(sound);
+    player.music.on_timer();
+    SCI_CHECK(player.music.driver_reverb() == 2);
+    player.music.clear_play_list();
+    player.music.set_device(nullptr);
+}
+
+SCI_TEST(the_global_reverb_reaches_the_song_playing_if_it_has_none) {
+    // SciMusic::setGlobalReverb: another value than 127 is the global
+    // reverb, which the first song playing takes if its own is 127 (none);
+    // 127 sets the reverb of that song.
+    Player player;
+    RecordingDevice device;
+    player.music.set_device(&device);
+    player.music.set_global_reverb(4);
+    SCI_CHECK(player.music.global_reverb() == 4 && device.calls.empty()); // Nothing plays.
+    MusicEntry& sound = player.add(one_note_song, 1);
+    player.music.sound_play(sound);
+    SCI_CHECK(sound.reverb == 127);
+    device.calls.clear();
+    player.music.set_global_reverb(2);
+    SCI_CHECK(player.music.global_reverb() == 2 && player.music.driver_reverb() == 2);
+    SCI_CHECK((device.calls == std::vector<std::string>{"reverb 2"}));
+    sound.reverb = 5;
+    device.calls.clear();
+    player.music.set_global_reverb(3);
+    SCI_CHECK(player.music.global_reverb() == 3 && device.calls.empty());
+    player.music.set_global_reverb(127);
+    SCI_CHECK(player.music.global_reverb() == 3 && player.music.driver_reverb() == 5);
+    SCI_CHECK((device.calls == std::vector<std::string>{"reverb 5"}));
+    player.music.clear_play_list();
+    player.music.set_device(nullptr);
+}
