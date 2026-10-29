@@ -286,39 +286,94 @@ New risks found:
   the fence; the arrow keys walk Laura off the edges and through the
   study's French doors.
 
-## Act V (in progress)
+## Act V (done)
 
-Act V starts at tick 169510 in room 21 (12:00 midnight), all timers 0,
-global 114 = 10, global 115 = 12.
+Stop tick 202400 (Act V starts at tick 169510 in room 21, 12:00 midnight,
+with all timers 0, global 114 at 10 and 115 at 12; Act VI at tick 201350
+in the hallway 43).
 
-Findings so far (scripts and `--globals`):
+Found in the scripts:
 
 - Script 0's exports 5, 6 and 7 are Bset, Bclr and Btst on the flag
-  bits from global 440 (flag n: global 440 + n / 16, bit n mod 16).
-- Global 187 is the quarter of the hour (script 406 adds one per event
-  and wraps it after 3), so "global 187 is 3" in room 42 means after
-  three events of the act.
-- Room 42's `init` in Acts II to VIII (global 109 & 48 clear): region
-  270 (Act V; 240 otherwise) when flag 38 is set, or when global 187 is
-  below 3, global 123 bit 64 clear and flag 37 clear; otherwise, in Act
-  V with global 187 at 3, its own scene (bit 4, setter at 079a).
-- Region 270 sets timer 368 to 1800 when it is 0 and flag 38 (Bset at
-  01e4); its scene sets bit 2 (0332). Rooms 43 and 49 clear flags 37 and
-  38 when Laura leaves them for a room other than 42/49 (43) or 42/43
-  (49), so the room-42 scene needs a way out through 43 to another room
-  and back.
-- Room 50's "look through the holes" in Act V, with Laura come in from
-  33: facing up (loop 3) the view 306 (scene34e, Rudy in the dining
-  room, bit 1, setter at 0334); facing down the view 304 (scene38e,
-  Clarence in the parlor, bit 8, setter at 0378). Facing right: "Try
-  facing either set of holes."; off the platform: "You're not close
-  enough."
-- Tried: 21 up arrow into 10 (she walks on towards the study; clicks
-  stop her), 10 to 4 over the top left ((10, 70), (80, 55)), 4 off the
-  bottom into 33, "push the mirror" walks her into 50 (arrives at (16,
-  110)); on the platform at (121, 97) the up arrow and "look through the
-  holes": 306, bit 1 (about tick 179000); a click 3 pixels down to face
-  down and the same command: 304, bit 8 (about tick 181500).
+  bits from global 440 (flag n: global 440 + n / 16, bit n mod 16). They
+  are not cleared at the act change.
+- Global 187 is the quarter of the hour: script 406 adds one per event
+  and wraps it to 0 after 3 (global 186 is the hour). So "global 187 is
+  3" means after three events of the act.
+- Room 42's `init` in Acts II to VIII (when global 109 & 48 is clear):
+  region 270 (Act V; 240 in the other acts) when flag 38 is set, or when
+  global 187 is below 3, global 123 bit 64 is clear and flag 37 is clear;
+  otherwise, in Act V with global 187 at 3, its own scene (bit 4, setter
+  at 079a).
+- Region 270's `init` sets timer 369 to 1800 when it is 0; when that
+  timer is 1 and bit 2 is set it starts another script, otherwise it sets
+  flag 38 (Bset at 01e4) and starts the scene that sets bit 2 (0332).
+- Rooms 43 and 49 clear flags 37 and 38 when Laura leaves them for a
+  room other than 42 or 49 (43) or 42 or 43 (49). Region 270's flag 38
+  would bring 270 back on every visit, so the room-42 scene needs Laura
+  out of 43 into another room and back.
+- Room 50's "look through the holes" (050 at 1215) in Act V, with Laura
+  come in from 33 (the property `east`): facing up (loop 3) the view 306
+  (scene34e, the dining room, setter at 0334), facing down the view 304
+  (scene38e, the parlor, setter at 0378); facing right: "Try facing
+  either set of holes."; off the platform: "You're not close enough."
+  Neither has a precondition in Act V.
+
+The four events, checked with `--globals` (the tick is the clock's
+`ScriptID(406, 0)` in the trace):
+
+| Bit | Scene | Room: script | Precondition | Tick |
+|---|---|---|---|---|
+| 1 | Rudy having dessert and coffee in the dining room | 306, the view through 50's holes (scene34e) | Laura came into 50 from 33 and faces up on the platform | 178954 |
+| 8 | Clarence sitting alone at the bar of the parlor | 304, the view through 50's holes (scene38e) | as 306, facing down | 181447 |
+| 2 | the Colonel and Fifi ("Laura! What are YOU doing in here?!", "But, Uncle Henri, I don't understand how you could...!") | 42: region 270 (setter at 0332) | global 187 below 3 and flags 37 and 38 clear, or flag 38 set | 190435 |
+| 4 | the Colonel's room empty | 42: the room's script (setter at 079a) | global 187 at 3 and flag 38 clear (Laura has left 43 for another room since 270) | 197635 |
+
+Region 272 in the parlor (bit 8) and view 355 through 49's holes (bit 4)
+are other ways, not used. Region 268 sets no bit.
+
+Route:
+
+- 21: the up arrow key walks Laura north into 10, where she would walk on
+  towards the study's French doors; a click stops her. Over the top left
+  of 10 ((10, 120), (10, 70), (80, 55)) into the garden 4, behind the
+  statue and off its bottom edge into 33.
+- 33: "push the mirror" (at (62, 152)): she walks into the passage 50 and
+  stands at (16, 110).
+- 50: onto the platform at (121, 98), the up arrow key, "look through
+  the holes": Rudy (bit 1). The views close by themselves; Laura is back
+  on the platform at (121, 100). A click 3 pixels below her turns her to
+  face down, and the same command shows Clarence (bit 8). She comes back
+  at (131, 104), where a walk left stops at once; back to (121, 98), then
+  down the steps to (16, 110) (two clicks, the first stops at (91, 109))
+  and out at (8, 132) into 33 (a second click there would walk her into
+  the library 32).
+- 33 off the bottom edge into 37, up the left staircase into 47; off the
+  top of the stairs to the right ((100, 147): a click up from there stops
+  against the wall), onto the landing ((160, 125)) and north up the
+  hallway into 43.
+- 43: past the edge of the wall ((40, 175), (100, 150)) to the upper door
+  on the left (control colour 5, (75, 140), (20, 140)) into 42: the
+  Colonel and Fifi (bit 2). Enter closes the clock and the messages.
+- Out of 42's east door into 43, south into 47 and straight back north
+  into 43, then into 42 again: the room is empty (bit 4), then the "Act
+  VI" card. Enter closes them; out of the east door into 43: Act VI (tick
+  201350).
+
+`tests/playthrough/act-saves.txt` saves Act VI at tick 201800 (room 43, no
+message on screen).
+
+New risks found:
+
+- **Flags outside the act's globals.** Flags 37 and 38 (global 442) live
+  across acts and depend on how Laura leaves rooms 43 and 49; a scene
+  that waits for a flag to clear needs the right way out.
+- **Views put Laura back elsewhere.** After the view 304 Laura stands 10
+  pixels right of where she looked from, at a place where some walks stop
+  at once; the route goes back to a known point first.
+- **Clicks that change rooms.** A click near an edge of a small room can
+  walk Laura out of it (33's left edge leads into the library 32); check
+  the room after each step.
 
 ## Images
 
@@ -333,6 +388,7 @@ tests/playthrough/playthrough.txt` (original | HD side by side):
 | II | 98400: the billiard room 36, Clarence and Gloria ("Everything all right, Gloria?") | 73300: the kitchen 35, Celie and Lillian |
 | III | 135000: Fifi's room in the attic 74 ("You'll regret that, you little vixen!") | 119000: room 48, Clarence and Rudy arguing |
 | IV | 166500: room 22, Clarence and Rudy fight by the statue | 161200: the study 31, Lillian ("Oh, Laura... you startled me!") |
+| V | 191200: the Colonel's room 42, the Colonel and Fifi ("But, Uncle Henri, I don't understand how you could...!") | 179800: through the holes of passage 50, Rudy in the dining room ("You see Rudy having dessert and coffee in the dining room.") |
 
 ## Planned route of the later acts
 
@@ -342,8 +398,8 @@ From the regions that set the bits of global 118 and the act each room's
 
 | Act | Candidate events (room: region, bit) |
 |---|---|
-| V | the Colonel's room 42: region 270 (bit 2; room 42 loads it in Act V in place of 240) and the room's own script (bit 4, setter at 079a, when Laura enters in Act V with global 187 at 3: the clock counts the quarters of the hour there, so after three events); the parlor 38: region 272 (bit 8, Act V); views through the holes: 304 (scene38e, the parlor, bit 8) and 355 (scene42f, "missColo", the Colonel's room, bit 4); region 268 (rooms 5 and 61, from Act V) sets no bit. Act V starts in room 21 with all timers 0 and global 114 at 10, 115 at 12 |
-| VI | Laura's room 44: region 274 (bit 2); room 10: region 277 (bit 4); rooms 41 and 73: region 278; the attic 74: region 273 (global 123 bits 16 and 64) |
+| V | done (above) |
+| VI | Laura's room 44: region 274 (bit 2); room 10: region 277 (bit 4); rooms 41 and 73: region 278; the attic 74: region 273 (global 123 bits 16 and 64); room 6's own script (bit 1, setter at 071f; its `init` checks Act VI); region 276 (bit 8, rooms 13, 14, 48 and 65; room 48 loads it in Act VI); through passage 50's holes when Laura came in from 43 (`west`): facing up the view 335 (scene44f, Laura's room, bit 2), any other way 334 (scene48f, room 48, bit 8). Act VI starts in the hallway 43 with flags 37 and 38 clear, timer 369 0 and global 187 at 0 |
 | VII | the grounds: region 281 (bit 1); Laura's room 44: region 385 (bit 4); room 69: region 256 |
 | VIII | room 65: region 280; the chapel 58 (regions 256, 279, bit 8); bit 2 to find (region 261 in the attic is Act III's) |
 
