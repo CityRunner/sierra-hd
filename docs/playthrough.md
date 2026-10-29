@@ -117,70 +117,94 @@ room.
 `tests/playthrough/act-saves.txt` saves Act III at tick 111200 (no
 message on screen).
 
-## Act III (in progress)
+## Act III (done)
 
-Findings from the scripts (every write of global 118 is `lsg 118; ldi
-<bit>; or; sag 118` in a script's state 0, guarded by global 216; 44 such
-setters in all):
+Stop tick 154400 (Act IV starts at tick 153500 in room 14, outside the
+playhouse).
 
-- **Peepholes in Act III.** Room 49's "look through the holes" (script 49
-  at 0f98) picks a view room by act, Laura's loop (3, facing the wall) and
-  which hole (room selector 262: 33 is the library hole by the platform).
-  For Act III (global 165 is 2): the library hole gives room 324, which
-  sets bit 8 with no other condition (324 at 01a2); the upper hole gives
-  353 or 350 (global 173 bit 64), and 350 sets bit 8 too. Room 50's holes
-  (script 50 at 1152): in Act III, Laura facing loop 2 at hole 43 gives
-  room 333, which sets bit 4 (333 at 03dd), sets global 173 bit 8 and
-  timer 370 to 1.
-- **Bit 2: the attic.** Room 74's `init` loads region 261 in Act III (74
-  at 033b; the docs had it under Act VIII). Region 261 plays its scene
-  (bit 2, 261 at 0280; it also sets global 173 bit 8 and timer 370 to 2)
-  when bit 2 is clear and timer 370 is 1. Timer 370 was started in Act II
-  by the kitchen scene (region 236, 1800 cycles) and is 1 from long before
-  Act III, so the attic scene waits from the act's start.
-- **Bit 8: the billiard room.** Room 36 loads region 233 in Act III with
-  no condition (36 at 0268).
-- **Bit 1: room 63**, region 257 (63's `init` in Act III).
-- **Bit 4 outdoors:** region 202 (acts I to IV, rooms 3 to 27) sets bit 4
-  (202 at 0470) and runs timer 368.
-- Bit-2 setters 301, 323, 335 and 354 are the views of rooms 50 and 49 in
-  Acts I, II, IV and V, not Act III. Room 14 clears bit 4 only in Act VII.
-- A first attempt's route (not kept) reached tick 132900 in room 14
-  (outdoors, the playhouse) with bits 4 and 8.
-- **Tried at the start of Act III:** "look through the holes" on the
-  platform of 49 facing the portrait shows the library empty ("There is
-  nothing of interest in the library", room 350 without its scene);
-  facing another way gives "Try facing either set of holes." The view 324
-  (Gloria at the Victrola, bit 8) needs the other set of holes (Laura not
-  facing north, room property `east` 33), not found yet.
-- **The attic from room 47:** room 47's `doit` sends Laura to 74 when she
-  stands on control colour 4 (`onControl` 16) facing north, at the foot of
-  the stairs on the right of the landing. In 1x screen coordinates the
-  strip is x 242-266, y 123-128; game coordinates are 10 pixels higher
-  (the picture port starts at y 10), so a click at (254, 126) walks her
-  onto it (game y 116) from (254, 133). Colour 1 (game y 103-112, x
-  229-267) is the way to room 48, colour 2 the way to 46.
-- Kernel `OnControl` takes game (port) coordinates, the `--screens`
-  control maps are screen coordinates: add 10 to y when reading them.
-- Room 48 in Act III (48 at 01cd): region 259 (Clarence and Rudy argue,
-  bit 4) while bit 4 is clear; it starts timer 370 at 1800 cycles, which
-  would hold the attic scene back.
-- **Timers are cleared at the act change** (globals 225 to 372 include
-  the timers 368 to 372), so timer 370 is 0 at the start of Act III and
-  the attic scene (261) waits for it: it must be started in Act III, by
-  the argument in room 48 (259, 1800 cycles) or seen through room 50's
-  holes (333, sets it to 1 at once). Fifi's room in the attic (74, the
-  doorway on the right at the top of the stairs) is empty before that.
-- **Room 63, the playhouse** (from 14): from room 3 Laura enters 14
-  behind the playhouse at (276, 100); around it by (268, 108), (285,
-  110), (285, 165) to the door at (221, 130); "knock on the door" brings
-  "Is that you, Laura? Come in and join me."; Enter and she goes in:
-  Ethel in the playhouse, bit 1 at about tick 134550 in the trial route
-  (region 257).
-- Trial route (scratch, about 1 tick per 100 checked with `--actors`):
-  49 -> 33 -> 37 -> 47 -> 48 (bit 4, tick 118500) -> 47 -> 37 -> 36
-  (bit 8, tick 125900) -> 37 -> 33 -> 4 -> 10 -> 3 -> 14 -> 63 (bit 1).
-  The attic then waits for timer 370 (about tick 129300).
+Every write of global 118 in the scripts is `lsg 118; ldi <bit>; or; sag
+118` in a scene script's state 0, guarded by global 216 (44 setters in
+all, listed by bit with a small script over the disassembly). Act III's
+four events, checked with `--globals`:
+
+| Bit | Scene | Room: script | Precondition | Tick |
+|---|---|---|---|---|
+| 4 | Clarence and Rudy argue about Gloria | 48: region 259 (48 at 01cd) | bit 4 clear; starts timer 370 (1800 cycles) | 118450 |
+| 8 | Gloria at the Victrola | 36: region 233 (36 at 0268) | none in Act III | 125900 |
+| 2 | a man with Fifi in her attic room ("Stop eet! Leave me alone!!") | 74: region 261 (74 at 033b, 261 at 0280) | bit 2 clear and timer 370 at 1 when Laura enters 74 | 134050 |
+| 1 | Ethel plays with the dolls in the playhouse | 63: region 257 | bit 1 clear | 148050 |
+
+- **Timers are cleared at the act change**: the procedure of
+  `game::startRoom` clears the 148 globals from 225, which include the
+  timers 368 to 372. Timer 370 is 0 when Act III starts, so the attic
+  scene needs it started in Act III, by the argument in room 48 (259) or
+  through room 50's holes (view 333, which sets it to 1 at once; not used).
+  Region 261 checks it only when Laura enters room 74: Fifi's room is
+  empty if she comes too early, so the route waits in 47 until about tick
+  132000.
+- **The attic from room 47**: room 47's `doit` sends Laura to 74 when she
+  stands on control colour 4 (`onControl` 16) facing north, at the foot
+  of the stairs on the right of the landing; colour 1 at the east end of
+  the hallway is the way into 48, colour 2 the way into 46.
+- **Peepholes in Act III.** Room 49's "look through the holes" (49 at
+  0f98) picks a view by act, Laura's loop and the room's property `east`
+  (33 when she came in from 33): facing the portrait gives the library
+  empty ("There is nothing of interest in the library", room 350); facing
+  another way on the platform gives "Try facing either set of holes."
+  The view 324 (Gloria at the Victrola, bit 8) belongs to the other set
+  of holes, not found. Room 50's holes give view 333 in Act III (the
+  argument of 48, bit 4, Laura facing south with `west` 43), not tried.
+- Bit-2 setters 301, 323, 335 and 354 are views of rooms 50 and 49 in Acts
+  I, II, IV and V; room 14 clears bit 4 only in Act VII (when Laura comes
+  out of 63).
+
+Route:
+
+- 49: off the platform, east out of the clock into 33, out of its bottom
+  edge into 37, up the left staircase into 47, along the hallway into 48:
+  event bit 4.
+- Back to 47, down the left staircase with the arrow keys (as in Act
+  II), along the back of 37 into the billiard room 36: event bit 8.
+- Back to 37, up into 47, to the foot of the right stairs and wait for
+  timer 370; north into the attic 74, up the stairs and right into Fifi's
+  room: event bit 2.
+- Down to 47, down the left staircase, through 37 and 33 into the garden
+  4, west into 10, 3 and 14. In 14 Laura arrives behind the playhouse at
+  (276, 100) and must go round its right side ((268, 108), (285, 110),
+  (285, 165)) to the door at (221, 130). "knock on the door": "Is that
+  you, Laura? Come in and join me." Enter, and she goes into 63: event
+  bit 1, then the "Act IV" card. Out of the door into 14: Act IV (tick
+  153500).
+
+`tests/playthrough/act-saves.txt` saves Act IV at tick 154000 (no message
+on screen).
+
+New risks found:
+
+- **Control maps and coordinates.** Kernel `OnControl` takes game (port)
+  coordinates; the `--screens` control maps are screen coordinates, 10
+  pixels lower (the picture port starts at y 10). A click walks Laura to
+  10 pixels above the point clicked, so the click lands on the screen row
+  of the target in the map.
+- **Wide base.** Laura's base rectangle is about 20 pixels wide: in tight
+  places (behind the playhouse in 14) a straight walk stops at once
+  (`CanBeHere` 0 in the trace) and the route goes in steps.
+- **Scenes that check on entry.** Region 261 decides on the room's init;
+  a timer running out while Laura is already in the room does not start
+  the scene.
+
+## Images
+
+Two images per act for the customer, at ticks of the replay (one during a
+key scene, one in another room with characters), rendered with
+`sci-hd-frames <game> <folder> --at <ticks> --replay
+tests/playthrough/playthrough.txt` (original | HD side by side):
+
+| Act | Key scene | Another room with characters |
+|---|---|---|
+| I | 33300: the Colonel's room 42, the Colonel and Fifi ("Pardon, Henri! I got zee lipstick on you!") | 41000: the parlor 38, Gertie and Clarence at the bar ("Shhh. Here's that young friend of Lillian's.") |
+| II | 98400: the billiard room 36, Clarence and Gloria ("Everything all right, Gloria?") | 73300: the kitchen 35, Celie and Lillian |
+| III | 135000: Fifi's room in the attic 74 ("You'll regret that, you little vixen!") | 119000: room 48, Clarence and Rudy arguing |
 
 ## Planned route of the later acts
 
@@ -190,12 +214,11 @@ From the regions that set the bits of global 118 and the act each room's
 
 | Act | Candidate events (room: region, bit) |
 |---|---|
-| III | billiard room 36: region 233 (bit 8, its Act III case); room 63: region 257 (bit 1); region 202 outdoors (Ethel, bit 4, acts I to IV); bit 2 not yet found (setters 301, 323, 335, 354 and the 300 scripts to check) |
-| IV | region 203 outdoors (Clarence, bit 8); Laura's room 44: region 265; the study 31: region 264 (bit 2) |
+| IV | region 203 outdoors (Clarence, rooms 6, 7, 8, 18, 23, 29 and 30, bit 8); the study 31: region 264 (bit 2, while bit 2 is clear); region 202 outdoors (Ethel, acts I to IV, bit 4, driven by timer 368 and global 113); Laura's room 44: region 265; room 6: region 266; room 24: region 263; billiard room 36: region 382 (global 141 bit 4 clear); room 50's holes: views 303 (starts timer 370), 335 and 306 (bit 1) |
 | V | the Colonel's room 42: region 270 (bit 2); the gardens: regions 268 |
-| VI | Laura's room 44: region 274 (bit 2); room 10: region 277 (bit 4); rooms 41 and 73: region 278 |
+| VI | Laura's room 44: region 274 (bit 2); room 10: region 277 (bit 4); rooms 41 and 73: region 278; the attic 74: region 273 (global 123 bits 16 and 64) |
 | VII | the grounds: region 281 (bit 1); Laura's room 44: region 385 (bit 4); room 69: region 256 |
-| VIII | room 65: region 280; the chapel 58 (regions 256, 279, bit 8); the attic 74 (region 261, bit 2) |
+| VIII | room 65: region 280; the chapel 58 (regions 256, 279, bit 8); bit 2 to find (region 261 in the attic is Act III's) |
 
 Other setters by room script: 6, 10, 22 and 59 (bit 1), 22 (bit 8), 48
 (bit 1), and the 300 and 400 scripts of the scenes. The game ends after Act
