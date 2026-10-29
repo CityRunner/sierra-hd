@@ -2413,7 +2413,8 @@ The format, its checks and what a restore rebuilds are described in
   version) and before a SHA-256 checksum of the whole file. Storing less
   (ScummVM keeps only the scripts' string blocks) would save little: a save
   of the real game is 360 to 500 KB, mostly the three 1x maps, the colour
-  pairs and the hunks. **Decided.**
+  pairs and the hunks (490 to 940 KB since the owner and priority source
+  maps joined the state, "Milestone 8: round trips"). **Decided.**
 - **Game identity:** SHA-256 of all script and vocabulary resources, not
   ScummVM's script 0 size and game object offset, so that any release or
   script patch the state depends on is caught. A save of another release
@@ -2551,6 +2552,78 @@ kRestoreGame on the project's format; their behaviour in detail is in
   end: 49510 kernel calls, 109 screens and maps, 953 actor frames, 407
   layout lines and 1040 OPL writes. The scenario is in `scenarios.txt`.
   **Decided.**
+
+## Milestone 8: round trips (2026-10-29)
+
+The exit criterion's second half, "replay continues identically", checked
+over every scenario of `tests/scenarios/scenarios.txt`.
+
+- **The check:** at a tick T of a deterministic run the machine stops, its
+  state is written as a save file (the project's format, the same
+  `write_save` as kSaveGame), a fresh machine is built from the game files
+  (`init_game`), the save is read into it with its execution
+  (`Execution::Resume`, docs/formats/save-format.md, "Execution on
+  reading"), and the run goes on in the fresh machine to the stop tick
+  with the rest of the replay. Its kernel trace, screens and 1x maps,
+  actors, parser, layout and OPL files must be identical to those of the
+  run without round trips, and so must the state hashes at the round-trip
+  ticks and at the end; the persistent and the total hash (with
+  `execution`) after reading the save must equal those before writing it.
+  `sci-vm-trace --round-trip <ticks> <file>`; `tools/vm-trace/run-round-trips.sh`
+  runs every scenario with five round trips (at 1/6 to 5/6 of its stop
+  tick, chained in one run) in sci-vm alone, and when the outputs differ,
+  each tick alone to name the one at fault. **Decided.**
+- **Resume rather than re-entry.** A save made at a tick is not made in
+  kSaveGame, so the game's own re-entry (kRestoreGame, then `replay`)
+  would not continue the same run. The round trip therefore also restores
+  the `execution` component, the strongest test of the format: every part
+  of the state survives a file round trip and drives the same execution.
+  The game itself still restores through kRestoreGame and `replay`; that
+  path is checked against ScummVM by the save-restore scenario.
+  **Decided.**
+- **Resume points:** the end of a kernel call made by the top-level
+  interpreter (not by scripts a kernel function runs), after the
+  instruction is counted, with no abort pending: there the interpreter's
+  locals (`scr`, `obj`, the variable stores, `xs`) are rebuilt from the
+  frames at the next instruction, so nothing outside the state is needed.
+  The round trip at T is taken at the first such point at or after T
+  (`Machine::set_suspend_hook`, `resume_game`). **Decided.**
+- **What goes over that is not VM state** (as the host keeps it across a
+  restore): the replay input not yet due, a requested quit, the music
+  device (the same AdLib or MT-32 driver plays on; the player of the
+  machine that stopped is detached first, so its songs send nothing), and
+  what the screen shows with the HD bookkeeping (`Screen::take_presentation`).
+  Without the device the OPL log stops at the round trip; without the
+  shown screen the next screen differs until the game redraws it. Neither
+  changes the state. **Decided.**
+- **Found and fixed:**
+  - The owner and priority source maps were left out of the state as HD
+    bookkeeping, but the saved bits keep them beside the visual and
+    priority maps (`Screen::bits_save`, in place of ScummVM's display
+    map), so they come back into the screen and into later saved bits:
+    after a round trip the hunks of later windows differed (persistent
+    hash at the next tick). They are now in the `graphics` component; a
+    save grows by 128000 bytes. kRestoreGame clears them as before. The
+    format stays version 1 (no save of version 1 was released).
+  - The first resume code stopped before the instruction was counted, so
+    the step counter of the fresh machine was one behind (execution hash
+    at the next tick); the hook now runs after the count.
+  - A frame of a send that carries the stack pointer over has `sp` and
+    `fp` at the carry value, which the first resume check refused.
+- **Results** (2026-10-29): all 34 runs identical, every round trip with
+  equal persistent and total hashes; 168 round trips (mouse.txt ends at
+  tick 1800, so three), saves of 491 to 938 KB, at points in the parser
+  runs, the menus, windows and dialogs (text, copy protection, menus,
+  save-restore before and after its restore), walks and the intro's
+  music. `boot.txt` 3600 and `save-restore.txt` 6500 against the
+  reference after the fixes: everything matches (12022 and 49510 kernel
+  calls). **Decided.**
+- **Across architectures:** the saves of `boot.txt` at 1000, 2000 and 3000
+  and of `save-restore.txt` at 3000 and 5000 are byte for byte the same
+  from the x86-64 and the ARM64 build (qemu), the round-trip results and
+  traces too, and each read on the other architecture
+  (`sci-vm-trace --load-save`) gives the same hashes, whose persistent
+  part is the hash at the save. **Decided.**
 
 ## Spec items carried forward
 

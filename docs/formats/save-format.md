@@ -40,8 +40,9 @@ followed by that many bytes (`StateWriter::string`, `StateWriter::bytes`).
   offset instead (`gamestate_restore`).
 - **The state** is the whole stream of `write_state`, all ten components
   with their names, so that the state hashes of a save can be computed
-  from the file alone. The `execution` component is written but not
-  restored (below).
+  from the file alone. The `execution` component is written in every
+  save; a restore in the game takes only its counters (below), the round
+  trip of `sci-vm-trace` all of it ("Execution on reading").
 
 ## Slots and the save folder
 
@@ -131,6 +132,35 @@ later part leaves the earlier ones replaced, so a machine whose state fails
 to load must not run on: kRestoreGame stops the game with the message as a
 fault.
 
+### Execution on reading
+
+`read_save` takes what to do with the `execution` component
+(`sci::vm::Execution`):
+
+- **Replay** (kRestoreGame): the frames, registers and stack contents are
+  read, checked for length and dropped; only the step and kernel-call
+  counters are taken. The game re-enters through its `replay` method, as in
+  Sierra's interpreter and ScummVM, so a save made inside kSaveGame needs
+  nothing more.
+- **Resume** (the round trip of `sci-vm-trace --round-trip` and
+  `--load-save`, docs/ASSUMPTIONS.md, "Milestone 8: round trips"): the
+  frames, the current frame, the execution stack base, the variable stores
+  (each the stack or the locals segment it names), `acc`, `prev`, `rest`,
+  the abort request and the whole data stack are taken as well, after
+  checking the frame types, the current frame and base against the frames,
+  and the stack positions against the stack (a send that carries the stack
+  pointer over marks `sp` and `fp` with the carry value). The save must
+  have been written at a resume point: the end of a kernel call made by
+  the top-level interpreter, after the instruction (so the step counter
+  counts it), where the interpreter keeps nothing outside the state;
+  `Machine::resume_game` then goes on with the next instruction. A state
+  written before `init_game` (no stack, no frames) resumes without a
+  stack.
+
+In-game saves keep writing the whole stream: the execution part costs
+about 16 KB, keeps the state hashes computable from the file, and lets a
+save be resumed exactly for checks.
+
 ## What a restore rebuilds
 
 As ScummVM's `gamestate_restore` does after loading:
@@ -162,8 +192,12 @@ As ScummVM's `gamestate_restore` does after loading:
 - **Cursor, menu bar, parser**: the cursor's shape (checked against the
   game's cursors) and visibility, the menus and items, the parser's
   synonyms, last parse tree and pronoun come back as saved.
-- **Screen**: the 1x visual, priority and control maps and the picture
-  stack are restored; what is shown is not part of the state, and the
+- **Screen**: the 1x visual, priority and control maps, the owner and
+  priority source maps (milestone 8, "round trips": the saved bits keep
+  them beside the visual and priority maps, so they come back into the
+  screen and into later saved bits) and the picture stack are restored;
+  kRestoreGame then clears the maps as ScummVM's `clearForRestoreGame`
+  does. What is shown is not part of the state, and the
   game's `replay` method redraws the room (ScummVM clears the screen and
   the game redraws it the same way).
 
@@ -185,7 +219,8 @@ the message naming both versions (table above). Any change to what
 - `tests/unit/vm/save_test.cpp`: on a synthetic machine (script 0, the
   stack, a list, a hunk, a song; no game data), a save read into a fresh
   machine gives the same persistent hash and the same hash per component
-  but `execution`; the header comes back as written; each error of the
+  but `execution`, and with `Execution::Resume` the same total hash and
+  accumulator; the header comes back as written; each error of the
   table above, every truncation of the state (with its length and the
   checksum made right) and bytes after the state are reported.
 - `tests/unit/vm/save_kernel_test.cpp`: the four kernel functions on the
