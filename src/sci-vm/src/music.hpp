@@ -138,6 +138,18 @@ public:
     void clear_play_list();
     void stop_all();
 
+    // The rest of SciMusic::saveLoadWithSerializer when a game is restored
+    // in the game (kRestoreGame): with the restored settings, the play
+    // switch (MidiPlayer::playSwitch), the master volume of the songs of
+    // the game that ran before, the global reverb, then clearPlayList on
+    // those songs. The device sees what ScummVM's sees; on the MT-32 the
+    // play switch and the volumes are channel volume messages.
+    void after_restore();
+    // The songs of the game that ran before a restore that resumes the
+    // execution (the round trip): the playing ones are stopped and all are
+    // dropped, with no other message to the device.
+    void drop_previous_play_list();
+
     void sound_init(MusicEntry& sound);
     void sound_play(MusicEntry& sound, bool restoring = false);
     void sound_stop(MusicEntry& sound);
@@ -242,6 +254,9 @@ private:
 
     Faults* faults_;
     std::vector<std::unique_ptr<MusicEntry>> play_list_;
+    // The songs before load_state, until after_restore or
+    // drop_previous_play_list.
+    std::vector<std::unique_ptr<MusicEntry>> previous_play_list_;
     std::uint32_t tempo_ = adlib_base_tempo;
     bool sound_on_ = true;
     std::uint16_t master_volume_ = music_master_volume_max;

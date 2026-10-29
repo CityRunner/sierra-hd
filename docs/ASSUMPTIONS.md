@@ -2597,6 +2597,48 @@ room 74 on restore, two saves restored older then newer),
   variants of the stacks `74.palette1+174.palette1` and `74+174` whose
   golden hashes were recorded at milestone 5. **Decided.**
 
+## Milestone 8: restores on the MT-32 (2026-10-29)
+
+The five save scenarios matched on the AdLib but not on the MT-32
+(`SIERRA_HD_MUSIC=mt32`). Two causes, neither in patch 0003; the
+reference was not rebuilt.
+
+- **Parallel reference runs shared their settings.** `run.sh` wrote the
+  reference's settings, with the save folder, to one `reference.ini` in the
+  build folder; runs started in parallel (4 at a time) overwrote it, so a
+  reference run could save into and list another scenario's folder.
+  attic-restore and inventory-restore then found a save before their first
+  one (kGetSaveFiles 1 instead of 0, tick 6724 and 21702, the save
+  dialog's box differing in the layout), and everything after differed.
+  With `SIERRA_HD_SAVEPATH` the settings now go next to the save folder
+  (`<folder>.ini`). **Decided.**
+- **What the device sees on a restore** (save-restore, outdoors-restore,
+  restart-restore: everything matched but the MIDI log, from the restore
+  on). On the AdLib a volume change of the driver only renews the notes
+  sounding, of which there are none on a restore, so the OPL log did not
+  show it; on the MT-32 the play switch and every volume change send
+  channel volumes 1 to 9 (`MidiPlayer_Midi::setVolume`). ScummVM's in-game
+  restore does, in this order: `soundSetSoundOn` (the saved switch: the
+  play switch), `soundSetMasterVolume` (the saved volume) on the parsers of
+  the songs of the game before, `setGlobalReverb`, `clearPlayList` on
+  those songs (each parser's all notes off, queued for the next timer
+  call); `reconstructPlayList` gives every restored song with a resource
+  a new parser (`soundInitSnd`: volume 127 and the master volume, a driver
+  volume) and plays again those that were playing; then `runGame`, before
+  the replay method, calls `syncSoundSettings`, which sets the master
+  volume of ScummVM's music volume setting (the game's kDoSound
+  MasterVolume goes through it, so it is the master volume before the
+  restore) on the restored songs. sci-vm kept the songs' parsers from the
+  save and only stopped the songs playing before. Now `Music::load_state`
+  keeps the songs before aside, kRestoreGame runs that sequence
+  (`Music::after_restore`, `Sound::reconstruct_play_list`, the host's
+  master volume in `Subsystems::HostState`), and a round trip that resumes
+  the execution drops them as before (`drop_previous_play_list`). save-
+  restore: 7 rounds of channel volumes at the restore's timer call, then
+  the all notes off of the 2 songs before at the next. **Decided.**
+- **Result:** the five save scenarios match on all seven comparisons on
+  both devices, and boot (3600) and intro (30000) still do.
+
 ## Milestone 8: round trips (2026-10-29)
 
 The exit criterion's second half, "replay continues identically", checked

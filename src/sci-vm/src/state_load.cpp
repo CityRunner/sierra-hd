@@ -798,13 +798,9 @@ void Music::load_state(StateReader& in, Resources& resources) {
     time_counter_ = time_counter;
     timer_calls_ = timer_calls;
     in_timer_ = in_timer;
-    // The songs playing before go silent on the device (ScummVM resets the
-    // driver); the device keeps no state the game reads.
-    for (auto& entry : play_list_) {
-        if (entry->parser && entry->status == SoundStatus::Playing) {
-            entry->parser->stop();
-        }
-    }
+    // The songs before stay aside: ScummVM sets the play switch and the
+    // master volume on them, then clears them (after_restore).
+    previous_play_list_ = std::move(play_list_);
     play_list_ = std::move(play_list);
     queued_commands_ = std::move(queued);
 }
@@ -1140,6 +1136,9 @@ bool read_state(Machine& machine, StateReader& in, Execution execution) {
     }
     if (!in.failed() && !in.at_end()) {
         in.fail("the state goes on after its last component");
+    }
+    if (execution == Execution::Resume && machine.subsystems().sound().has_music()) {
+        machine.subsystems().sound().music().drop_previous_play_list();
     }
     return !in.failed();
 }

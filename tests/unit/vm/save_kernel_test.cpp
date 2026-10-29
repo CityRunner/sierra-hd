@@ -11,6 +11,7 @@
 #include "music.hpp"
 #include "save_game.hpp"
 #include "save_world.hpp"
+#include "sci/audio/midi_device.hpp"
 #include "sci/core/sha256.hpp"
 #include "sci/vm/files.hpp"
 #include "sci_test.hpp"
@@ -23,6 +24,7 @@
 #include <array>
 #include <cstdint>
 #include <cstdlib>
+#include <format>
 #include <span>
 #include <string>
 #include <utility>
@@ -211,6 +213,52 @@ SCI_TEST(a_restore_brings_the_state_back_and_sets_the_restore_flag) {
     std::array<Reg, 1> clear{sci::vm::number(0)};
     SCI_CHECK(sci::vm::k_game_is_restarting(game.machine(), clear) == sci::vm::number(2));
     SCI_CHECK(game.machine().game_is_restarting() == sci::vm::Restarting::None);
+}
+
+namespace {
+
+// Records the device calls of the music player.
+class VolumeDevice final : public sci::audio::MidiDevice {
+public:
+    std::vector<std::string> calls;
+
+    [[nodiscard]] sci::audio::PlayerChoices player_choices() const override { return sci::vm::silent_choices; }
+
+    void send(std::uint32_t message) override { calls.push_back(std::format("send {:06x}", message)); }
+
+    void init_track(std::span<const std::uint8_t> /*header*/) override { calls.emplace_back("init"); }
+
+    void set_volume(std::uint8_t volume) override { calls.push_back(std::format("volume {}", volume)); }
+
+    void play_switch(bool play) override { calls.push_back(std::format("switch {}", play)); }
+
+    void on_timer() override {}
+};
+
+} // namespace
+
+SCI_TEST(a_restore_sets_the_play_switch_and_keeps_the_host_master_volume) {
+    sci::vm::MemorySaveStore saves;
+    KernelWorld game(saves);
+    VolumeDevice device;
+    sci::vm::Music& music = game.world.subsystems.sound().music();
+    music.set_device(&device);
+    music.set_master_volume(7);
+    music.set_sound_on(false);
+    SCI_CHECK(!game.save(0, "Quiet").is_null());
+    music.set_sound_on(true);
+    music.set_master_volume(12);
+    device.calls.clear();
+    SCI_CHECK(game.restore(101));
+    SCI_CHECK(!game.machine().faults().raised());
+    // gamestate_restore sets the saved sound switch on the device
+    // (MidiPlayer::playSwitch, channel volumes on the MT-32)...
+    SCI_CHECK(device.calls == std::vector<std::string>{"switch false"});
+    SCI_CHECK(!music.sound_on());
+    // ...and runGame then the master volume of ScummVM's setting, which the
+    // game's kDoSound MasterVolume set before the restore.
+    SCI_CHECK(music.master_volume() == 12);
+    music.set_device(nullptr);
 }
 
 SCI_TEST(a_restore_keeps_the_host_time_and_sets_the_play_time_back) {

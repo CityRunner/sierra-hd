@@ -50,6 +50,10 @@ public:
         Clock::HostTime time;
         std::uint32_t random_seed = 0;
         std::uint32_t timer_calls = 0;
+        // ScummVM's music volume setting as a master volume: the game's
+        // kDoSound MasterVolume goes through it, so it is the master volume
+        // before the restore.
+        std::uint16_t master_volume = 0;
     };
 
     [[nodiscard]] HostState host_state();

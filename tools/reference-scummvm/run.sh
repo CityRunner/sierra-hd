@@ -4,7 +4,9 @@
 # no EGA undithering, and the game's own save and restore dialogs (as
 # sci-vm runs them) instead of ScummVM's. Settings stay inside the build
 # directory, and so do the saves unless SIERRA_HD_SAVEPATH names another
-# folder (run-scenario.sh gives each run an empty one).
+# folder (run-scenario.sh gives each run an empty one); the settings then go
+# next to that folder (<folder>.ini), so that runs in parallel do not take
+# each other's save folder.
 #
 #   tools/reference-scummvm/run.sh <build directory> [<game folder>] [scummvm options...]
 #
@@ -16,8 +18,13 @@ set -euo pipefail
 build_dir="$(cd "${1:?usage: run.sh <build directory> [<game folder>] [options...]}" && pwd)"
 shift
 binary="${build_dir}/src/scummvm"
-config="${build_dir}/reference.ini"
-saves="${SIERRA_HD_SAVEPATH:-${build_dir}/saves}"
+if [[ -n "${SIERRA_HD_SAVEPATH:-}" ]]; then
+    saves="${SIERRA_HD_SAVEPATH%/}"
+    config="${saves}.ini"
+else
+    saves="${build_dir}/saves"
+    config="${build_dir}/reference.ini"
+fi
 mkdir -p "${saves}"
 
 cat > "${config}" <<INI

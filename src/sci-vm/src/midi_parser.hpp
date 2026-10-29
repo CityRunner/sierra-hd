@@ -61,6 +61,10 @@ public:
 
     void set_master_volume(std::uint8_t volume);
     void set_volume(std::uint8_t volume);
+    // The volumes of a new parser (MidiParser_SCI's constructor) with the
+    // player's master volume, as SciMusic::soundInitSnd sets them; the
+    // device gets the volume.
+    void reset_volumes(std::uint8_t master_volume);
 
     // MidiParser_SCI::sendInitCommands: resets the channels the song uses.
     void send_init_commands();

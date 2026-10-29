@@ -55,6 +55,7 @@ Subsystems::HostState Subsystems::host_state() {
         .time = clock_->host_time(),
         .random_seed = random_->seed(),
         .timer_calls = sound_->has_music() ? sound_->music().timer_calls() : 0,
+        .master_volume = sound_->has_music() ? sound_->music().master_volume() : std::uint16_t{0},
     };
 }
 

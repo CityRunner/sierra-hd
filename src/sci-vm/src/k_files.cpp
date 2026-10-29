@@ -126,8 +126,11 @@ const SaveDesc* find_save(const std::vector<SaveDesc>& saves, int slot) {
 // so the result is the same), the picture window is set (it came back with
 // the ports; EngineState::saveLoadWithSerializer sets it through
 // kernelSetPicWindow, which the layout file records), the engine state is
-// reset, the songs that were playing are played again; then runGame calls
-// the game's replay method.
+// reset, the songs of the game before are cleared with the restored music
+// settings (the device sees it: the play switch, volumes, notes off), the
+// restored songs get their parsers' volumes and those that were playing
+// are played again; then runGame sets ScummVM's master volume and calls the
+// game's replay method.
 void after_restore(Machine& machine, const Subsystems::HostState& host) {
     Subsystems& subsystems = machine.subsystems();
     subsystems.after_restore(host);
@@ -137,10 +140,19 @@ void after_restore(Machine& machine, const Subsystems::HostState& host) {
         ports.kernel_set_pic_window(pic->rect, pic->top, pic->left, false);
     }
     machine.after_restore();
+    if (subsystems.sound().has_music()) {
+        subsystems.sound().music().after_restore();
+    }
     subsystems.sound().reconstruct_play_list(machine);
     machine.segments().after_restore();
     if (subsystems.sound().has_music() && subsystems.sound().music().all_paused()) {
         subsystems.sound().music().reset_global_pause();
+    }
+    // SciEngine::syncSoundSettings when runGame takes the restore, before
+    // the replay method: the master volume of ScummVM's setting (the one
+    // before the restore) on the restored songs.
+    if (subsystems.sound().has_music()) {
+        subsystems.sound().music().set_master_volume(host.master_volume);
     }
     machine.abort(Abort::LoadGame);
 }

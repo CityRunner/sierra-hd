@@ -244,6 +244,41 @@ void Music::clear_play_list() {
     }
 }
 
+void Music::after_restore() {
+    // The settings come from the save, the songs are those of the game that
+    // ran before; what the clearing changes in the player's counters is the
+    // host's in ScummVM, and the restored values stay.
+    std::vector<std::unique_ptr<MusicEntry>> restored = std::move(play_list_);
+    play_list_ = std::move(previous_play_list_);
+    previous_play_list_.clear();
+    const int time_counter = time_counter_;
+    const bool needs_resume = needs_resume_;
+    const int global_pause = global_pause_;
+    set_sound_on(sound_on_);
+    set_master_volume(master_volume_);
+    // SciMusic::setGlobalReverb: the song playing takes it if it has none.
+    if (global_reverb_ != 127) {
+        if (const MusicEntry* playing = first_slot_with_status(SoundStatus::Playing);
+            playing != nullptr && playing->reverb == 127) {
+            set_driver_reverb(global_reverb_);
+        }
+    }
+    clear_play_list();
+    play_list_ = std::move(restored);
+    time_counter_ = time_counter;
+    needs_resume_ = needs_resume;
+    global_pause_ = global_pause;
+}
+
+void Music::drop_previous_play_list() {
+    for (auto& entry : previous_play_list_) {
+        if (entry->parser && entry->status == SoundStatus::Playing) {
+            entry->parser->stop();
+        }
+    }
+    previous_play_list_.clear();
+}
+
 void Music::stop_all() {
     for (const auto& sound : play_list_) {
         sound_stop(*sound);

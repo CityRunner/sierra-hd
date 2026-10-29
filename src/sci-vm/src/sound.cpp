@@ -136,12 +136,10 @@ void Sound::reconstruct_play_list(Machine& machine) {
         return;
     }
     // Starting songs may re-sort the list: the songs as they are now.
-    std::vector<Reg> playing;
+    std::vector<Reg> songs;
+    songs.reserve(music_->size());
     for (std::size_t i = 0; i < music_->size(); ++i) {
-        const MusicEntry& entry = std::as_const(*music_).at(i);
-        if (entry.status == SoundStatus::Playing) {
-            playing.push_back(entry.sound_object);
-        }
+        songs.push_back(std::as_const(*music_).at(i).sound_object);
     }
     const SelectorCache& selector = machine.selector();
     const auto replay = [&](Reg object) {
@@ -154,8 +152,20 @@ void Sound::reconstruct_play_list(Machine& machine) {
         write_value(machine, object, selector.priority, entry->priority);
         process_play_sound(machine, object, true);
     };
-    for (const Reg object : playing) {
-        replay(object);
+    for (const Reg object : songs) {
+        MusicEntry* entry = music_->slot(object);
+        if (entry == nullptr) {
+            continue;
+        }
+        // initSoundResource: ScummVM gives every song with a resource a new
+        // parser (soundInitSnd); the state keeps the parser, which takes the
+        // new one's volumes, and the device gets the volume as in ScummVM.
+        if (entry->parser) {
+            entry->parser->reset_volumes(static_cast<std::uint8_t>(music_->master_volume()));
+        }
+        if (entry->status == SoundStatus::Playing) {
+            replay(object);
+        }
     }
     if (music_->first_slot_with_status(SoundStatus::Playing) == nullptr) {
         if (const MusicEntry* paused = music_->first_slot_with_status(SoundStatus::Paused)) {
