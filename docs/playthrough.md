@@ -378,6 +378,21 @@ New risks found:
   walk Laura out of it (33's left edge leads into the library 32); check
   the room after each step.
 
+## Act VI (in progress)
+
+Found in the scripts (Act VI is global 165 = 5):
+
+- Room 44 (Laura's room) loads region 274 in Act VI; its scene sets bit 2
+  (setter at 013b) when bit 2 is clear. No other precondition.
+- Room 48 loads region 276 in Act VI; its `init` starts the scene that sets
+  bit 8 (setter at 04b9) when bit 8 is clear.
+- Room 10 loads region 277 in Act VI; its `init` starts the scene that sets
+  bit 4 (setter at 0308) when bit 4 is clear.
+- Room 6 (Celie's shack): knocking in Act VI with global 135 bit 256 clear
+  shows "What you doin' here, girl?! ..." (text 6 16), sets the bit and
+  starts the scene that sets bit 1 (setter at 0724); a second knock answers
+  "Go away!!".
+
 ## Images
 
 Two images per act for the customer, at ticks of the replay (one during a
