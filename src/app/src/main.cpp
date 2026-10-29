@@ -1036,6 +1036,23 @@ bool write_end_state(const fs::path& path, sci::vm::Game& game) {
     return !file.fail();
 }
 
+// The size the window opens at, in multiples of 320 x 200 window
+// coordinates: the configured N, as far as the display has room for it
+// (the frame is never larger than the window, so a smaller window would
+// show a smaller N); 3 with `scale = auto`.
+int initial_window_scale(const sci::platform::Config& config) {
+    constexpr int auto_scale = 3;
+    if (config.scale <= 0) {
+        return auto_scale;
+    }
+    SDL_Rect bounds{};
+    if (!SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay(), &bounds)) {
+        return config.scale;
+    }
+    const int fit = std::max(1, std::min(bounds.w / sci::app::screen_width, bounds.h / sci::app::screen_height));
+    return std::min(config.scale, fit);
+}
+
 // The input events of a replay file; an error message if it cannot be read.
 sci::core::Result<std::vector<sci::vm::InputEvent>> read_replay(const fs::path& path) {
     const std::ifstream file(path, std::ios::binary);
@@ -1067,8 +1084,9 @@ int run(const Options& options) {
         }
         replay = std::move(*events);
     }
+    const int window_scale = initial_window_scale(*config);
     const std::unique_ptr<SDL_Window, SdlDeleter> window(
-        SDL_CreateWindow("sierra-hd", sci::app::screen_width * 3, sci::app::screen_height * 3,
+        SDL_CreateWindow("sierra-hd", sci::app::screen_width * window_scale, sci::app::screen_height * window_scale,
                          SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY));
     if (!window) {
         show_error(nullptr, std::format("Cannot open a window: {}", SDL_GetError()));
