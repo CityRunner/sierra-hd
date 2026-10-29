@@ -469,6 +469,28 @@ New risks found:
     exact preconditions were not all read; the route keeps away from these
     places and actions.
 
+## Act VII (in progress)
+
+Found in the scripts (Act VII is global 165 = 6):
+
+- Region 281 (Rudy's walk) sets bit 1 only in Act IV (`lsg 165; ldi 3`
+  before the setter at 039f); in Act VII it only restarts timer 368 at 900
+  and walks Rudy, with no event.
+- Bit 1: room 48's `LookNote` (setter at 0726): "read the notebook"
+  (`examine , read / notebook`) with Laura inside the rectangle x 249 to
+  306, y 118 to 144 (by the desk), bit 1 clear.
+- Bit 2: the playhouse 63 loads region 282 in Act VII while bit 2 is
+  clear; its scene sets bit 2 (setter at 015b). Room 14's knock on the
+  playhouse door answers `comeIn` in Act VII while bit 2 is clear. Going
+  in again through the door after leaving 63 with bit 2 set clears bit 4
+  (room 14 at 062a): the route goes in once.
+- Bit 4: Laura's room 44 loads region 385 (Rudy searching the room) in
+  Act VII only when bit 2 is set and flag 36 is clear (room 43 sets flag
+  36); its `searching` script sets bit 4 (setter at 02c3).
+- Bit 8: the chapel 58 loads region 279 (Celie praying) in Act VII; its
+  `praying` script sets bit 8 (setter at 02b3) when clear. The chapel is
+  entered from room 9 (control colour 4).
+
 ## Images
 
 Two images per act for the customer, at ticks of the replay (one during a
