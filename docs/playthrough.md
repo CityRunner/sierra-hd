@@ -117,6 +117,37 @@ room.
 `tests/playthrough/act-saves.txt` saves Act III at tick 111200 (no
 message on screen).
 
+## Act III (in progress)
+
+Findings from the scripts (every write of global 118 is `lsg 118; ldi
+<bit>; or; sag 118` in a script's state 0, guarded by global 216; 44 such
+setters in all):
+
+- **Peepholes in Act III.** Room 49's "look through the holes" (script 49
+  at 0f98) picks a view room by act, Laura's loop (3, facing the wall) and
+  which hole (room selector 262: 33 is the library hole by the platform).
+  For Act III (global 165 is 2): the library hole gives room 324, which
+  sets bit 8 with no other condition (324 at 01a2); the upper hole gives
+  353 or 350 (global 173 bit 64), and 350 sets bit 8 too. Room 50's holes
+  (script 50 at 1152): in Act III, Laura facing loop 2 at hole 43 gives
+  room 333, which sets bit 4 (333 at 03dd), sets global 173 bit 8 and
+  timer 370 to 1.
+- **Bit 2: the attic.** Room 74's `init` loads region 261 in Act III (74
+  at 033b; the docs had it under Act VIII). Region 261 plays its scene
+  (bit 2, 261 at 0280; it also sets global 173 bit 8 and timer 370 to 2)
+  when bit 2 is clear and timer 370 is 1. Timer 370 was started in Act II
+  by the kitchen scene (region 236, 1800 cycles) and is 1 from long before
+  Act III, so the attic scene waits from the act's start.
+- **Bit 8: the billiard room.** Room 36 loads region 233 in Act III with
+  no condition (36 at 0268).
+- **Bit 1: room 63**, region 257 (63's `init` in Act III).
+- **Bit 4 outdoors:** region 202 (acts I to IV, rooms 3 to 27) sets bit 4
+  (202 at 0470) and runs timer 368.
+- Bit-2 setters 301, 323, 335 and 354 are the views of rooms 50 and 49 in
+  Acts I, II, IV and V, not Act III. Room 14 clears bit 4 only in Act VII.
+- A first attempt's route (not kept) reached tick 132900 in room 14
+  (outdoors, the playhouse) with bits 4 and 8.
+
 ## Planned route of the later acts
 
 From the regions that set the bits of global 118 and the act each room's
