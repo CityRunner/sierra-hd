@@ -2471,8 +2471,12 @@ kRestoreGame on the project's format; their behaviour in detail is in
 - **Slots and folder:** slots 1 to 99 (virtual ids 101 to 199), files
   `sierra-hd-<nnn>.sav` in `saves/` next to the configuration, apart from
   the `files/` folder of the game's own files; `sci-vm-trace --saves
-  <folder>`, by default a new empty folder per run. No configuration key
-  for another folder yet. **Decided.**
+  <folder>`, by default a new empty folder per run. **Decided.**
+- **The save folder key:** the configuration takes an optional
+  `saves = <folder>` (a path, which may contain `;` and `#` like the other
+  paths; a relative path is taken from the configuration's folder; empty
+  or missing: `saves/` next to the configuration), written back on exit
+  (`sci::platform::saves_folder`, `src/app/README.md`). **Decided.**
 - **Listing:** newest first by the date and time in the header, then by
   slot; at most 20, names cut to 35 bytes; files that are not saves are
   left out; saves of another version or release, or damaged, are listed
@@ -2488,6 +2492,40 @@ kRestoreGame on the project's format; their behaviour in detail is in
   loop closes the files and calls the game's `replay` method. The
   persistent hash equals the save's right after `read_save`, before these
   fixups. **Decided.**
+- **The clock on a restore** follows ScummVM, where virtual time is the
+  host's `getMillis` and the game's time is the engine's play time
+  (decided by the main session after the first save-restore run).
+  - *Host time, not restored:* virtual time, the wait under way (its start
+    and end) and the music timer (its due time and period). They are in
+    the `clock` component, so `read_save` reads the saved values and the
+    persistent hash right after it equals the save's (the exit criterion);
+    kRestoreGame then puts back the values from before the restore
+    (`Clock::HostTime`), first thing after the state is read. The trace,
+    screen and stop ticks and the replay's input ticks run on, as in the
+    reference.
+  - *Game state, restored:* the play time, which kGetTime(elapsed)
+    reports (`SciEngine::getTickCount`): a new field of the clock, the
+    virtual time at which the play time was 0 (`play_time_start`, in ms,
+    as `Engine::getTotalPlayTime` counts). A restore sets the play time
+    back to the saved one (`setTickCount(meta.playTime)`); a save's
+    header `ticks` is the play time (ScummVM's `playTime`). Also restored:
+    the kernel-call counter with the last elapsed-time read (the
+    consecutive-read rule only compares them with each other).
+  - *Reset as ScummVM does:* the last kWait time and the screen-update
+    time become now (`lastWaitTime`, `_screenUpdateTime`), the throttle's
+    last time 0 and its trigger off (`EngineState::reset(true)`), the event
+    counter 0.
+  The format stays version 1 (the clock gained the play-time start; no
+  version 1 save was released). The reference's patch 0003 does the same
+  in the deterministic mode: `setTickCount` sets the play time's start on
+  the virtual clock, `getTickCount` counts from it, and
+  `gamestate_restore` takes the wait and screen-update times from the
+  virtual clock instead of the host's. **Decided.**
+- **The picture window on a restore:** ScummVM's
+  `EngineState::saveLoadWithSerializer` sets it with `kernelSetPicWindow`,
+  which the layout file records (`picwindow`); sci-vm's ports come back
+  whole with the state, so kRestoreGame sets the picture window to its own
+  values once, after the clock, for the same record. **Decided.**
 - **The machine component** of the state now also holds the restart flag
   as a value (0, 1 or 2) and kSaveGame's last new slot (EngineState's
   `_lastSaveVirtualId`, `_lastSaveNewId`), which decide future execution.
@@ -2502,36 +2540,17 @@ kRestoreGame on the project's format; their behaviour in detail is in
 - **The save-restore scenario** (`tests/scenarios/save-restore.txt`, stop
   tick 6500, seed 0): File > Save game in Laura's bedroom with
   "Bedroom", a walk, File > Restore game, Enter on the save, a walk.
-  Result: traces, screens, maps, actors, layout and OPL writes are equal
-  up to and including the RestoreGame call (call 40583 of about 49500;
   GetSaveFiles, SaveGame, CheckSaveGame and RestoreGame return the same
-  values in both engines: 0 saves, saved, 1 save, valid, success).
-  After it, the calls are the same but for the tick until the first kWait
-  after the restore, then they differ, for two reasons:
-  - the reference is not deterministic after a restore: its
-    `gamestate_restore` sets `lastWaitTime` and `_screenUpdateTime` from
-    the host clock (`g_system->getMillis()`), which the trace patch does
-    not replace, so its first kWait returns a host-dependent count (4023
-    in the run made);
-  - the clocks: the reference's virtual time runs on (ScummVM's host time
-    never goes back; only its tick count is set to the save's play time,
-    which the trace patch overrides), while sci-vm restores the clock to
-    the save's tick (decided with the format), so the trace ticks go back
-    to 3801 in sci-vm and stay at 4901 in the reference.
-- **The comparison for save/restore scenarios** (decided now, until the
-  open point below is settled): everything must match up to and
-  including the RestoreGame call; after it, sci-vm alone is checked (no
-  fault, the game redraws the saved room and runs on), and the restored
-  state by the persistent hash and the unit tests. The scenario is
-  therefore not in `scenarios.txt`, whose runs must match to the end.
-- **Open:** (1) patch the reference's `gamestate_restore` to take the
-  wait and screen-update times from the virtual clock (a rebuild of the
-  reference); (2) then decide sci-vm's clock after a restore: keep the
-  virtual time running and set back only what kGetTime(ticks) reports
-  (ScummVM's split between host milliseconds and the tick count), or keep
-  restoring it as saved and accept tick differences in the comparison;
-  (3) whether the program should accept a save folder key in its
-  configuration.
+  values in both engines (0 saves, saved, 1 save, valid, success; the
+  RestoreGame call is call 40583). The first runs differed after the
+  restore: the reference's `gamestate_restore` took the wait and
+  screen-update times from the host clock (its first kWait returned 4023),
+  and sci-vm restored virtual time to the save's tick (3801) while the
+  reference's ran on (4901). With the clock above and the patched
+  reference, and the picture window record, everything matches to the
+  end: 49510 kernel calls, 109 screens and maps, 953 actor frames, 407
+  layout lines and 1040 OPL writes. The scenario is in `scenarios.txt`.
+  **Decided.**
 
 ## Spec items carried forward
 

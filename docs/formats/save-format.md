@@ -21,7 +21,7 @@ followed by that many bytes (`StateWriter::string`, `StateWriter::bytes`).
 | year | `u16` | date of the save, e.g. 1990 |
 | month, day | `u8`, `u8` | 1 to 12, 1 to 31 |
 | hour, minute, second | 3 x `u8` | time of day of the save |
-| ticks | `u32` | virtual time at the save, in game ticks (1/60 s) |
+| ticks | `u32` | the play time at the save, in game ticks (1/60 s): what kGetTime(elapsed) returns (ScummVM's `playTime`) |
 | program | string | the program that wrote it, e.g. `sierra-hd 0.1.0` |
 | state | byte block | the VM state as `write_state` writes it |
 | checksum | 32 bytes | SHA-256 of every byte before it |
@@ -53,9 +53,10 @@ followed by that many bytes (`StateWriter::string`, `StateWriter::bytes`).
   folder `saves` next to the program's configuration
   (`sci::platform::SaveFolder`). They are kept apart from the `files`
   folder, where the files the game writes itself go, so that a game file
-  can never be taken for a save. There is no configuration key for another
-  folder yet. `sci-vm-trace` takes `--saves <folder>`, by default a new
-  empty folder per run, removed at its end.
+  can never be taken for a save. The configuration's `saves` key names
+  another folder (relative to the configuration's folder;
+  `src/app/README.md`). `sci-vm-trace` takes `--saves <folder>`, by
+  default a new empty folder per run, removed at its end.
 - **The list** the game's dialogs read (kGetSaveFiles, ScummVM's
   `listSavegames`): every slot whose file starts with the magic and a
   readable prefix (magic, version, game identity, description, date and
@@ -79,9 +80,14 @@ followed by that many bytes (`StateWriter::string`, `StateWriter::bytes`).
 - **kRestoreGame** returns failure to the game, logging the message of the
   table below, for a missing save or a header that fails its checks;
   nothing changes. A failure while reading the state stops the game with
-  the message as a fault. On success it does what ScummVM's
-  `gamestate_restore` does after loading: the 1x maps and the shown screen
-  are cleared (`clearForRestoreGame`), the GC countdown restarts, the
+  the message as a fault. On success the host's time goes on from before
+  the restore (virtual time, the wait under way and the music timer, which
+  the state brought back as saved), and it does what ScummVM's
+  `gamestate_restore` does after loading: the play time (kGetTime) is set
+  back to the saved one, the last kWait and screen-update times are now,
+  the 1x maps and the shown screen are cleared (`clearForRestoreGame`),
+  the picture window is set again (`kernelSetPicWindow`), the GC
+  countdown restarts, the
   restart flag becomes 2 (kGameIsRestarting reports "restored"), the event
   counter and the throttle are reset, the last new save is forgotten, the
   global pause count of the music is reset; every song that was playing is
@@ -94,7 +100,9 @@ followed by that many bytes (`StateWriter::string`, `StateWriter::bytes`).
 - **The persistent hash** of "Milestone 8: the VM state" equals the one at
   the save right after `read_save`, before these fixups (the round trip of
   `--save-check` and the unit tests take it there); the fixups change the
-  machine part, the 1x maps and the songs as ScummVM's restore does.
+  clock, the machine part, the 1x maps and the songs as ScummVM's restore
+  does (`docs/ASSUMPTIONS.md`, "Milestone 8: saving in the game", "The
+  clock on a restore").
 
 ## Reading
 
@@ -184,9 +192,14 @@ the message naming both versions (table above). Any change to what
   synthetic machine with saves in memory: slot choice and overwriting, the
   list's order and its limit of 20 and 35-byte names, a restore that
   brings the state back, aborts with LoadGame and sets the restart flag to
-  2, and saves of another release, of another version, damaged or not
+  2, a restore that keeps virtual time running and sets the play time,
+  the last wait and the throttle as ScummVM does, and saves of another release, of another version, damaged or not
   saves at all returning failure with nothing changed, and a state that
   fails to load stopping the game.
+- `tests/unit/platform/save_folder_test.cpp`: `SaveFolder`'s slot names,
+  writing and reading back, the slot list in order, a missing folder,
+  files and folders that are not slots, a folder that cannot be written,
+  and the configuration's `saves` key.
 - `sci-vm-trace --save-check` (`tools/vm-trace/README.md`) makes the round
   trip with the real game at chosen ticks.
 - `tests/fuzz/fuzz_save.cpp` (`fuzz-save`) reads arbitrary bytes as a save
