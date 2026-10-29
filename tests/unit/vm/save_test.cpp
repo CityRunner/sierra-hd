@@ -79,6 +79,27 @@ SCI_TEST(a_save_restores_the_same_persistent_state) {
     }
 }
 
+SCI_TEST(a_resume_takes_the_execution_too) {
+    SaveWorld source = world();
+    source.populate();
+    source.machine->set_acc(sci::vm::number(1234));
+    const sci::vm::StateHash before = sci::vm::state_hash(*source.machine);
+    const std::vector<std::uint8_t> file = sci::vm::write_save(*source.machine, "x", "test");
+
+    // A restore in the game re-enters through replay: the execution stays.
+    SaveWorld replayed = world();
+    SCI_CHECK(sci::vm::read_save(*replayed.machine, file).has_value());
+    const sci::vm::StateHash replay = sci::vm::state_hash(*replayed.machine);
+    SCI_CHECK(replay.persistent == before.persistent);
+    SCI_CHECK(replay.total != before.total);
+    SCI_CHECK(replayed.machine->acc() != sci::vm::number(1234));
+
+    SaveWorld resumed = world();
+    SCI_CHECK(sci::vm::read_save(*resumed.machine, file, sci::vm::Execution::Resume).has_value());
+    SCI_CHECK(sci::vm::state_hash(*resumed.machine).total == before.total);
+    SCI_CHECK(resumed.machine->acc() == sci::vm::number(1234));
+}
+
 SCI_TEST(the_header_comes_back) {
     SaveWorld source = world();
     const std::vector<std::uint8_t> file = sci::vm::write_save(*source.machine, "Under the stairs", "sierra-hd 0.1.0");

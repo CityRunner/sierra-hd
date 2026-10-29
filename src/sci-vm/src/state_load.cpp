@@ -570,11 +570,15 @@ void Machine::load_state(StateReader& in, Execution execution) {
     steps_ = steps;
     kernel_calls_ = kernel_calls;
     if (execution == Execution::Resume) {
-        if (stack.size() != stack_->entries.size()) {
+        if (stack.empty() && frames.empty()) {
+            // Written before init_game connected the stack.
+            stack_ = nullptr;
+        } else if (stack.size() != stack_->entries.size()) {
             in.fail("the stack's size differs from the state's stack segment");
             return;
+        } else {
+            stack_->entries = std::move(stack);
         }
-        stack_->entries = std::move(stack);
         stack_frames_ = std::move(frames);
         xs_ = nullptr;
         if (xs_index >= 0) {
@@ -587,7 +591,7 @@ void Machine::load_state(StateReader& in, Execution execution) {
             const SavedVariables& saved = variables[i];
             std::vector<Reg>* store = nullptr;
             if (saved.stored) {
-                if (saved.segment == stack_segment) {
+                if (saved.segment == stack_segment && stack_ != nullptr) {
                     store = &stack_->entries;
                 } else if (Segment* locals = segments_.segment(saved.segment, SegmentType::Locals)) {
                     store = &static_cast<LocalVariables*>(locals)->locals; // NOLINT(*-static-cast-downcast)
