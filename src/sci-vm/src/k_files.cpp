@@ -119,16 +119,24 @@ const SaveDesc* find_save(const std::vector<SaveDesc>& saves, int slot) {
     return found != saves.end() ? &*found : nullptr;
 }
 
-// gamestate_restore after the state is read, in its order: the screen is
+// gamestate_restore after the state is read. First the host's time goes on
+// from before the restore (the state brought the saved clock, which the
+// layout file would show); then, in ScummVM's order: the screen is
 // cleared (before reading there, but the maps are not in ScummVM's saves,
-// so the result is the same), the engine state is reset, the songs that
-// were playing are played again; then runGame calls the game's replay
-// method.
+// so the result is the same), the picture window is set (it came back with
+// the ports; EngineState::saveLoadWithSerializer sets it through
+// kernelSetPicWindow, which the layout file records), the engine state is
+// reset, the songs that were playing are played again; then runGame calls
+// the game's replay method.
 void after_restore(Machine& machine, const Clock::HostTime& host) {
     Subsystems& subsystems = machine.subsystems();
-    subsystems.graphics().screen().clear_for_restore();
-    machine.after_restore();
     subsystems.after_restore(host);
+    subsystems.graphics().screen().clear_for_restore();
+    Ports& ports = subsystems.graphics().ports();
+    if (const Window* pic = ports.pic_window()) {
+        ports.kernel_set_pic_window(pic->rect, pic->top, pic->left, false);
+    }
+    machine.after_restore();
     subsystems.sound().reconstruct_play_list(machine);
     if (subsystems.sound().has_music() && subsystems.sound().music().all_paused()) {
         subsystems.sound().music().reset_global_pause();
