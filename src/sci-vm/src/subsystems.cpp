@@ -49,6 +49,12 @@ void Subsystems::on_restart_game(Machine& /*machine*/) {
     graphics_->on_restart_game();
 }
 
+void Subsystems::after_restore(const Clock::HostTime& host) {
+    clock_->after_restore(host);
+    screen_update_time_ = clock_->millis();
+    event_counter_ = 0;
+}
+
 void Subsystems::update_screen(Machine& machine) {
     constexpr std::uint32_t interval = 1000 / 60;
     if (clock_->millis() - screen_update_time_ >= interval) {

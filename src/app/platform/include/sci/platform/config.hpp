@@ -13,11 +13,12 @@
 //   mt32_rom =
 //   music = adlib      ; adlib, mt32 or off
 //   volume = 100       ; 0 to 100 (per cent)
+//   saves =            ; the folder of the saved games
 //
 // Lines starting with ';' or '#' are comments, and so is the rest of a
-// line after ';' or '#', except in the paths (game_folder, and mt32_rom,
-// the folder of the MT-32 ROMs), which may contain
-// those characters. Unknown keys are reported and ignored, so that a newer
+// line after ';' or '#', except in the paths (game_folder, mt32_rom, the
+// folder of the MT-32 ROMs, and saves), which may contain those
+// characters. Unknown keys are reported and ignored, so that a newer
 // file still loads; a missing key keeps its default, so that an older file
 // loads too.
 #pragma once
@@ -53,7 +54,14 @@ struct Config {
     MusicDevice music = MusicDevice::Adlib;
     // The output volume in per cent.
     int volume = max_volume;
+    // The folder of the saved games; empty: `saves` next to the
+    // configuration (saves_folder).
+    std::filesystem::path saves;
 };
+
+// The folder of the saved games: `saves` in the configuration's folder by
+// default; a relative path is taken from the configuration's folder.
+[[nodiscard]] std::filesystem::path saves_folder(const Config& config, const std::filesystem::path& config_folder);
 
 struct ParsedConfig {
     Config config;

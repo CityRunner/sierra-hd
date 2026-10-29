@@ -124,12 +124,11 @@ const SaveDesc* find_save(const std::vector<SaveDesc>& saves, int slot) {
 // so the result is the same), the engine state is reset, the songs that
 // were playing are played again; then runGame calls the game's replay
 // method.
-void after_restore(Machine& machine) {
+void after_restore(Machine& machine, const Clock::HostTime& host) {
     Subsystems& subsystems = machine.subsystems();
     subsystems.graphics().screen().clear_for_restore();
     machine.after_restore();
-    subsystems.reset_event_counter();
-    subsystems.clock().reset_throttle();
+    subsystems.after_restore(host);
     subsystems.sound().reconstruct_play_list(machine);
     if (subsystems.sound().has_music() && subsystems.sound().music().all_paused()) {
         subsystems.sound().music().reset_global_pause();
@@ -290,12 +289,14 @@ Reg k_restore_game(Machine& machine, std::span<Reg> args) {
         warn(std::format("Savegame ID {} cannot be restored: {}", slot, header.error().message));
         return true_reg;
     }
-    // Past them, a failure may leave parts of the state replaced.
+    // Past them, a failure may leave parts of the state replaced. The
+    // state brings the saved clock; the host's time goes on afterwards.
+    const Clock::HostTime host = machine.subsystems().clock().host_time();
     if (const auto restored = read_save(machine, *file); !restored) {
         machine.faults().raise(std::format("kRestoreGame: {}", restored.error().message));
         return true_reg;
     }
-    after_restore(machine);
+    after_restore(machine, host);
     return null_reg; // Success.
 }
 

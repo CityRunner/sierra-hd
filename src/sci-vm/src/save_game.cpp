@@ -84,7 +84,7 @@ std::vector<std::uint8_t> write_save(Machine& machine, std::string_view descript
     out.u8(static_cast<std::uint8_t>(now.hour));
     out.u8(static_cast<std::uint8_t>(now.minute));
     out.u8(static_cast<std::uint8_t>(now.second));
-    out.u32(clock.ticks());
+    out.u32(clock.play_ticks());
     out.string(program);
     out.bytes(state.data());
     std::vector<std::uint8_t> file = out.data();

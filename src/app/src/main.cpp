@@ -1033,8 +1033,9 @@ int run(const Options& options) {
                                        ? options.seed.value_or(0)
                                        : options.seed.value_or(static_cast<std::uint32_t>(SDL_GetPerformanceCounter()));
         sci::vm::Game running(game->manager, host, &files, seed);
-        // The saves next to the configuration (docs/formats/save-format.md).
-        sci::platform::SaveFolder saves(base / "saves");
+        // The saves next to the configuration, or in the configured folder
+        // (docs/formats/save-format.md).
+        sci::platform::SaveFolder saves(sci::platform::saves_folder(*config, base));
         running.set_saves(&saves, std::format("sierra-hd {}", SCI_VERSION));
         running.set_music_device(audio.get());
         host.set_audio(audio.get());

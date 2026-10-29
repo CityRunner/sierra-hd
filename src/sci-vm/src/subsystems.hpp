@@ -7,6 +7,7 @@
 #pragma once
 
 #include "sci/vm/reg.hpp"
+#include "timing.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -17,8 +18,6 @@ namespace sci::vm {
 class StateWriter;
 class StateReader;
 class Machine;
-class Clock;
-class RandomSource;
 class EventQueue;
 class Graphics;
 class Sound;
@@ -42,6 +41,10 @@ public:
     void on_init_game(Machine& machine);
     void on_stop_game(Machine& machine);
     void on_restart_game(Machine& machine);
+    // gamestate_restore after the state is read: the host's time goes on
+    // from `host` (Clock::after_restore), the screen-update time is now and
+    // the event counter is reset.
+    void after_restore(const Clock::HostTime& host);
     // EventManager::updateScreen: at most once per 1000/60 ms of virtual
     // time, a requested quit aborts the game (after the kernel call in
     // progress).

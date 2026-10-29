@@ -72,6 +72,8 @@ std::optional<std::string> apply(ParsedConfig& parsed, std::string_view key, std
         config.game_folder = to_path(value);
     } else if (key == "mt32_rom") {
         config.mt32_rom = to_path(value);
+    } else if (key == "saves") {
+        config.saves = to_path(value);
     } else if (key == "mode") {
         if (value != "hd" && value != "original") {
             return "mode is hd or original";
@@ -129,7 +131,7 @@ core::Result<ParsedConfig> parse_config(std::string_view text) {
         const std::string_view key = trim(line.substr(0, equals));
         const std::string_view raw = trim(line.substr(equals + 1));
         // Paths may contain ';' and '#'; only other values take comments.
-        const bool is_path = key == "game_folder" || key == "mt32_rom";
+        const bool is_path = key == "game_folder" || key == "mt32_rom" || key == "saves";
         const std::string_view value = is_path ? raw : value_of(raw);
         if (auto problem = apply(parsed, key, value)) {
             return fail(*problem);
@@ -178,11 +180,20 @@ std::string format_config(const Config& config) {
                        "; music device: adlib, mt32 (needs the ROMs, otherwise adlib) or off\n"
                        "music = {}\n"
                        "; volume in per cent, 0 to {}\n"
-                       "volume = {}\n",
+                       "volume = {}\n"
+                       "; folder of the saved games (empty: saves next to this file)\n"
+                       "saves ={}\n",
                        config_format, path(config.game_folder), config.mode == GraphicsMode::Hd ? "hd" : "original",
                        max_scale, config.scale == 0 ? std::string("auto") : std::to_string(config.scale),
                        config.priority_snap ? "on" : "off", path(config.mt32_rom), music_name(config.music), max_volume,
-                       config.volume);
+                       config.volume, path(config.saves));
+}
+
+std::filesystem::path saves_folder(const Config& config, const std::filesystem::path& config_folder) {
+    if (config.saves.empty()) {
+        return config_folder / "saves";
+    }
+    return config.saves.is_absolute() ? config.saves : config_folder / config.saves;
 }
 
 } // namespace sci::platform

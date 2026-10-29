@@ -52,6 +52,7 @@ it back on exit):
 | `mt32_rom` | the folder of the MT-32 ROMs (see below) | empty |
 | `music` | `adlib`, `mt32` (needs the ROMs, otherwise AdLib), `off` | `adlib` |
 | `volume` | 0 to 100 (per cent) | 100 |
+| `saves` | the folder of the saved games; a relative path is taken from the folder of `sierra-hd.ini` | empty: `saves/` next to `sierra-hd.ini` |
 
 `music = mt32` plays on an emulated Roland MT-32 (mt32emu) and needs the
 user's ROMs, which are never bundled: `mt32_rom` names their folder. Every

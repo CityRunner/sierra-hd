@@ -2310,8 +2310,9 @@ next task); `sci::vm::state_hash` (`src/sci-vm/src/state.cpp`) hashes it.
   - `machine`: the game object, the restart flag, and the GC countdown
     (when the next collection runs decides when entries are freed).
   - `clock`: virtual time, the wait window, the music timer's due time
-    and tempo, the last kWait time, the last elapsed-time read, the
-    throttler, and the last screen update.
+    and tempo, the last kWait time, the start of the play time (milestone
+    8, "saving in the game"), the last elapsed-time read, the throttler,
+    and the last screen update.
   - `random`: the random source's state and the seed kRestartGame reuses.
   - `events`: the SCI event queue, the mouse position, and the kGetEvent
     counter.
@@ -2434,7 +2435,10 @@ The format, its checks and what a restore rebuilds are described in
   save's play time; its wait and screen-update times are set to "now"
   after the restore, which here is the restored time, so restoring them as
   saved is the same. Input scheduled at ticks (a replay) waits until
-  virtual time reaches its tick again. **Decided.**
+  virtual time reaches its tick again. **Replaced** by "Milestone 8:
+  saving in the game", "The clock on a restore": virtual time is the
+  host's time and runs on; the clock is read as saved (for the hash) and
+  then put back as ScummVM leaves it.
 - **gc_count_down and the restart flag** are restored as saved, so that
   the persistent hash after a restore equals the one at the save, which is
   what the exit criterion compares. ScummVM resets the countdown

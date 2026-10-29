@@ -389,6 +389,7 @@ void Clock::save_state(StateWriter& out) const {
     out.u64(music_due_);
     out.u32(tempo_);
     out.u32(last_wait_);
+    out.u32(play_time_start_);
     out.u64(last_elapsed_read_);
     out.u32(throttle_last_);
     out.boolean(throttle_trigger_);

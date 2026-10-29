@@ -56,7 +56,13 @@ std::vector<int> SaveFolder::slots() {
 }
 
 std::optional<std::vector<std::uint8_t>> SaveFolder::read(int slot) {
-    std::ifstream file(folder_ / file_name(slot), std::ios::binary);
+    const std::filesystem::path path = folder_ / file_name(slot);
+    // A folder of that name opens, but reading it throws.
+    std::error_code error;
+    if (!std::filesystem::is_regular_file(path, error)) {
+        return std::nullopt;
+    }
+    std::ifstream file(path, std::ios::binary);
     if (!file) {
         return std::nullopt;
     }

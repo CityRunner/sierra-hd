@@ -537,6 +537,7 @@ void Clock::load_state(StateReader& in) {
     music_due_ = in.u64();
     tempo_ = in.u32();
     last_wait_ = in.u32();
+    play_time_start_ = in.u32();
     last_elapsed_read_ = in.u64();
     throttle_last_ = in.u32();
     throttle_trigger_ = in.boolean();
