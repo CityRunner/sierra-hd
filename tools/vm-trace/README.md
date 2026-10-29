@@ -63,8 +63,10 @@ does.
 - `--globals` writes the game's global variables when virtual time first
   reaches each of the ticks, taken as for `--state-hash`: one line per
   requested tick, `<tick> <reached>` then every global in order, a number
-  in decimal (0 to 65535) or a pointer as `<segment>:<offset>` in hex. The
-  playthrough reads the act and the room from it
+  in decimal (0 to 65535) or a pointer as `<segment>:<offset>` in hex. A
+  tick the run does not reach because the game quit gets the globals as the
+  game ended, with `<reached>` the tick it ended at. The playthrough reads
+  the act, the room and the quit flag from it
   (`tools/playthrough/where.py`, `docs/playthrough.md`).
 - `--save-check` makes the save round trip (milestone 8,
   `docs/formats/save-format.md`) at each of the ticks, taken as for

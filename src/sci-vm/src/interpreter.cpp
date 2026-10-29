@@ -21,6 +21,7 @@
 
 #include <format>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -200,8 +201,11 @@ void report_state(Machine& machine, std::uint32_t tick, const RunOptions& option
     }
 }
 
-// The globals due at `tick`: those of the requested ticks reached.
-void report_globals(const Machine& machine, std::uint32_t tick, const RunOptions& options, std::size_t& next) {
+// The globals due at `tick`: those of the requested ticks reached, reported
+// as taken at `reached` (the tick itself, or the end of a run that stopped
+// before them).
+void report_globals(const Machine& machine, std::uint32_t tick, const RunOptions& options, std::size_t& next,
+                    std::optional<std::uint32_t> reached = std::nullopt) {
     if (!options.on_globals) {
         return;
     }
@@ -210,7 +214,7 @@ void report_globals(const Machine& machine, std::uint32_t tick, const RunOptions
         for (std::size_t i = 0; i < globals.size(); ++i) {
             globals[i] = machine.global(i);
         }
-        options.on_globals(options.globals_ticks[next], tick, globals);
+        options.on_globals(options.globals_ticks[next], reached.value_or(tick), globals);
     }
 }
 
@@ -425,6 +429,10 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
         hook(subsystems, machine);
         machine->resume_game();
     }
+    // A game that ends before a requested tick (QUIT on the last screen):
+    // its globals as it ended, with the tick it ended at.
+    report_globals(*machine, std::numeric_limits<std::uint32_t>::max(), options, next_globals,
+                   subsystems->clock().ticks());
     RunResult result{.fault = std::nullopt, .ticks = subsystems->clock().ticks(), .calls = calls};
     if (machine->faults().raised()) {
         result.fault = machine->faults().message();

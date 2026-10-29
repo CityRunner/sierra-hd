@@ -36,3 +36,8 @@ act-7-chapel 253500 VII 58
 act-7-room-44 270000 VII 44
 act-7-end 279000 VII 48
 act-8-start 281600 VIII 47
+act-8-hedge-garden 299000 VIII 65
+act-8-attic 322000 VIII 75
+act-8-epilogue 330000 VIII 784
+act-8-rating 334000 VIII 786
+ending 338000 quit 786

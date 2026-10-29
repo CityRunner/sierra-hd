@@ -137,7 +137,9 @@ struct RunOptions {
     // The game's global variables at each of these ticks, in increasing
     // order, taken as state_hash_ticks are: on_globals is called with the
     // tick requested, the tick reached and every global (milestone 9: the
-    // playthrough reads the act and the room from them).
+    // playthrough reads the act and the room from them). A tick the run does
+    // not reach (the game quit before it) gets the globals as the game
+    // ended, with the tick it ended at.
     std::vector<std::uint32_t> globals_ticks;
     std::function<void(std::uint32_t requested, std::uint32_t tick, std::span<const Reg> globals)> on_globals;
     // The save round trip (milestone 8, docs/formats/save-format.md) at each
