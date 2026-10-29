@@ -599,6 +599,10 @@ int main(int argc, char** argv) {
     }
     Host host(pictures, *options, check ? &*check : nullptr);
     sci::vm::Game game(*manager, host, &files, options->seed);
+    // Saves in memory: every run starts with none, as sci-vm-trace's do, so
+    // a replay that saves and restores in the game renders the same frames.
+    sci::vm::MemorySaveStore saves;
+    game.set_saves(&saves, "sci-hd-frames");
     game.schedule(input);
     if (const auto fault = game.run()) {
         std::println(stderr, "the interpreter stopped: {}", *fault);

@@ -201,6 +201,13 @@ As ScummVM's `gamestate_restore` does after loading:
   game's `replay` method redraws the room (ScummVM clears the screen and
   the game redraws it the same way).
 
+- **Host state and segments (kRestoreGame only):** the clock's host time,
+  the random source and the music timer's call count go on from before
+  the restore; the hunk segment is freed and the system strings are
+  allocated again in the lowest free segment, as ScummVM's
+  `gamestate_restore` leaves them (docs/ASSUMPTIONS.md, "Milestone 8:
+  more in-game restores"). A round trip's resume does none of this.
+
 ## Versions
 
 Version 1 is the first. In every version the file starts with the magic,

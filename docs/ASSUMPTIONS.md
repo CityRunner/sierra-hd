@@ -2553,6 +2553,50 @@ kRestoreGame on the project's format; their behaviour in detail is in
   layout lines and 1040 OPL writes. The scenario is in `scenarios.txt`.
   **Decided.**
 
+## Milestone 8: more in-game restores (2026-10-29)
+
+Four more scenarios save and restore through the game's own dialogs and
+shortcuts (F5, F7, F9) and match the reference to the end
+(`tests/scenarios/README.md`): `attic-restore.txt` (14500, both stacks of
+room 74 on restore, two saves restored older then newer),
+`outdoors-restore.txt` (13600, music playing), `inventory-restore.txt`
+(25000, the inventory) and `restart-restore.txt` (9000, after a restart).
+
+- **Where the game offers a restore:** not on the title nor on "Have you
+  previously attended?" (F7 does nothing, in both engines); during the
+  "Act I" card the game says "You cannot restore a game right now."
+  without listing the saves; after a restart (which goes straight to Act
+  I, with no title or copy protection) once the card is gone. **Decided.**
+- **Found and fixed** (sci-vm followed the save more closely than
+  ScummVM's `gamestate_restore` does):
+  - *Hunks and system strings.* ScummVM neither saves nor loads the hunk
+    table (its segment is empty after the load, the saved handles point
+    nowhere) and allocates the system strings again after loading
+    (`initSysStrings`), which takes the lowest free segment; the next hunk
+    then gets a new segment. sci-vm kept the hunk table, so after a
+    restore a hunk freed by the game was 1a:0be2 instead of 29:0000
+    (attic-restore, kUnLoad after the first restore). kRestoreGame now
+    frees the hunk segment and allocates the system strings again
+    (`SegManager::after_restore`), after `read_save`.
+  - *Random source and music timer count.* SciEngine's random source and
+    the music timer's call count (the OPL and MIDI logs' time key) are the
+    host's in ScummVM and go on across a restore; sci-vm took them from
+    the save (outdoors-restore: the first kRandom after the restore, and
+    the OPL log's timer calls). kRestoreGame now keeps them with the
+    clock's host time (`Subsystems::HostState`).
+  `read_save` still reads the whole state, so the persistent hash right
+  after it equals the save's and the round trips are unchanged; these are
+  fixups of the in-game restore only. **Decided.**
+- **Room 74 on restore:** the restores of attic-restore draw
+  `DrawPic(74,100,1,1)` then `DrawPic(174,100,0,1)` (stairway save) and
+  `DrawPic(74,100,1,0)`, `DrawPic(174,100,0,0)` (Fifi's room), in both
+  engines. `sci-hd-frames` (which now gives the game an in-memory save
+  store, so replays that save and restore work there) renders the
+  restored frames through the analysis cache's entries
+  `pic.074.*.palette1.over.174.palette1` and `pic.074.*.over.174`, the
+  variants of the stacks `74.palette1+174.palette1` and `74+174` whose
+  golden hashes were recorded at milestone 5. **Decided.**
+
 ## Milestone 8: round trips (2026-10-29)
 
 The exit criterion's second half, "replay continues identically", checked

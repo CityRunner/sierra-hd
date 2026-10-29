@@ -41,6 +41,7 @@ public:
     void on_init_game(Machine& machine);
     void on_stop_game(Machine& machine);
     void on_restart_game(Machine& machine);
+
     // What the host keeps across a restore in ScummVM, which a save holds
     // as VM state: the clock's host time, the random source (SciEngine's,
     // not saved) and the music timer's call count (the OPL and MIDI logs'
