@@ -8,12 +8,14 @@
 #include "files.hpp"
 #include "kernel_functions.hpp"
 #include "machine.hpp"
+#include "music.hpp"
 #include "save_game.hpp"
 #include "save_world.hpp"
 #include "sci/core/sha256.hpp"
 #include "sci/vm/files.hpp"
 #include "sci_test.hpp"
 #include "seg_manager.hpp"
+#include "sound.hpp"
 #include "state.hpp"
 #include "subsystems.hpp"
 #include "timing.hpp"
@@ -176,14 +178,33 @@ SCI_TEST(at_most_twenty_saves_are_listed) {
 SCI_TEST(a_restore_brings_the_state_back_and_sets_the_restore_flag) {
     sci::vm::MemorySaveStore saves;
     KernelWorld game(saves);
+    const std::array<std::uint8_t, 1> one{1};
+    const std::array<std::uint8_t, 1> two{2};
+    game.machine().segments().memcpy(game.names, one);
+    sci::vm::Music& music = game.world.subsystems.sound().music();
+    music.set_timer_calls(5);
+    const Reg saved_strings = game.machine().segments().save_dir_pointer();
     const sci::core::Sha256Digest saved = game.random_state();
     SCI_CHECK(!game.save(0, "Before").is_null());
+    game.machine().segments().memcpy(game.names, two);
+    music.set_timer_calls(9);
     (void)game.world.subsystems.random().next(10);
-    SCI_CHECK(game.random_state() != saved);
+    const sci::core::Sha256Digest host = game.random_state();
+    SCI_CHECK(host != saved);
     SCI_CHECK(game.check(101));
     SCI_CHECK(game.restore(101));
     SCI_CHECK(!game.machine().faults().raised());
-    SCI_CHECK(game.random_state() == saved);
+    SCI_CHECK(game.machine().segments().deref_bulk(game.names, 1)[0] == 1);
+    // The random source is the host's (SciEngine's, not saved): it runs on.
+    SCI_CHECK(game.random_state() == host);
+    // So is the music timer's call count, the logs' time key.
+    SCI_CHECK(music.timer_calls() == 9);
+    // ScummVM neither saves nor loads the hunk table: the hunk segment is
+    // gone until the next hunk, and the system strings are allocated again.
+    SCI_CHECK(game.machine().segments().find_segment_by_type(sci::vm::SegmentType::Hunk) == 0);
+    const Reg strings = game.machine().segments().save_dir_pointer();
+    SCI_CHECK(strings.segment != saved_strings.segment);
+    SCI_CHECK(game.machine().segments().dereference(strings).max_size >= 512);
     SCI_CHECK(game.machine().aborting() == sci::vm::Abort::LoadGame);
     SCI_CHECK(game.machine().game_is_restarting() == sci::vm::Restarting::Restore);
     // kGameIsRestarting reports 2, then clears it.

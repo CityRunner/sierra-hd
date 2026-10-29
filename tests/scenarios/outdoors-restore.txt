@@ -1,0 +1,138 @@
+sierra-hd replay 1
+# A save outdoors while music plays and its restore in another room
+# (milestone 8), with seed 0 and stop tick 13600. Starts as grounds.txt:
+# out of the front door onto the porch (room 16, where the music starts
+# again, about tick 7570, and plays on outdoors), round to the west side
+# of the gravel driveway (room 21). There, with the music playing, F5:
+# "Driveway", Enter. Laura walks north-west into room 10 (outside the
+# Colonel's study), where "look" is typed. F7 and Enter restore the
+# save: back in room 21, the songs played again from their saved
+# position; Laura walks north-west again.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 key 13
+# Room 44: a right click on the painting (look), a click to close the
+# message, then to the left wall and out of the west door.
+3500 move 128 30
+3502 down 128 30 3
+3506 up 128 30 3
+3800 down 128 30 0
+3804 up 128 30 0
+3900 move 50 157
+3902 down 50 157 0
+3906 up 50 157 0
+4300 move 0 157
+4302 down 0 157 0
+4306 up 0 157 0
+# Room 43: close the description, walk south into 47.
+4700 move 160 199
+4702 down 160 199 0
+4706 up 160 199 0
+4800 down 160 199 0
+4804 up 160 199 0
+# Room 47: close the description, to the landing, west along it, down the
+# left staircase into 37.
+5640 move 215 150
+5642 down 215 150 0
+5646 up 215 150 0
+5700 down 215 150 0
+5704 up 215 150 0
+6000 move 47 148
+6002 down 47 148 0
+6006 up 47 148 0
+6450 move 30 199
+6452 down 30 199 0
+6456 up 30 199 0
+# Room 37: close the description; at the foot of the stairs (a click
+# straight down only takes a step), round the banister into the hallway,
+# then south out of the front door.
+6800 down 160 100 0
+6804 up 160 100 0
+7000 move 31 199
+7002 down 31 199 0
+7006 up 31 199 0
+7200 move 200 160
+7202 down 200 160 0
+7206 up 200 160 0
+7500 move 150 199
+7502 down 150 199 0
+7506 up 150 199 0
+# Room 16 (the porch): close the description, a right click on the front
+# door ("The porch lights help to brighten this dreary house."), close;
+# walk east, which brings the "creepy" warning; close it, walk on, click.
+7800 down 160 100 0
+7804 up 160 100 0
+7900 move 115 65
+7902 down 115 65 3
+7906 up 115 65 3
+8100 down 115 65 0
+8104 up 115 65 0
+8200 move 250 140
+8202 down 250 140 0
+8206 up 250 140 0
+8500 down 160 100 0
+8504 up 160 100 0
+8600 move 250 140
+8602 down 250 140 0
+8606 up 250 140 0
+8900 down 160 100 0
+8904 up 160 100 0
+# Down the porch steps, then west along the path into 15.
+9000 move 160 140
+9002 down 160 140 0
+9006 up 160 140 0
+9300 move 160 182
+9302 down 160 182 0
+9306 up 160 182 0
+9500 move 0 186
+9502 down 0 186 0
+9506 up 0 186 0
+# Room 15: close the description, south along the bottom edge into 22.
+10200 down 160 100 0
+10204 up 160 100 0
+10300 move 305 199
+10302 down 305 199 0
+10306 up 305 199 0
+# Room 22: close the description, west along the path into 21.
+10600 move 0 149
+10602 down 0 149 0
+10606 up 0 149 0
+10800 down 0 149 0
+10804 up 0 149 0
+# Room 21: close the description; F5, "Driveway", Enter.
+11000 down 160 100 0
+11004 up 160 100 0
+11020 key 16128
+11200 key 68
+11210 key 114
+11220 key 105
+11230 key 118
+11240 key 101
+11250 key 119
+11260 key 97
+11270 key 121
+11300 key 13
+# North-west into room 10; close its description; "look", Enter.
+11400 move 200 110
+11402 down 200 110 0
+11406 up 200 110 0
+11900 down 160 100 0
+11904 up 160 100 0
+12000 text look
+12200 key 13
+# F7, Enter on the save; north-west again.
+12400 key 16640
+12600 key 13
+13000 move 200 110
+13002 down 200 110 0
+13006 up 200 110 0

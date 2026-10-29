@@ -132,6 +132,9 @@ public:
     // The music timer calls made so far: the time key of the OPL logs.
     [[nodiscard]] std::uint32_t timer_calls() const { return timer_calls_; }
 
+    // The count goes on from the host's after a restore.
+    void set_timer_calls(std::uint32_t calls) { timer_calls_ = calls; }
+
     void clear_play_list();
     void stop_all();
 

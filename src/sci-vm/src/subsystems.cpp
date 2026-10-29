@@ -6,6 +6,7 @@
 #include "files.hpp"
 #include "graphics.hpp"
 #include "machine.hpp"
+#include "music.hpp"
 #include "parser.hpp"
 #include "sound.hpp"
 #include "timing.hpp"
@@ -49,8 +50,20 @@ void Subsystems::on_restart_game(Machine& /*machine*/) {
     graphics_->on_restart_game();
 }
 
-void Subsystems::after_restore(const Clock::HostTime& host) {
-    clock_->after_restore(host);
+Subsystems::HostState Subsystems::host_state() {
+    return HostState{
+        .time = clock_->host_time(),
+        .random_seed = random_->seed(),
+        .timer_calls = sound_->has_music() ? sound_->music().timer_calls() : 0,
+    };
+}
+
+void Subsystems::after_restore(const HostState& host) {
+    clock_->after_restore(host.time);
+    random_->set_seed(host.random_seed);
+    if (sound_->has_music()) {
+        sound_->music().set_timer_calls(host.timer_calls);
+    }
     screen_update_time_ = clock_->millis();
     event_counter_ = 0;
 }

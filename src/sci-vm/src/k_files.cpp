@@ -128,7 +128,7 @@ const SaveDesc* find_save(const std::vector<SaveDesc>& saves, int slot) {
 // kernelSetPicWindow, which the layout file records), the engine state is
 // reset, the songs that were playing are played again; then runGame calls
 // the game's replay method.
-void after_restore(Machine& machine, const Clock::HostTime& host) {
+void after_restore(Machine& machine, const Subsystems::HostState& host) {
     Subsystems& subsystems = machine.subsystems();
     subsystems.after_restore(host);
     subsystems.graphics().screen().clear_for_restore();
@@ -299,8 +299,9 @@ Reg k_restore_game(Machine& machine, std::span<Reg> args) {
         return true_reg;
     }
     // Past them, a failure may leave parts of the state replaced. The
-    // state brings the saved clock; the host's time goes on afterwards.
-    const Clock::HostTime host = machine.subsystems().clock().host_time();
+    // state brings the saved clock, random source and music timer count;
+    // the host's go on afterwards.
+    const Subsystems::HostState host = machine.subsystems().host_state();
     if (const auto restored = read_save(machine, *file); !restored) {
         machine.faults().raise(std::format("kRestoreGame: {}", restored.error().message));
         return true_reg;

@@ -41,10 +41,21 @@ public:
     void on_init_game(Machine& machine);
     void on_stop_game(Machine& machine);
     void on_restart_game(Machine& machine);
-    // gamestate_restore after the state is read: the host's time goes on
+    // What the host keeps across a restore in ScummVM, which a save holds
+    // as VM state: the clock's host time, the random source (SciEngine's,
+    // not saved) and the music timer's call count (the OPL and MIDI logs'
+    // time key).
+    struct HostState {
+        Clock::HostTime time;
+        std::uint32_t random_seed = 0;
+        std::uint32_t timer_calls = 0;
+    };
+
+    [[nodiscard]] HostState host_state();
+    // gamestate_restore after the state is read: the host's state goes on
     // from `host` (Clock::after_restore), the screen-update time is now and
     // the event counter is reset.
-    void after_restore(const Clock::HostTime& host);
+    void after_restore(const HostState& host);
     // EventManager::updateScreen: at most once per 1000/60 ms of virtual
     // time, a requested quit aborts the game (after the kernel call in
     // progress).
