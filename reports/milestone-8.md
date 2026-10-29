@@ -195,7 +195,29 @@ windows, walks, the intro's music, and before and after in-game restores.
 
 ## CI minutes
 
-CI_MINUTES
+**The gate is green** (run 40815800525, commit `a53e592`). It ran:
+- style and static analysis;
+- Linux x86-64 and ARM64 in release, ASan+UBSan and TSan;
+- the fuzzers, including the new save loader;
+- Windows x64 and ARM64.
+
+macOS is optional and was not run.
+
+Measured with `scripts/ci-minutes.py --branch milestone-8`:
+
+| Platform | Jobs | Minutes | Included minutes | List price |
+|---|---|---|---|---|
+| Linux x86-64 | 6 | 59 | 59 | $0.35 |
+| Linux ARM64 | 3 | 22 | 22 | $0.11 |
+| Windows x64 | 1 | 12 | 24 | $0.12 |
+| Windows ARM64 | 1 | 4 | 8 | $0.04 |
+| **Total** (1 run) | | **97** | **113** | **$0.62** |
+
+- **Cost:** none. The repository is public, so standard runners are free.
+- **Runs:** one, the gate run of this pull request.
+  - Every earlier push of `milestone-8` was checked locally first, and
+    pushes start no run.
+  - This report's commit changes only documentation and starts no run.
 
 ## Deviations from the spec
 
