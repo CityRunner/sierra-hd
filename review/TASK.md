@@ -1,7 +1,9 @@
 # Audit and iteration 2: the customer's task
 
-Given by the customer on 2026-10-29, added to the end of the work list,
-after milestone 9. Not started yet. The text below is the customer's,
+Given by the customer on 2026-10-29, added to the end of the work list.
+Placed after the optional milestones 10 to 12 (customer's decision,
+2026-10-29): it starts once each of them is either done or declined at
+its own approval. Not started yet. The text below is the customer's,
 unchanged.
 
 ---
