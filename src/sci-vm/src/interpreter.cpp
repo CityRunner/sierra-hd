@@ -380,9 +380,11 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
             options.on_round_trip(round_trip_requested, round_trip_tick, *round_trip);
         }
         if (round_trip->error) {
-            return RunResult{.fault = "round trip: " + *round_trip->error,
-                             .ticks = subsystems->clock().ticks(),
-                             .calls = calls};
+            return RunResult{
+                .fault = "round trip: " + *round_trip->error,
+                .ticks = subsystems->clock().ticks(),
+                .calls = calls,
+            };
         }
         round_trip.reset();
         // What is not VM state goes over as the host keeps it: the input

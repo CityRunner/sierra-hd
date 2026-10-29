@@ -348,17 +348,23 @@ int main(int argc, char** argv) {
             if (i + 2 >= args.size()) {
                 return usage();
             }
-            std::vector<std::uint32_t>& ticks = flag == "--state-hash"   ? options.state_hash_ticks
-                                                : flag == "--save-check" ? options.save_check_ticks
-                                                                         : options.round_trip_ticks;
+            std::vector<std::uint32_t>* ticks = &options.round_trip_ticks;
+            std::filesystem::path* file = &round_trip;
+            if (flag == "--state-hash") {
+                ticks = &options.state_hash_ticks;
+                file = &state_hash;
+            } else if (flag == "--save-check") {
+                ticks = &options.save_check_ticks;
+                file = &save_check;
+            }
             for (const auto part : std::views::split(value, ',')) {
                 const auto tick = parse_number(std::string_view(part.begin(), part.end()));
-                if (!tick || (!ticks.empty() && *tick <= ticks.back())) {
+                if (!tick || (!ticks->empty() && *tick <= ticks->back())) {
                     return usage();
                 }
-                ticks.push_back(*tick);
+                ticks->push_back(*tick);
             }
-            (flag == "--state-hash" ? state_hash : flag == "--save-check" ? save_check : round_trip) = args[i + 2];
+            *file = args[i + 2];
             ++i;
             continue;
         }
@@ -605,15 +611,15 @@ int main(int argc, char** argv) {
                            static_cast<std::streamsize>(trip.file.size()));
             }
             if (trip.error) {
-                round_trip_file << std::format("{} {} {} {} error {}\n", requested, tick, trip.call,
-                                               trip.file.size(), *trip.error);
+                round_trip_file << std::format("{} {} {} {} error {}\n", requested, tick, trip.call, trip.file.size(),
+                                               *trip.error);
                 return;
             }
-            round_trip_file << std::format(
-                "{} {} {} {} {} {} {} total {}\n", requested, tick, trip.call, trip.file.size(),
-                sci::core::to_hex(trip.saved.persistent), sci::core::to_hex(trip.restored.persistent),
-                trip.saved.persistent == trip.restored.persistent ? "equal" : "differ",
-                trip.saved.total == trip.restored.total ? "equal" : "differ");
+            round_trip_file << std::format("{} {} {} {} {} {} {} total {}\n", requested, tick, trip.call,
+                                           trip.file.size(), sci::core::to_hex(trip.saved.persistent),
+                                           sci::core::to_hex(trip.restored.persistent),
+                                           trip.saved.persistent == trip.restored.persistent ? "equal" : "differ",
+                                           trip.saved.total == trip.restored.total ? "equal" : "differ");
             for (std::size_t c = 0; c < trip.saved.components.size() && c < trip.restored.components.size(); ++c) {
                 if (trip.saved.components[c].digest != trip.restored.components[c].digest) {
                     round_trip_file << std::format("{} {} component {} differs\n", requested, tick,

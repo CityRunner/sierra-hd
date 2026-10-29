@@ -456,6 +456,7 @@ void SegManager::load_state(StateReader& in) {
     parser_pointer_ = parser;
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): the execution, checked and taken, then the machine.
 void Machine::load_state(StateReader& in, Execution execution) {
     // The execution. A restore in the game re-enters it through its replay
     // method, so the frames, registers and stack contents are read and
@@ -485,18 +486,21 @@ void Machine::load_state(StateReader& in, Execution execution) {
         const std::uint8_t type = in.u8();
         if (type > static_cast<std::uint8_t>(ExecType::VarSelector)) {
             in.fail("a frame of an unknown type");
+        } else {
+            frame.type = static_cast<ExecType>(type);
         }
-        frame.type = static_cast<ExecType>(type);
     }
     const int xs_index = in.i32();
     const int stack_base = in.i32();
     const bool position_changed = in.boolean();
+
     struct SavedVariables {
         bool stored = false;
         StackIndex start = 0;
         SegmentId segment = 0;
         int max = 0;
     };
+
     std::array<SavedVariables, 4> variables{};
     for (SavedVariables& saved : variables) {
         saved.stored = in.boolean();
@@ -515,9 +519,8 @@ void Machine::load_state(StateReader& in, Execution execution) {
         value = in.reg();
     }
     if (execution == Execution::Resume && !in.failed()) {
-        if (xs_index < -2 || xs_index >= static_cast<int>(frames.size()) || xs_index == -1 ||
-            stack_base >= static_cast<int>(frames.size()) ||
-            abort > static_cast<std::uint8_t>(Abort::QuitGame)) {
+        if (xs_index < -2 || std::cmp_greater_equal(xs_index, frames.size()) || xs_index == -1 ||
+            std::cmp_greater_equal(stack_base, frames.size()) || abort > static_cast<std::uint8_t>(Abort::QuitGame)) {
             in.fail("the execution state is inconsistent");
         }
         // A send that carries the stack pointer over marks it and the frame
