@@ -198,6 +198,10 @@ void Music::init_track(MusicEntry& sound) {
     }
     if (in_timer_) {
         device_->init_track(sound.resource->data.first(sci0_header_size));
+        // MidiPlayer_Midi::initTrack sets the driver's reverb to its default.
+        if (const std::int8_t reverb = device_->player_choices().default_reverb; reverb >= 0) {
+            driver_reverb_ = reverb;
+        }
     } else {
         queued_commands_.push_back({.track_init = &sound, .midi = 0});
     }
@@ -244,30 +248,44 @@ void Music::clear_play_list() {
     }
 }
 
-void Music::after_restore() {
+void Music::after_restore(const HostSettings& host) {
     // The settings come from the save, the songs are those of the game that
-    // ran before; what the clearing changes in the player's counters is the
-    // host's in ScummVM, and the restored values stay.
+    // ran before; the reverbs and the counter are the host's in ScummVM, and
+    // what the clearing changes in them stays. ScummVM saves the driver's
+    // reverb (MidiPlayer::getReverb) and restores the global reverb from it.
     std::vector<std::unique_ptr<MusicEntry>> restored = std::move(play_list_);
     play_list_ = std::move(previous_play_list_);
     previous_play_list_.clear();
-    const int time_counter = time_counter_;
+    const std::int8_t saved_reverb = driver_reverb_;
+    driver_reverb_ = host.driver_reverb;
+    global_reverb_ = host.global_reverb;
+    time_counter_ = host.time_counter;
     const bool needs_resume = needs_resume_;
     const int global_pause = global_pause_;
     set_sound_on(sound_on_);
     set_master_volume(master_volume_);
-    // SciMusic::setGlobalReverb: the song playing takes it if it has none.
-    if (global_reverb_ != 127) {
-        if (const MusicEntry* playing = first_slot_with_status(SoundStatus::Playing);
-            playing != nullptr && playing->reverb == 127) {
-            set_driver_reverb(global_reverb_);
-        }
-    }
+    set_global_reverb(saved_reverb);
     clear_play_list();
     play_list_ = std::move(restored);
-    time_counter_ = time_counter;
+    // MusicEntry::time is not saved: a restored song's is 0 until
+    // soundInitSnd numbers it.
+    for (const auto& sound : play_list_) {
+        sound->time = 0;
+    }
     needs_resume_ = needs_resume;
     global_pause_ = global_pause;
+}
+
+void Music::set_global_reverb(std::int8_t reverb) {
+    const MusicEntry* const playing = first_slot_with_status(SoundStatus::Playing);
+    if (reverb != 127) {
+        global_reverb_ = reverb;
+        if (playing != nullptr && playing->reverb == 127) {
+            set_driver_reverb(reverb);
+        }
+    } else if (playing != nullptr) {
+        set_driver_reverb(playing->reverb);
+    }
 }
 
 void Music::drop_previous_play_list() {

@@ -127,9 +127,9 @@ const SaveDesc* find_save(const std::vector<SaveDesc>& saves, int slot) {
 // the ports; EngineState::saveLoadWithSerializer sets it through
 // kernelSetPicWindow, which the layout file records), the engine state is
 // reset, the songs of the game before are cleared with the restored music
-// settings (the device sees it: the play switch, volumes, notes off), the
-// restored songs get their parsers' volumes and those that were playing
-// are played again; then runGame sets ScummVM's master volume and calls the
+// settings (the device sees it: the play switch, volumes, the reverb, notes
+// off), the restored songs get their parsers' volumes and new ordering times
+// and those that were playing are played again; then runGame sets ScummVM's master volume and calls the
 // game's replay method.
 void after_restore(Machine& machine, const Subsystems::HostState& host) {
     Subsystems& subsystems = machine.subsystems();
@@ -141,7 +141,7 @@ void after_restore(Machine& machine, const Subsystems::HostState& host) {
     }
     machine.after_restore();
     if (subsystems.sound().has_music()) {
-        subsystems.sound().music().after_restore();
+        subsystems.sound().music().after_restore(host.music);
     }
     subsystems.sound().reconstruct_play_list(machine);
     machine.segments().after_restore();
