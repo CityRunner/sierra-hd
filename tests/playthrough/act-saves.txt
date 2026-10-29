@@ -1,0 +1,6 @@
+# Where tools/playthrough/act-saves.sh saves at the start of each act, for
+# the customer's play test: <act number> <tick>, a tick after the act has
+# started when no message is on screen (the save dialog would not open
+# under one). The act's other checkpoints are in checkpoints.txt.
+1 31120
+2 64000
