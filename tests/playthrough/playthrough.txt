@@ -702,3 +702,157 @@ sierra-hd replay 1
 168900 key 13
 169300 key 13
 169500 key 19200
+# Act V (12:00 midnight, from tick 169510 in room 21). Two views through
+# the holes of the east secret passage 50 (Rudy in the dining room, bit 1;
+# Clarence in the parlor, bit 8), then the Colonel's room 42 twice: the
+# Colonel and Fifi (region 270, bit 2), and, after three events and a way
+# out of the hallway 43 and back, the room empty (room 42's own script,
+# bit 4).
+# Room 21: the up arrow key walks Laura north into 10, where she would walk
+# on to the study; a click stops her. Over the top left of 10 into the
+# garden 4, behind the statue and off its bottom edge into 33.
+170300 key 18432
+171400 move 100 165
+171402 down 100 165 0
+171406 up 100 165 0
+172000 move 10 120
+172002 down 10 120 0
+172006 up 10 120 0
+172600 move 10 70
+172602 down 10 70 0
+172606 up 10 70 0
+173100 move 80 55
+173102 down 80 55 0
+173106 up 80 55 0
+174000 move 60 155
+174002 down 60 155 0
+174006 up 60 155 0
+174600 move 250 158
+174602 down 250 158 0
+174606 up 250 158 0
+175100 move 215 199
+175102 down 215 199 0
+175106 up 215 199 0
+# Room 33: "push the mirror": Laura walks into the east secret passage 50.
+176000 move 62 152
+176002 down 62 152 0
+176006 up 62 152 0
+176500 text push the mirror
+177300 key 13
+# Room 50 (come in from 33): onto the platform under the portrait, the up
+# arrow key to face it, "look through the holes": the view 306 of the
+# dining room, Rudy (event bit 1, the clock at tick 178954). Back in 50, a
+# click 3 pixels lower turns her to face down, and the same command shows
+# the view 304 of the parlor, Clarence (event bit 8, the clock at tick
+# 181447). The clocks end with the views.
+178000 move 130 112
+178002 down 130 112 0
+178006 up 130 112 0
+178600 key 18432
+178900 text look through the holes
+180800 move 121 110
+180802 down 121 110 0
+180806 up 121 110 0
+181300 text look through the holes
+# Back up onto the platform, down its steps to the left end of the passage
+# and out into 33, off its bottom edge into 37, up the left staircase into
+# 47.
+183000 move 121 108
+183002 down 121 108 0
+183006 up 121 108 0
+183400 move 16 120
+183402 down 16 120 0
+183406 up 16 120 0
+183800 move 16 120
+183802 down 16 120 0
+183806 up 16 120 0
+184200 move 8 132
+184202 down 8 132 0
+184206 up 8 132 0
+184800 move 160 199
+184802 down 160 199 0
+184806 up 160 199 0
+185600 move 115 188
+185602 down 115 188 0
+185606 up 115 188 0
+186200 move 25 190
+186202 down 25 190 0
+186206 up 25 190 0
+186700 move 45 30
+186702 down 45 30 0
+186706 up 45 30 0
+# Room 47: off the top of the stairs to the right, onto the landing and
+# north up the hallway into 43.
+187600 move 100 147
+187602 down 100 147 0
+187606 up 100 147 0
+188000 move 160 125
+188002 down 160 125 0
+188006 up 160 125 0
+188500 move 160 95
+188502 down 160 95 0
+188506 up 160 95 0
+# Room 43: past the edge of the wall, to the upper door on the left
+# (control colour 5) into the Colonel's room 42.
+189000 move 40 175
+189002 down 40 175 0
+189006 up 40 175 0
+189500 move 100 150
+189502 down 100 150 0
+189506 up 100 150 0
+190000 move 75 140
+190002 down 75 140 0
+190006 up 75 140 0
+190400 move 20 140
+190402 down 20 140 0
+190406 up 20 140 0
+# Room 42: the Colonel and Fifi (event bit 2, region 270, the clock at
+# tick 190435; it sets flag 38 and starts timer 369): "Laura! What are YOU
+# doing in here?!". Enter closes the clock and the messages. Out of the
+# east door into 43, south into 47 (leaving 43 for a room other than 42
+# clears flags 37 and 38) and back north into 43.
+191000 key 13
+191500 key 13
+191900 key 13
+192300 key 13
+192700 key 13
+193100 key 13
+193400 move 250 175
+193402 down 250 175 0
+193406 up 250 175 0
+193800 move 319 155
+193802 down 319 155 0
+193806 up 319 155 0
+194500 move 160 199
+194502 down 160 199 0
+194506 up 160 199 0
+195300 move 160 80
+195302 down 160 80 0
+195306 up 160 80 0
+# Room 43: into 42 again, with global 187 at 3 (three events of the act).
+196200 move 40 175
+196202 down 40 175 0
+196206 up 40 175 0
+196700 move 100 150
+196702 down 100 150 0
+196706 up 100 150 0
+197200 move 75 140
+197202 down 75 140 0
+197206 up 75 140 0
+197600 move 20 140
+197602 down 20 140 0
+197606 up 20 140 0
+# Room 42: the room is empty, the Colonel gone (event bit 4, room 42's
+# script, the clock at tick 197635), then the "Act VI" card. Enter closes
+# them; out of the east door into 43: the room change starts Act VI (tick
+# 201350).
+199200 key 13
+199600 key 13
+200000 key 13
+200400 key 13
+200800 move 250 175
+200802 down 250 175 0
+200806 up 250 175 0
+201200 move 319 155
+201202 down 319 155 0
+201206 up 319 155 0
