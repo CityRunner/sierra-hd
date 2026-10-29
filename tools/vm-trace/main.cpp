@@ -712,8 +712,8 @@ int main(int argc, char** argv) {
     }
     return trace && (actors.empty() || actor_file) && (parser.empty() || parser_file) &&
                    (layout.empty() || layout_file) && (opl.empty() || opl_file) && (midi.empty() || midi_file) &&
-                   (state_hash.empty() || state_file) && (globals.empty() || globals_file) && (save_check.empty() || save_check_file) &&
-                   (round_trip.empty() || round_trip_file)
+                   (state_hash.empty() || state_file) && (globals.empty() || globals_file) &&
+                   (save_check.empty() || save_check_file) && (round_trip.empty() || round_trip_file)
                ? 0
                : 1;
 }
