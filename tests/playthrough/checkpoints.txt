@@ -26,3 +26,8 @@ act-5-parlor 182000 V 304
 act-5-colonel 191200 V 42
 act-5-end 199000 V 42
 act-6-start 202400 VI 43
+act-6-room-44 205000 VI 44
+act-6-room-48 208000 VI 48
+act-6-room-10 216500 VI 10
+act-6-end 227000 VI 6
+act-7-start 230000 VII 12

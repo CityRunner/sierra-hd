@@ -856,3 +856,125 @@ sierra-hd replay 1
 201200 move 319 155
 201202 down 319 155 0
 201206 up 319 155 0
+# Act VI (1:00 AM, from tick 201350 in the hallway 43). Each event is a
+# scene its room shows on entry in Act VI: Laura's room 44 (region 274,
+# bit 2), room 48 (region 276, bit 8), outside the study 10 (region 277,
+# bit 4); then a knock on Celie's door in room 6 (room 6's own script, bit
+# 1). The clocks of 44, 48 and 10 close by themselves.
+# Room 43: across to the upper door on the right (the mirror of the way
+# into 42) into Laura's room 44.
+201900 move 160 160
+201902 down 160 160 0
+201906 up 160 160 0
+202400 move 280 175
+202402 down 280 175 0
+202406 up 280 175 0
+202900 move 220 150
+202902 down 220 150 0
+202906 up 220 150 0
+203400 move 245 140
+203402 down 245 140 0
+203406 up 245 140 0
+203800 move 300 140
+203802 down 300 140 0
+203806 up 300 140 0
+# Room 44: Lillian sits agitated on the bed by her suitcase (event bit 2,
+# region 274, the clock at tick 203833). Back out of the west door into 43
+# and south into 47.
+205000 move 50 157
+205002 down 50 157 0
+205006 up 50 157 0
+205400 move 0 157
+205402 down 0 157 0
+205406 up 0 157 0
+206000 move 160 199
+206002 down 160 199 0
+206006 up 160 199 0
+# Room 47: along the hallway to its east end (control colour 1) into 48.
+206800 move 240 118
+206802 down 240 118 0
+206806 up 240 118 0
+# Room 48: Clarence writes in his notebook at the desk (event bit 8, region
+# 276, the clock at tick 206953). Back west into 47; the arrow keys take
+# Laura along the landing and down the left staircase into 37 (as in Act
+# III).
+208800 move 0 110
+208802 down 0 110 0
+208806 up 0 110 0
+209700 key 20480
+210100 move 60 125
+210102 down 60 125 0
+210106 up 60 125 0
+210700 key 20480
+210850 key 19200
+211200 key 20480
+# Room 37: to the door under the landing and north into 33, out of the
+# French doors into the garden 4 and past the statue west into 10.
+211900 move 58 163
+211902 down 58 163 0
+211906 up 58 163 0
+212500 move 150 150
+212502 down 150 150 0
+212506 up 150 150 0
+213000 move 160 98
+213002 down 160 98 0
+213006 up 160 98 0
+213500 move 160 85
+213502 down 160 85 0
+213506 up 160 85 0
+214000 move 160 95
+214002 down 160 95 0
+214006 up 160 95 0
+214600 move 60 155
+214602 down 60 155 0
+214606 up 60 155 0
+215200 move 0 170
+215202 down 0 170 0
+215206 up 0 170 0
+# Room 10: Rudy sits with Beauregard on the steps outside the study (event
+# bit 4, region 277, the clock at tick 215329). Back east into 4, round the
+# statue and east along the path into 12, up the path behind the house at
+# its top right into Celie's shack 6.
+218500 move 80 55
+218502 down 80 55 0
+218506 up 80 55 0
+219500 move 60 155
+219502 down 60 155 0
+219506 up 60 155 0
+220100 move 250 158
+220102 down 250 158 0
+220106 up 250 158 0
+220700 move 300 176
+220702 down 300 176 0
+220706 up 300 176 0
+221200 move 319 176
+221202 down 319 176 0
+221206 up 319 176 0
+222000 move 312 65
+222002 down 312 65 0
+222006 up 312 65 0
+222600 move 319 65
+222602 down 319 65 0
+222606 up 319 65 0
+# Room 6: Enter closes the description. Onto the porch in front of the
+# door (control colour 4; a knock from elsewhere answers "You're not close
+# enough."), "knock on the door": the clock (event bit 1, room 6's script,
+# the clock at tick 225483), the "Act VII" card, and Celie's "What you
+# doin' here, girl?! Can't you feel the evil in the air?!", closed with
+# Enter. Down off the porch and west into 12: the room change starts Act
+# VII (tick 229082).
+223300 key 13
+223600 move 240 140
+223602 down 240 140 0
+223606 up 240 140 0
+224600 move 240 106
+224602 down 240 106 0
+224606 up 240 106 0
+225400 text knock on the door
+227300 key 13
+227800 move 240 140
+227802 down 240 140 0
+227806 up 240 140 0
+228600 move 0 150
+228602 down 0 150 0
+228606 up 0 150 0
