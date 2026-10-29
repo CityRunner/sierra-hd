@@ -520,9 +520,11 @@ void Machine::load_state(StateReader& in, Execution execution) {
             abort > static_cast<std::uint8_t>(Abort::QuitGame)) {
             in.fail("the execution state is inconsistent");
         }
+        // A send that carries the stack pointer over marks it and the frame
+        // pointer `carry`.
+        const auto beyond = [&](StackIndex index) { return index > stack.size() && index != carry; };
         for (const ExecStack& frame : frames) {
-            if (frame.fp > stack.size() || (frame.sp > stack.size() && frame.sp != carry) ||
-                frame.argp > stack.size()) {
+            if (beyond(frame.fp) || beyond(frame.sp) || frame.argp > stack.size()) {
                 in.fail("a frame points beyond the stack");
             }
         }
