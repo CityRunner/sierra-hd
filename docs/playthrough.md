@@ -543,6 +543,10 @@ Route:
   112)) and out at the top left ((0, 110); a click at (2, 106) stops 2
   pixels short of the edge) into 47: Act VIII (tick 280756).
 
+The whole replay to tick 281600 matches in both engines: traces 1957943
+calls, screens and maps 4694, actors 43527 frames, parser 14 parses (2953
+said calls), layout 5818 lines, OPL 179560 writes; no port bug found.
+
 `tests/playthrough/act-saves.txt` saves Act VIII at tick 281200 (room 47,
 no message on screen).
 
