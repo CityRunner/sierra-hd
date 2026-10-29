@@ -192,6 +192,28 @@ SCI_TEST(a_restore_brings_the_state_back_and_sets_the_restore_flag) {
     SCI_CHECK(game.machine().game_is_restarting() == sci::vm::Restarting::None);
 }
 
+SCI_TEST(a_restore_keeps_the_host_time_and_sets_the_play_time_back) {
+    sci::vm::MemorySaveStore saves;
+    KernelWorld game(saves);
+    sci::vm::Clock& clock = game.world.subsystems.clock();
+    clock.advance(1000);
+    SCI_CHECK(!game.save(0, "At one second").is_null());
+    clock.advance(2000);
+    clock.set_throttle_trigger(true);
+    SCI_CHECK(clock.ticks() == 180 && clock.play_ticks() == 180);
+    SCI_CHECK(game.restore(101));
+    // Virtual time is the host's: it runs on. The play time (kGetTime) is
+    // the save's again and runs on from there.
+    SCI_CHECK(clock.ticks() == 180);
+    SCI_CHECK(clock.play_ticks() == 60);
+    std::array<Reg, 1> elapsed{sci::vm::number(0)};
+    SCI_CHECK(sci::vm::k_get_time(game.machine(), elapsed) == sci::vm::number(60));
+    // The last wait is now (lastWaitTime), and the throttle is reset.
+    SCI_CHECK(!clock.throttle_trigger());
+    SCI_CHECK(clock.wait(6) == 6);
+    SCI_CHECK(clock.ticks() == 186 && clock.play_ticks() == 66);
+}
+
 SCI_TEST(missing_saves_are_not_found) {
     sci::vm::MemorySaveStore saves;
     KernelWorld game(saves);
