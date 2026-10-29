@@ -162,9 +162,11 @@ public:
     // number_restored_song. The device sees what ScummVM's sees; on the
     // MT-32 the play switch and the volumes are channel volume messages.
     void after_restore(const HostSettings& host);
+
     // SciMusic::soundInitSnd for a restored song with a resource
     // (reconstructPlayList): a new ordering time from the counter.
     void number_restored_song(MusicEntry& sound) { sound.time = ++time_counter_; }
+
     // SciMusic::setGlobalReverb: 127 sets the reverb of the song playing,
     // another value the global reverb, which the song playing takes if it
     // has none.

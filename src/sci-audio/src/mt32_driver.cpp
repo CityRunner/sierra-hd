@@ -237,10 +237,12 @@ void Mt32Driver::write_sysex(std::uint8_t device, std::span<const std::uint8_t> 
 }
 
 PlayerChoices Mt32Driver::player_choices() const {
-    return {.play_id = play_id,
-            .polyphony = polyphony,
-            .has_rhythm_channel = has_rhythm_channel,
-            .default_reverb = default_reverb_};
+    return {
+        .play_id = play_id,
+        .polyphony = polyphony,
+        .has_rhythm_channel = has_rhythm_channel,
+        .default_reverb = default_reverb_,
+    };
 }
 
 void Mt32Driver::send_sysex(std::uint32_t address, std::span<const std::uint8_t> data) {

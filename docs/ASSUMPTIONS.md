@@ -2715,10 +2715,59 @@ over every scenario of `tests/scenarios/scenarios.txt`.
 
 - The gate is approved as is and merged: the Linux and Windows matrix is
   green; macOS is optional.
-- Two details of a restore still follow the save rather than ScummVM's
+- Two details of a restore followed the save rather than ScummVM's
   restore: the MT-32's global reverb and the order numbers of restored
-  songs. Neither changes what the scripts see. They are fixed as the first
-  task of milestone 9.
+  songs. Fixed as the first task of milestone 9: see "Milestone 9: the
+  reverb and song order on a restore".
+
+## Milestone 9: the reverb and song order on a restore (2026-10-29)
+
+- **The global reverb** (ScummVM `engines/sci/engine/savegame.cpp`,
+  `SciMusic::saveLoadWithSerializer`, lines 624-650): the byte saved as
+  the reverb is the driver's (`_pMidiDrv->getReverb()`, line 629), not
+  `_globalReverb`, which is not saved; on loading, `setGlobalReverb` (line
+  649, `sound/music.cpp` 384-409) gets it, while the playlist is still the
+  game's before: a value other than 127 becomes the global reverb, and the
+  first song playing takes it on the driver if its own is 127; 127 sets
+  the reverb of that song. The driver's reverb itself is the host's (the
+  driver is not restored). sci-vm took both reverbs from its state. Now
+  `Music::after_restore` takes the driver's and the global reverb from
+  before the restore (`Subsystems::HostState::music`) and calls
+  `Music::set_global_reverb` with the saved driver reverb. For the saved
+  value to be ScummVM's, the driver's reverb in the state now also follows
+  `MidiPlayer_Midi::initTrack`, which sets it to the patch's default
+  before every SCI0 song (`PlayerChoices::default_reverb`; -1 on the
+  AdLib and the silent driver). **Decided.**
+- **The songs' order numbers** (`MusicEntry::time`, which
+  `musicEntryCompare`, `sound/music.cpp` 417-420, sorts by after the
+  priority): neither it nor `SciMusic::_timeCounter` is saved
+  (`MusicEntry::saveLoadWithSerializer`, savegame.cpp 674-713), so a
+  restored song's is 0 until `reconstructPlayList` (initSoundResource)
+  gives every song with a resource `++_timeCounter` in `soundInitSnd`
+  (music.cpp 449), in the order of the list, and the songs played again
+  another in `soundPlay` (613), from the counter of the game before the
+  restore. sci-vm kept the saved times and counter. Now the counter goes
+  on from before the restore, the restored times are 0, and
+  `Sound::reconstruct_play_list` numbers each song with a resource
+  (`Music::number_restored_song`). **Decided.**
+- **Unchanged:** `read_save` still loads the saved values (the persistent
+  hash after it equals the one before saving); only kRestoreGame's
+  sequence changes them, and the round trip, which resumes the execution,
+  keeps the state as saved.
+- **What shows it:** neither changes the scripts or, in this game, the
+  device: the restore dialog pauses every song (no song plays when
+  `setGlobalReverb` runs), no song of the game sets controller 0x50 to 127
+  (the global reverb), and the order numbers only decide between songs of
+  equal priority that are not playing. `two-songs-restore.txt` saves in
+  room 22 while the music and a sound effect are in the playlist, after
+  the effect's controller 0x50 set the reverb to 3, and restores in room
+  10. It matches the reference on all seven comparisons on the AdLib and
+  the MT-32, as it did before the change; there the change shows in the
+  state: on the AdLib the hashes at tick 10600 are the same before and
+  after the change, and from the restore on only the `sound` component
+  differs (the global reverb 3 in place of -1, the songs' new times). The
+  five other save scenarios still match on both devices, and its five
+  round trips give equal hashes and an identical continuation.
 
 ## Spec items carried forward
 
