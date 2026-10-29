@@ -1,0 +1,46 @@
+sierra-hd replay 1
+# A save and a restore through the game's own dialogs (milestone 8), in
+# Laura's bedroom (room 44), with seed 0 and stop tick 6500.
+# Passes the copy protection (seed 0) and answers "Yes" to "Have you
+# previously attended?", which starts Act I in the bedroom (playable from
+# about tick 3300). File > Save game: the save dialog, with "Bedroom" typed
+# as the description and Enter to save. Then Laura walks to the left, and
+# File > Restore game (the menu bar opens on File and the menu on Save, Down
+# goes to Restore): the
+# restore dialog lists the save, Enter restores it, and the game goes on
+# from the bedroom as it was saved.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 key 13
+# File > Save game, "Bedroom", Enter.
+3400 key 27
+3440 key 19712
+3480 key 13
+3700 key 66
+3710 key 101
+3720 key 100
+3730 key 114
+3740 key 111
+3750 key 111
+3760 key 109
+3800 key 13
+# A walk to the left.
+4100 key 19200
+# File > Restore game (the menu bar opens on File, the menu chosen last),
+# Enter on the save listed.
+4600 key 27
+4680 key 20480
+4720 key 13
+4900 key 13
+# Laura walks to the right after the restore.
+5600 key 19712
