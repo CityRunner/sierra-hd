@@ -147,6 +147,24 @@ setters in all):
   Acts I, II, IV and V, not Act III. Room 14 clears bit 4 only in Act VII.
 - A first attempt's route (not kept) reached tick 132900 in room 14
   (outdoors, the playhouse) with bits 4 and 8.
+- **Tried at the start of Act III:** "look through the holes" on the
+  platform of 49 facing the portrait shows the library empty ("There is
+  nothing of interest in the library", room 350 without its scene);
+  facing another way gives "Try facing either set of holes." The view 324
+  (Gloria at the Victrola, bit 8) needs the other set of holes (Laura not
+  facing north, room property `east` 33), not found yet.
+- **The attic from room 47:** room 47's `doit` sends Laura to 74 when she
+  stands on control colour 4 (`onControl` 16) facing north, at the foot of
+  the stairs on the right of the landing. In 1x screen coordinates the
+  strip is x 242-266, y 123-128; game coordinates are 10 pixels higher
+  (the picture port starts at y 10), so a click at (254, 126) walks her
+  onto it (game y 116) from (254, 133). Colour 1 (game y 103-112, x
+  229-267) is the way to room 48, colour 2 the way to 46.
+- Kernel `OnControl` takes game (port) coordinates, the `--screens`
+  control maps are screen coordinates: add 10 to y when reading them.
+- Room 48 in Act III (48 at 01cd): region 259 (Clarence and Rudy argue,
+  bit 4) while bit 4 is clear; it starts timer 370 at 1800 cycles, which
+  would hold the attic scene back, so the route takes the attic first.
 
 ## Planned route of the later acts
 
