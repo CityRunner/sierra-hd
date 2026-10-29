@@ -164,7 +164,23 @@ setters in all):
   control maps are screen coordinates: add 10 to y when reading them.
 - Room 48 in Act III (48 at 01cd): region 259 (Clarence and Rudy argue,
   bit 4) while bit 4 is clear; it starts timer 370 at 1800 cycles, which
-  would hold the attic scene back, so the route takes the attic first.
+  would hold the attic scene back.
+- **Timers are cleared at the act change** (globals 225 to 372 include
+  the timers 368 to 372), so timer 370 is 0 at the start of Act III and
+  the attic scene (261) waits for it: it must be started in Act III, by
+  the argument in room 48 (259, 1800 cycles) or seen through room 50's
+  holes (333, sets it to 1 at once). Fifi's room in the attic (74, the
+  doorway on the right at the top of the stairs) is empty before that.
+- **Room 63, the playhouse** (from 14): from room 3 Laura enters 14
+  behind the playhouse at (276, 100); around it by (268, 108), (285,
+  110), (285, 165) to the door at (221, 130); "knock on the door" brings
+  "Is that you, Laura? Come in and join me."; Enter and she goes in:
+  Ethel in the playhouse, bit 1 at about tick 134550 in the trial route
+  (region 257).
+- Trial route (scratch, about 1 tick per 100 checked with `--actors`):
+  49 -> 33 -> 37 -> 47 -> 48 (bit 4, tick 118500) -> 47 -> 37 -> 36
+  (bit 8, tick 125900) -> 37 -> 33 -> 4 -> 10 -> 3 -> 14 -> 63 (bit 1).
+  The attic then waits for timer 370 (about tick 129300).
 
 ## Planned route of the later acts
 
