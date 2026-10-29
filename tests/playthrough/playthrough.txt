@@ -1392,9 +1392,9 @@ sierra-hd replay 1
 321100 text shoot rudy
 # Enter closes "You have shot and wounded Rudy."; the Colonel's story
 # (his messages close by themselves), then room 784 at tick 328628, "The
-# next morning...": the Colonel leaves his money to Celie (Laura found no
-# treasure on this route, so its lines are left out), and room 786 at tick 332162: the sleuth-o-meter and "Would you
-# like to review your notes?" (Yes, Quit).
+# next morning...": the Colonel leaves his money to Celie if she cares for
+# his animals, and room 786 at tick 332162: the sleuth-o-meter and "Would
+# you like to review your notes?" (Yes, Quit).
 322100 key 13
 # Room 786: Enter is Yes: Laura's notebook (Open, Exit); Enter opens it,
 # Enter twice turns its pages ("Person Befriended", "Took Food Item From",

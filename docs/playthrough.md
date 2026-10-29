@@ -560,28 +560,105 @@ New risks found:
   repeats a way in (room 14's door with bit 2 set clears bit 4); go in
   once.
 
-## Act VIII (in progress)
+## Act VIII (done)
 
-Found in the scripts (Act VIII is global 165 = 7):
+Stop tick 338000 (Act VIII starts at tick 280756 in the hallway 47; the
+game ends by itself at tick 337613, when QUIT is clicked on the last
+screen). The good ending: Laura shoots Rudy.
 
-- Room 65 (the hedge garden) is reached from room 18 (east of 12); region
-  280's `handleEvent` takes "get the derringer" (Laura within 10 pixels of
-  the derringer by Lillian's feet), "get the bullet" (within 10 of the
-  bullet by her hand; picking up the derringer first says the bullet is
-  there) and "search lillian" or "look in the cape" (within 25 of her body:
-  the skeleton key, item 5).
-- "load the derringer" is answered anywhere by script 410 (the inventory's
-  handler) and in region 290: with the derringer (item 15) and the bullet
-  (item 14) it puts the bullet away and sets global 185 (loaded).
-- Room 74's `doit` enters 75 on control colour 2 at any time and on colour
-  8 when global 123 bit 64 is set.
-- Region 290's fight script: "shoot rudy" ("shoot , kill / rudy", "shoot /
-  derringer / rudy") with global 185 set works only while the script is in
-  state 1 (it then goes to state 7: Rudy shot); state 1 lasts 10 seconds
-  from the "fierce struggle" message. Without a loaded gun: "You have no
-  gun.", "You have no bullet.", "Click! ...". "shoot the colonel" in state
-  1 goes to state 25 (the bad ending); after state 1 the fight goes on to
-  "Too late!" and the bad ending.
+Found in the scripts (Act VIII is global 165 = 7; it has no event bits):
+
+- **The hedge garden 65** is reached from room 18 (off 12's east edge below
+  the back path) through the archway, control colour 2. Room 65 loads
+  region 280: Enter on its description starts the scene ("Oh, no!!!
+  Someone has shot Lillian to death in the hedge garden!!"), which sets
+  global 123 bit 64, shows the clock and starts timer 368 (3600 cycles,
+  set at 0213).
+- **Region 280's `handleEvent`** takes "get the derringer" (Laura within 10
+  pixels of the derringer, actor at (61, 122) by Lillian's feet: "As you
+  stoop to pick up the derringer your eye happens to fall upon a
+  bullet..."), "get the bullet" (within 10 pixels of the bullet at (72,
+  105) by her hand: "Okay.") and "search lillian" or "look in the cape"
+  (within 25 pixels of her body at (91, 114): the wound, then the skeleton
+  key, item 5). The body blocks the direct way; round its head.
+- **"load the derringer"** is answered anywhere by script 410 (the
+  inventory's verbs) and in region 290: with the derringer (item 15) and
+  the bullet (item 14) it prints "Okay." (procedure 22 of script 0, a modal
+  message), then puts the bullet away and sets global 185, the loaded gun,
+  once Enter closes the message.
+- **"You hear scuffling upstairs."** Rooms 33, 37 and 47 print it (47:
+  "... further upstairs.") on entry and again about every 1450 ticks; it
+  is modal, so a click while it is up only closes it.
+- **The attic door, room 74.** Room 47 enters 74 on control colour 4 only
+  with Laura facing up (loop 3). Room 74's `doit` enters 75 on control
+  colour 1 at any time and on colour 3 (the attic door at the top of the
+  stairs) when global 123 bit 64 is set (at 04f1). But colour 3 is in
+  Laura's illegal bits until the door is open (global 117 bit 32768):
+  "unlock the door" with the skeleton key ("Using the skeleton key, you
+  unlock the attic door.", sets global 117 to 1) and "open the door", both
+  inside the rectangle x 21 to 47, y 95 to 110.
+- **Region 290, the fight in 75.** Its `init` checks timer 368: at 1 (run
+  out, about 21600 ticks after Lillian's scene) the Colonel is already dead
+  ("too late", the bad ending); otherwise the fight. Its script's state 1
+  prints "Oh, no!! Colonel Dijon and Rudy are in the midst of a fierce
+  struggle! ..." (modal) and then waits 10 seconds. "shoot rudy" ("shoot ,
+  kill / rudy" or "shoot / derringer / rudy") with global 185 set, in state
+  1, clears 185 and goes to state 7: "You have shot and wounded Rudy.", the
+  Colonel's story and (state 24) room 784. Without a gun, a bullet or a
+  loaded gun the answers are "You have no gun.", "You have no bullet.",
+  "Click! Oh no! It's not loaded!".
+- **The bad ending would need** one of: "shoot the colonel" in state 1
+  (state 25: "He's dead! You have shot and killed Colonel Dijon!"), no
+  shot within the 10 seconds of state 1 (the fight goes on: "Too late!"),
+  or reaching 75 after timer 368 has run out; each goes through Rudy's
+  version (state 45) to room 785 ("The next morning...", "Later that same
+  day...", the wharf of New Orleans, "The End") and then to 786. Not
+  played.
+
+Route (the replay's comments have the clicks):
+
+- 47: the arrow keys along the landing and down the left staircase into
+  37 (as in Act VI); 37, 33, the garden 4, round the statue and east into
+  12; round the path at the top right and off the east edge into 18; Enter
+  closes its description; along the stepping stones to the archway and the
+  up arrow key into 65.
+- 65: Enter twice (the description, then Lillian's scene; the clock at tick
+  295000); to the derringer, "get the derringer", Enter; round her head to
+  the bullet, "get the bullet", Enter; "search lillian", Enter twice (the
+  skeleton key); "load the derringer", Enter (global 185 set at tick
+  307500). Back round her head and out of the archway into 18 (tick about
+  308400).
+- 18: down to the stones and west into 12; up the path at the right onto
+  the back path and west into 4; off its bottom edge into 33 (Enter closes
+  the scuffling), into 37, the foot of the left staircase (Enter closes
+  the scuffling again) and up into 47 (as in Act I).
+- 47: Enter (the scuffling); to the right end of the landing, down a step
+  and along to the foot of the attic stairs at x 257 (at x 254 Laura's
+  base touches the wall beside colour 4), the up arrow key into 74.
+- 74: up the stairs to the attic door, "unlock the door", Enter, "open the
+  door", the up arrow key into 75 (tick 320621, timer 368 at 800).
+- 75: Enter closes the fight's message; "shoot rudy" at tick 321100:
+  "You have shot and wounded Rudy.", Enter. The Colonel's story closes its
+  messages by itself; room 784 at tick 328628 ("The next morning...": the
+  Colonel leaves his money to Celie if she cares for his animals), room
+  786 at tick 332162.
+- 786: the sleuth-o-meter and "Would you like to review your notes?"
+  (Yes, Quit): Enter (Yes), the notebook (Open, Exit): Enter (Open), Enter
+  twice for its pages ("Person Befriended", "Took Food Item From", ...),
+  a click on CLOSE and one on Exit; "Some portions of your notes are
+  rather scanty. You can replay the game to gain additional information."
+  with HINTS, RESTORE, RESTART and QUIT: a click on QUIT (tick 337600)
+  sets global 4 and the game ends at tick 337613.
+
+**The quit.** Both engines stop by themselves when the game quits before
+the stop tick: sci-vm's run ends when the game's main loop returns, and the
+reference ScummVM quits with the game (run-scenario.sh needs no change).
+`sci-vm-trace --globals` now writes, for a requested tick after the game
+has quit, the globals as the game ended with the tick it ended at, and
+`where.py` checks the last checkpoint, `ending 338000 quit 786`: global 4
+set before tick 338000, in room 786.
+
+COUNTS_PLACEHOLDER
 
 ## Images
 
@@ -599,6 +676,7 @@ tests/playthrough/playthrough.txt` (original | HD side by side):
 | V | 191200: the Colonel's room 42, the Colonel and Fifi ("But, Uncle Henri, I don't understand how you could...!") | 179800: through the holes of passage 50, Rudy in the dining room ("You see Rudy having dessert and coffee in the dining room.") |
 | VI | 227000: Celie's shack 6, Laura at the door ("What you doin' here, girl?! Can't you feel the evil in the air?!") | 216500: outside the study 10, Rudy with Beauregard on the steps |
 | VII | 253500: the chapel 58, Celie praying ("What're you doin' here, girl?! Somethin' mighty turrible is happenin'!") | 270000: Laura's room 44, Rudy searching it |
+| VIII | 322000: the attic 75, Rudy shot ("You have shot and wounded Rudy.") | 329500: the epilogue 784, the Colonel, Laura and Celie ("You've been a loyal servant to me for many years, Celie. ...") |
 
 ## How the game ends (found in the scripts)
 
@@ -647,10 +725,8 @@ So the playthrough's end is: room 65 in Act VIII (take the derringer and
 the bullet, load the derringer), up to the attic 74 and into 75, shoot
 Rudy, the 784 epilogue (Enter for its messages), the rating 786, and a
 click on QUIT (or a stop tick on the rating screen, with global 11 at
-786 as the last checkpoint). The exact commands ("shoot rudy", "load the
-derringer"), Laura's place in 75 and the timing of the fight are for the
-Act VIII task to read in region 290's `handleEvent` (0052 to 04e2) and
-check with frames.
+786 as the last checkpoint). The exact commands, the attic door and the
+timing of the fight are in "Act VIII (done)".
 
 ## Planned route of the later acts
 
@@ -663,7 +739,7 @@ From the regions that set the bits of global 118 and the act each room's
 | V | done (above) |
 | VI | done (above) |
 | VII | done (above) |
-| VIII | starts at tick 280756 in the hallway 47 (3:00 AM, global 186 at 2, timers 0). No event bits: the game ends through the attic (above, "How the game ends"). Room 65: region 280, Lillian shot in the hedge garden (sets global 123 bit 64; the derringer, a bullet and the skeleton key are on her body); then the attic 74 (up the stairs from 47) into 75, region 290, the Colonel and Rudy fighting. Other Act VIII scenes: the chapel 58 and room 69 (region 256, Wilbur dead), rooms 6, 16 and 73. Passages 49 and 50 are safe; the attic 76 is safe from `Strangle` |
+| VIII | done (above, "Act VIII (done)") |
 
 Other setters by room script: 6 (Act VI), 10 and 59 (bit 1), 22 (Act IV), 48
 (bit 1), and the 300 and 400 scripts of the scenes. The game ends after Act
