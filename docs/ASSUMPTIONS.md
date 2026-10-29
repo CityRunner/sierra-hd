@@ -2836,3 +2836,37 @@ the old numbers to the new ones, so older references stay unambiguous:
   everything links. These functions are removed as soon as the library has
   real content (sci-resource: milestone 1; sci-pic, sci-view and sci-text: milestone 2;
   sci-core, sci-vector and sci-render: milestone 3).
+
+## Milestone 9: the playthrough in the program (2026-10-29)
+
+- **A replay uses the deterministic time of day.** With `--replay`, the
+  program's kGetTime(1) and the other times of day are those of
+  sci-vm-trace (Monday 1990-01-01, 12:00:00, running with the virtual
+  clock), not the host's: the game reads the time of day 32222 times in
+  the playthrough, and with the host's clock the replay went past the
+  quit. A game without a replay keeps the host's time, as ScummVM.
+  **Decided.**
+- **`--fast` only changes the pacing.** The waits pass the virtual time
+  without waiting for real time; the input is passed on, the music timer
+  calls of the whole wait run, the screen is presented at most every
+  16 ms of real time without vsync, and the audio output makes no samples
+  while its queue is full (the driver's timer calls still run; only what
+  is heard differs). The game sees the same virtual time, input and timer
+  calls, so it plays the same: every run of the playthrough ends in
+  sci-vm-trace's tick, globals and state hash. The whole game takes about
+  30 s instead of 94 minutes. Real-time presentation without `--fast` is
+  unchanged. **Decided.**
+- **The state hash at a tick past the end.** `sci-vm-trace --state-hash`
+  reports a requested tick the run does not reach with the state as the
+  game ended (as `--globals` did), so that `sierra-hd --end-state` can be
+  compared with it. **Decided.**
+- **The window opens at the configured N** (`scale` 1 to 16; at most what
+  the display's usable area holds), not at 3: the frame is never larger
+  than the window, so a window that is not resized showed N = 3 for
+  `scale = 4`. With `scale = auto` it still opens at 3. **Decided.**
+- **Log lines accepted in the headless runs**
+  (`tools/playthrough/program-run.sh`): only those of the headless
+  display, not of the program: SDL's "XDG_RUNTIME_DIR is invalid", Mesa's
+  "ZINK: vkCreateInstance failed" and "glx: failed to create drisw screen"
+  (Xvfb has no GPU, so SDL's renderer is software), Xvfb's keyboard lines.
+  Every warning or error of the program counts. **Decided.**

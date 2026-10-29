@@ -16,6 +16,13 @@ the whole replay so far runs from the start in sci-vm and in the reference
 ScummVM, and every comparison of `tools/vm-trace/run-scenario.sh` must
 match (traces, screens, maps, actors, parser, layout, OPL).
 
+**Done in the program too** (section "The playthrough in the program"):
+`sierra-hd --replay` with `--fast` plays the replay to QUIT and exits with
+0 in HD and original mode, N = 4 and 2, AdLib and MT-32, without errors or
+warnings, in about 30 s each, and ends in sci-vm-trace's state (tick,
+globals and state hash). Open: a run in real time and the customer's
+manual playthrough.
+
 ## How the clock moves
 
 Found in the game's scripts (disassembled from the resources) and checked
@@ -703,6 +710,82 @@ tests/playthrough/playthrough.txt` (original | HD side by side):
 | VI | 227000: Celie's shack 6, Laura at the door ("What you doin' here, girl?! Can't you feel the evil in the air?!") | 216500: outside the study 10, Rudy with Beauregard on the steps |
 | VII | 253500: the chapel 58, Celie praying ("What're you doin' here, girl?! Somethin' mighty turrible is happenin'!") | 270000: Laura's room 44, Rudy searching it |
 | VIII | 322000: the attic 75, Rudy shot ("You have shot and wounded Rudy.") | 329500: the epilogue 784, the Colonel, Laura and Celie ("You've been a loyal servant to me for many years, Celie. ...") |
+
+## The playthrough in the program
+
+The same replay, seed 0, in `sierra-hd` itself (`src/app`), headless:
+`tools/playthrough/program-run.sh` (inside the toolchain container, the
+game at `/game`, the MT-32 ROMs at `/roms` for `--music mt32`) gives the
+program a run folder of its own (a copy of the executable, `hints/`, a
+`sierra-hd.ini` with the mode, N, music device and ROM folder, and the
+analysis cache, shared and warm or emptied first), runs it under Xvfb
+(1920 x 1200 screen; `SDL_AUDIODRIVER=dummy`, or `disk`) with
+`--replay tests/playthrough/playthrough.txt --seed 0 --fast --end-state
+<file>`, and checks:
+
+- the program ends by itself with status 0 when the game quits (QUIT on
+  the last screen), within the time limit (default one hour);
+- its log has no error or warning: every `[<category>:error]` or
+  `[<category>:warning]` line, an assertion, "The interpreter stopped",
+  "Cannot ..." and any other line naming an error or a failure counts.
+  Accepted: the headless display's own lines, which a desktop does not
+  print and which are not the program's: SDL's "XDG_RUNTIME_DIR is
+  invalid", Mesa's "ZINK: vkCreateInstance failed" and "glx: failed to
+  create drisw screen" (no GPU, so the renderer is software), Xvfb's
+  keyboard lines;
+- the game ends in sci-vm-trace's end state: the same tick, every global
+  the same, and the same VM state hash, total and per part
+  (`--end-state` against `sci-vm-trace --globals` and `--state-hash` at a
+  tick past the end, on the same music driver: `--opl` for AdLib, `--music
+  mt32` for the MT-32, the silent driver for `off`, since the hash's
+  "sound" part holds the driver's state).
+
+**Done (2026-10-29), release build, every run complete from the boot to
+QUIT:**
+
+| Mode | N | Music | Cache | Status | Wall time | Errors / warnings | End |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| HD | 4 | AdLib | cold (176 scenes analysed in 2.4 s) | 0 | 29 s | 0 / 0 | tick 337613, state equal |
+| HD | 4 | AdLib | warm | 0 | 26 s | 0 / 0 | tick 337613, state equal |
+| original | 4 | AdLib | warm | 0 | 30 s | 0 / 0 | tick 337613, state equal |
+| HD | 4 | MT-32 (the customer's v1.07 control and PCM ROMs) | warm | 0 | 26 s | 0 / 0 | tick 337613, state equal |
+| HD | 2 | AdLib | warm | 0 | 25 s | 0 / 0 | tick 337613, state equal |
+| HD | 4 | AdLib, `SDL_AUDIODRIVER=disk` | warm | 0 | 28 s | 0 / 0 | tick 337613, state equal |
+| original | 4 | off | warm | 0 | 22 s | 0 / 0 | tick 337613, state equal |
+
+The info lines of each log: the release found, the scenes analysed (cold
+cache), the audio device (44100 Hz, 1024-frame buffer), the MT-32's ROMs,
+the progress every ten game minutes (room and act, as `where.py`), and
+the audio summary (about 5580 s of music dropped: the fast replay makes
+no music it cannot play).
+
+What it took:
+
+- **The time of day.** The game reads it (kGetTime(1)) 32222 times in the
+  playthrough. With the host's clock, the replay went past the quit
+  (still running at tick 864000). With `--replay`, the program now uses
+  the deterministic day of sci-vm-trace (Monday 1990-01-01, 12:00:00,
+  running with the virtual clock; `Game::use_deterministic_time`). A
+  game without a replay keeps the host's time, as ScummVM.
+- **`--fast`** (only the pacing; docs/ASSUMPTIONS.md, "Milestone 9: the
+  playthrough in the program"). In real time the replay takes the game's
+  337613 ticks, 94 minutes; with the music on, even without waiting, the
+  OPL or MT-32 synthesis of all of it took about real time, and vsync held
+  the presentation to the display. The fast waits do not wait, present
+  at most every 16 ms without vsync, and make no samples while the audio
+  queue is full; the game sees the same virtual time and music timer
+  calls, which the equal end states show.
+- **`--end-state <file>`** writes the tick, the globals and the state
+  hash as the game ended, in sci-vm-trace's lines. sci-vm-trace's
+  `--state-hash` now also reports a tick past the end with the state as
+  the game ended, as `--globals` already did.
+- **The window opens at the configured N** (320N x 200N, smaller if the
+  display has no room); it opened at 3 before, so `scale = 4` showed N =
+  3 in a window that was not resized.
+
+Not done: a run in real time (`--real`, about 94 minutes per run), and
+the customer's manual playthrough (HD mode) and spot checks (original
+mode).
 
 ## How the game ends (found in the scripts)
 

@@ -55,8 +55,11 @@ does.
   the time pass. Per requested tick: `<tick> <reached> total <sha-256>`,
   `<tick> <reached> persistent <sha-256>` (all but the execution), then
   `<tick> <reached> <component> <bytes> <sha-256>` for each component, so
-  that two files show which part of the state differs. Two runs of the
-  same scenario, and runs on x86-64 and ARM64, give the same file:
+  that two files show which part of the state differs. A tick the run does
+  not reach because the game quit gets the state as the game ended, with
+  `<reached>` the tick it ended at (`sierra-hd --end-state` writes the
+  same). Two runs of the same scenario, and runs on x86-64 and ARM64, give
+  the same file:
 
       sci-vm-trace /game build/boot.txt --replay tests/scenarios/boot.txt \
           --stop-tick 3600 --state-hash 1000,2000,3600 build/boot-state.txt
