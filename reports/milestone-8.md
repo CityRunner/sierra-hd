@@ -1,6 +1,6 @@
 # Milestone 8: saves
 
-Status: **awaiting approval**.
+Status: **approved** (2026-10-29), as is.
 
 Exit criterion (spec section 12): saving and restoring at a set of scenario
 points gives a VM state with the same hash as before saving, and replay

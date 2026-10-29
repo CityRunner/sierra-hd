@@ -2711,6 +2711,15 @@ over every scenario of `tests/scenarios/scenarios.txt`.
   (`sci-vm-trace --load-save`) gives the same hashes, whose persistent
   part is the hash at the save. **Decided.**
 
+## Milestone 8 approval (2026-10-29)
+
+- The gate is approved as is and merged: the Linux and Windows matrix is
+  green; macOS is optional.
+- Two details of a restore still follow the save rather than ScummVM's
+  restore: the MT-32's global reverb and the order numbers of restored
+  songs. Neither changes what the scripts see. They are fixed as the first
+  task of milestone 9.
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with
