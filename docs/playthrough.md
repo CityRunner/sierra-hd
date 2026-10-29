@@ -119,7 +119,7 @@ message on screen).
 
 ## Act III (done)
 
-Stop tick 154400 (Act IV starts at tick 153500 in room 14, outside the
+Stop tick 154400 (Act IV starts at tick 153412 in room 14, outside the
 playhouse).
 
 Every write of global 118 in the scripts is `lsg 118; ldi <bit>; or; sag
@@ -174,7 +174,7 @@ Route:
   (285, 165)) to the door at (221, 130). "knock on the door": "Is that
   you, Laura? Come in and join me." Enter, and she goes into 63: event
   bit 1, then the "Act IV" card. Out of the door into 14: Act IV (tick
-  153500).
+  153412).
 
 `tests/playthrough/act-saves.txt` saves Act IV at tick 154000 (no message
 on screen).
@@ -285,6 +285,11 @@ New risks found:
 - **Arrow keys at the edges.** Clicks at the right edge of room 3 stop at
   the fence; the arrow keys walk Laura off the edges and through the
   study's French doors.
+
+## Act V (in progress)
+
+Act V starts at tick 169510 in room 21 (12:00 midnight), all timers 0,
+global 114 = 10, global 115 = 12.
 
 ## Images
 
