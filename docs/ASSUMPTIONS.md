@@ -552,6 +552,18 @@ finish between limits, so that each limit costs at most one small task.
 - **Commit before checks.** Work is committed before a long check starts,
   so a stop or a restart of the session never leaves it only in the
   working tree.
+- **Save work before a limit can stop it** (the customer's rule,
+  2026-10-29, after the first Act III attempt lost an hour of findings):
+  usage limits come without warning, so every task commits from the
+  start, not only at the end.
+  - The first commit comes within 15 minutes, then at least every 20.
+  - Findings count as work: notes on what was found and tried (script
+    offsets, conditions, routes that failed) go into the docs and are
+    committed even when nothing else is finished.
+  - A task's worktree with no commits is removed when the task stops, so
+    an uncommitted finding is a lost finding.
+  - The main session commits merged work at once and pushes it after the
+    local checks, so nothing waits only in its working tree either.
 - **Unchanged:** the milestone gates, the checks they need and the CI cost
   policy. Splitting changes how the work is scheduled, not what is checked.
 
