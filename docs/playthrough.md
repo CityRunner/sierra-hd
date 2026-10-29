@@ -378,20 +378,96 @@ New risks found:
   walk Laura out of it (33's left edge leads into the library 32); check
   the room after each step.
 
-## Act VI (in progress)
+## Act VI (done)
 
-Found in the scripts (Act VI is global 165 = 5):
+Stop tick 230000 (Act VI starts at tick 201350 in the hallway 43, 1:00
+AM, with all timers 0 and global 187 at 0; Act VII at tick 229082 in room
+12).
 
-- Room 44 (Laura's room) loads region 274 in Act VI; its scene sets bit 2
-  (setter at 013b) when bit 2 is clear. No other precondition.
-- Room 48 loads region 276 in Act VI; its `init` starts the scene that sets
-  bit 8 (setter at 04b9) when bit 8 is clear.
-- Room 10 loads region 277 in Act VI; its `init` starts the scene that sets
-  bit 4 (setter at 0308) when bit 4 is clear.
-- Room 6 (Celie's shack): knocking in Act VI with global 135 bit 256 clear
-  shows "What you doin' here, girl?! ..." (text 6 16), sets the bit and
-  starts the scene that sets bit 1 (setter at 0724); a second knock answers
-  "Go away!!".
+Act VI needs no timers or flags: three rooms show their scene on entry,
+and Celie answers a knock. Found in the scripts (Act VI is global 165 =
+5):
+
+- Room 44's `init` loads region 274 in Act VI; the region's `init`
+  starts the scene, which sets bit 2 (setter at 013b) when it is clear.
+- Room 48's `init` loads region 276 in Act VI (the case `2` before it is
+  Act III's 259/260); its `init` starts the scene that sets bit 8
+  (setter at 04b9).
+- Room 10's `init` loads region 277 in Act VI; its `init` starts the
+  scene that sets bit 4 (setter at 0308).
+- Room 6, Celie's shack: "knock on the door" works only with Laura on
+  control colour 4 in front of the door (the porch, screen rows 104 to
+  110); elsewhere it answers "You're not close enough.". In Act VI the
+  knock script's state 3 shows text 16 when global 135 bit 256 is clear,
+  sets the bit and starts the scene that sets bit 1 (setter at 0724); a
+  second knock answers "Go away!! I'm not unlockin' this here door
+  anymore!" (text 17).
+- Views 335 (Laura's room, bit 2) and 334 (room 48, bit 8) through
+  passage 50's holes are other ways to the same bits, not used.
+
+The four events, checked with `--globals` (the tick is the clock's
+`ScriptID(406, 0)` in the trace):
+
+| Bit | Scene | Room: script | Precondition | Tick |
+|---|---|---|---|---|
+| 2 | Lillian sits agitated on the bed by her suitcase | 44: region 274 (setter at 013b) | bit 2 clear | 203833 |
+| 8 | Clarence writes in his notebook at the desk | 48: region 276 (setter at 04b9) | bit 8 clear | 206953 |
+| 4 | Rudy sits with Beauregard on the steps outside the study | 10: region 277 (setter at 0308) | bit 4 clear | 215329 |
+| 1 | Celie behind her locked door ("What you doin' here, girl?! Can't you feel the evil in the air?!") | 6: the room's knock script (setter at 0724) | Laura on control colour 4 at the door; global 135 bit 256 clear | 225483 |
+
+Route:
+
+- 43: across to the upper door on the right ((280, 175), (220, 150),
+  (245, 140), (300, 140), the mirror of the way into 42) into 44: bit 2.
+  The clocks of 44, 48 and 10 close by themselves (about 600 ticks).
+- Out of 44's west door into 43, south into 47, to the east end of the
+  hallway ((240, 118)) into 48: bit 8.
+- Back west into 47, the arrow keys down the left staircase into 37 (as
+  in Act III), north into 33, out into the garden 4, west into 10: bit 4.
+- Back to 4 ((80, 55) in 10), round the statue, east into 12, up the path
+  at its top right ((312, 65), (319, 65)) into 6. Enter closes the
+  description; (240, 140) then (240, 106) onto the porch, "knock on the
+  door": the clock (bit 1), the "Act VII" card and Celie's message, closed
+  with Enter.
+- Down off the porch ((240, 140)) and west ((0, 150)) into 12: Act VII
+  (tick 229082).
+
+`tests/playthrough/act-saves.txt` saves Act VII at tick 229800 (room 12, no
+message on screen).
+
+New risks found:
+
+- **Commands that need a place.** Knocking needs the control colour of
+  the door, not just a spot near it; read the room's `handleEvent` and the
+  control map (screen rows are 10 below game rows).
+- **Deaths in Act VII** (read in the scripts; each ends with script 0's
+  procedure 19, the death message, after setting globals 128 to 132):
+  - **The secret passages, by chance.** Room 49's `doit` (at 0443): while
+    Laura is inside the rectangle x 120 to 129, y 115 to 118 with no
+    script, in Acts II to VII but not Act V, `Random(1, 100)` below 35
+    starts `grabbed` ("That's what you get for being such a snoop,
+    Laura!"). Room 50's (at 04d2): the rectangle x 190 to 197, y 111 to
+    114, Acts II to VII but not Act VI. Each game cycle in the rectangle
+    draws again, so standing there is death, and walking through draws
+    the random numbers on which later scenes depend. Act VIII is safe in
+    both.
+  - **The dark back of the attic 76** (`doit` at 00e8): control colour 14
+    with no script, flag 46 clear and an act before VIII starts
+    `Strangle` ("What a cruel choke!").
+  - Not tied to an act: the bayou and the swamp (rooms 1, 7, 8, 25, 28,
+    30: falling or sinking in the muck, the alligator of 8 and 405), the
+    bell tower of room 3 (`ringBell`, with global 164 set and an item:
+    "Now you're a real southern belle."), the laundry chutes of 34 and 44
+    ("Oh, chute!"), room 37 (`crush` from control colour 16 facing down,
+    and `oiling` the armour: "Got a 'splitting headache,' Laura?"), room
+    47 (`falling` over the railing of the landing; `myDoor`, a door opened
+    on control colour 32: "That's what you get for being such a snoop"),
+    the dark passage 51 without light ("It's too dark!"), the stable 69
+    (behind Blaze, unless he was fed: "You're a DEAD ringer"), the
+    elevator shaft (script 201's `ElevGate`) and the shower of the
+    bathroom 73 (room 215, "Didn't Alfred teach you anything?!"). Their
+    exact preconditions were not all read; the route keeps away from these
+    places and actions.
 
 ## Images
 
@@ -407,6 +483,7 @@ tests/playthrough/playthrough.txt` (original | HD side by side):
 | III | 135000: Fifi's room in the attic 74 ("You'll regret that, you little vixen!") | 119000: room 48, Clarence and Rudy arguing |
 | IV | 166500: room 22, Clarence and Rudy fight by the statue | 161200: the study 31, Lillian ("Oh, Laura... you startled me!") |
 | V | 191200: the Colonel's room 42, the Colonel and Fifi ("But, Uncle Henri, I don't understand how you could...!") | 179800: through the holes of passage 50, Rudy in the dining room ("You see Rudy having dessert and coffee in the dining room.") |
+| VI | 227000: Celie's shack 6, Laura at the door ("What you doin' here, girl?! Can't you feel the evil in the air?!") | 216500: outside the study 10, Rudy with Beauregard on the steps |
 
 ## Planned route of the later acts
 
@@ -417,9 +494,9 @@ From the regions that set the bits of global 118 and the act each room's
 | Act | Candidate events (room: region, bit) |
 |---|---|
 | V | done (above) |
-| VI | Laura's room 44: region 274 (bit 2); room 10: region 277 (bit 4); rooms 41 and 73: region 278; the attic 74: region 273 (global 123 bits 16 and 64); room 6's own script (bit 1, setter at 071f; its `init` checks Act VI); region 276 (bit 8, rooms 13, 14, 48 and 65; room 48 loads it in Act VI); through passage 50's holes when Laura came in from 43 (`west`): facing up the view 335 (scene44f, Laura's room, bit 2), any other way 334 (scene48f, room 48, bit 8). Act VI starts in the hallway 43 with flags 37 and 38 clear, timer 369 0 and global 187 at 0 |
-| VII | the grounds: region 281 (bit 1); Laura's room 44: region 385 (bit 4); room 69: region 256 |
-| VIII | room 65: region 280; the chapel 58 (regions 256, 279, bit 8); bit 2 to find (region 261 in the attic is Act III's) |
+| VI | done (above) |
+| VII | the grounds: region 281, Rudy walking (bit 1; loaded in Act VII by the outdoor rooms, for example 10, 13 and 14; scripts 3, 9, 15, 20, 21, 25 to 27, 57 and 73 load it too; a walk on timers like Act IV's); Laura's room 44: region 385, Rudy searching the room (bit 4, loaded in Act VII); the playhouse 63: region 282 (bit 2, loaded in Act VII while bit 2 is clear; "We have a visitor, darlings."); the chapel 58: region 279, Celie praying (bit 8, loaded in Act VII, sets global 121 to 69); room 69: region 256 (Wilbur dead, no bit). Act VII starts in room 12 with all timers 0. Deaths: see Act VI's risks (passages 49 and 50 by chance, the dark attic 76) |
+| VIII | room 65: region 280 (Lillian shot in the hedge garden); the chapel 58 (region 256; region 279 is Act VII's); bit 2 to find (region 261 in the attic is Act III's). Passages 49 and 50 are safe; the attic 76 is safe from `Strangle` |
 
 Other setters by room script: 6 (Act VI), 10 and 59 (bit 1), 22 (Act IV), 48
 (bit 1), and the 300 and 400 scripts of the scenes. The game ends after Act
