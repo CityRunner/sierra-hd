@@ -193,69 +193,98 @@ New risks found:
   a timer running out while Laura is already in the room does not start
   the scene.
 
-## Act IV (in progress)
+## Act IV (done)
 
-Act IV starts at tick 153500 in room 14. The four setters of global 118
-loaded in Act IV (global 165 is 3), from the disassembly:
+Stop tick 170800 (Act IV starts at tick 153412 in room 14, the room's
+picture after the playhouse; Act V at tick 169510 in room 21).
 
-- Bit 4, Ethel outdoors (region 202, script `ethelActions` at 0429, the
-  setter at 0470; loaded in rooms 3, 4, 5, 9, 10, 13, 14, 21, 25 to 27 in
-  Acts I to IV). Timer 368 drives her walk: a 202 room's `init` sets it to
-  1099 (global 113 to 0) when it is 0, and to 900 (113 to 2) when it has
-  run out. Her `doit` shows her when the timer is a multiple of 100 and
-  Laura is in room `local72[timer / 100]` (not in room 4): 1000 room 4,
-  900 room 10, 800 room 3, 700 room 9, 600 room 13, 500 room 25, 400
-  room 26, 300 room 27, 200 room 21, 100 room 14. Entering room
-  `local72[11 - g113]` while the timer is above (10 - g113) * 100 shows
-  her too. At Act IV's start room 14 sets the timer to 1099 (1068 at tick
-  153600, about 6.06 ticks per cycle).
-- Bit 8, Clarence outdoors (region 203, scripts `clarwand` /
-  `clarActions`, the setter at 02c2; rooms 6 (while global 115 is below
-  2), 7, 8, 18, 23, 29, 30 in Act IV). Timer 371 (368 + 3) and global 115:
-  the first 203 room sets the timer to 700 and 115 to 0; entering room 18
-  (`local42[7 - g115]`) while the timer is at least 600 shows him at once;
-  otherwise he shows at timer 600 in room 6, 500 in 7, 400 in 8, 300 in
-  30, 200 in 29 and 100 in 23 (`local42` = 22, 23, 29, 30, 8, 7, 6, 18).
-  When his walk reaches index 0 (room 22) the timer is set to 1.
-- Bit 1 (or bit 8 when bit 1 is set), Clarence and Rudy fight in room 22
-  (the room's script, setter at 05d7). Room 22's `init` starts it in Act
-  IV when global 114 or 115 is 8, or timer 371 or timer 369 is 1, and
-  global 114 is not 10.
-- Bit 2, Lillian in the study 31 (region 264, setter at 0224): room 31
-  loads 264 in Act IV while bit 2 is clear, and its script sets the bit
-  in state 0, with no other condition.
+Ethel, Rudy and Clarence walk the grounds on timers, each a region loaded
+in the outdoor rooms, with a table of rooms in its locals (read from the
+scripts' local blocks). The four events, checked with `--globals` (the
+tick is the clock's `ScriptID(406, 0)` in the trace):
 
-Room exits (the room properties at 28, 30, 32: east, south, west): 3 E10
-S14 W9; 4 E12 S33 W10; 6 E7 S18 W12; 7 S8 W6; 12 S23 W17; 14 E10 W13; 18
-E8; 23 E24 S29 W22; 24 E8 W23; 29 E30 W28; 30 W29.
+| Bit | Scene | Room: script | Precondition | Tick |
+|---|---|---|---|---|
+| 4 | Ethel comes by, drunk | 3: region 202 (`ethelActions`, setter at 0470) | Laura in the room of Ethel's walk when timer 368 is a multiple of 100 | 155206 |
+| 1 | Rudy comes by | 3: region 281 (`rudyActions`, loaded in Act IV while global 114 is below 2) | Laura in the room of Rudy's walk when timer 369 is a multiple of 100 | 155662 |
+| 2 | Lillian in the study ("Oh, Laura... you startled me!") | 31: region 264 (setter at 0224) | bit 2 clear (room 31 loads 264 only then); none else | 159600 |
+| 8 | Clarence and Rudy fight by the statue | 22: the room's script (`fight`, setters at 05d7 and 05fc) | on entry: global 114 or 115 is 8, or timer 371 or 369 is 1, and global 114 is not 10; sets bit 1, or bit 8 when bit 1 is set | 165100 |
 
-- Bit 1, Rudy outdoors (region 281, `rudyActions`, loaded in Act IV while
-  global 114 is below 2, and in Act VII). Timer 369: the first 281 room
-  sets it to 800 (global 114 to 0); he shows at 700 in room 3, then 600
-  room 9, 500 13, 400 25, 300 26, 200 27, 100 21 (`local54` = 22, 21, 27,
-  26, 25, 13, 9, 3, 10); at the end of his walk timer 369 is 1, which
-  opens room 22's fight.
+The walks (timers count down one per game cycle, about 6.06 ticks, and
+stop at 1; all are 0 when the act starts):
 
-Tried so far (sci-vm, `--globals` and frames):
+- **Ethel, region 202, timer 368, global 113** (rooms 3, 4, 5, 9, 10, 13,
+  14, 21, 25 to 27, Acts I to IV). A 202 room's `init` sets the timer to
+  1099 (113 to 0) when it is 0, to 900 (113 to 2) when it has run out.
+  Her `doit` shows her when the timer is a multiple of 100 and Laura is in
+  room `local72[timer / 100]` (not room 4): 1000 room 4, 900 room 10, 800
+  room 3, 700 room 9, 600 room 13, 500 room 25, 400 room 26, 300 room 27,
+  200 room 21, 100 room 14. Entering room `local72[11 - g113]` while the
+  timer is above (10 - g113) * 100 shows her too (she showed again in 10
+  at tick 162600, no event as bit 4 was set). At Act IV's start room 14
+  sets the timer to 1099.
+- **Rudy, region 281, timer 369, global 114.** The first 281 room sets the
+  timer to 800 (114 to 0): room 3 at tick 155062 on this route. He shows
+  at 700 in room 3, then 600 room 9, 500 13, 400 25, 300 26, 200 27, 100
+  21 (`local54` = 22, 21, 27, 26, 25, 13, 9, 3, 10); then the timer stays
+  at 1 (tick 161800 on this route), which opens room 22's fight. After the
+  fight 114 is 10.
+- **Clarence, region 203, timer 371, global 115** (rooms 6 while 115 is
+  below 2, 7, 8, 18, 23, 29, 30 in Act IV; not visited on this route). The
+  first 203 room sets the timer to 700 (115 to 0); entering room 18
+  (`local42[7 - g115]`) while it is at least 600 shows him at once,
+  otherwise he shows at 600 in room 6, 500 in 7, 400 in 8, 300 in 30, 200
+  in 29 and 100 in 23 (`local42` = 22, 23, 29, 30, 8, 7, 6, 18). Seeing
+  him sets bit 8 (setter at 02c2). When his walk reaches index 0 (room 22)
+  the timer is set to 1. Bit 8 comes from the fight instead, as Rudy's
+  bit 1 was already set.
+- Act IV has a fifth way for bit 1 or 8 (the fight), so the route needs
+  only three rooms of scenes: 3, 31 and 22.
 
-- 14 north into 3 (arrives about tick 155060 at the bottom right; room 3
-  starts timer 369): Ethel shows at timer 800 (clock about 155206, bit 4),
-  Rudy at timer 700 (clock about 155662, bit 1); both walk off west.
-- **The clock waits for a key.** Script 406 (the clock) stays on screen
-  and its `handleEvent` eats every click and key until one closes it. It
-  is one object for all scenes: when a second scene starts it while the
-  first is still up, it never ends and Laura never gets control back
-  (input ignored to the end of the run). Enter after each clock (155400,
-  155900) avoids it.
-- Room 3 east into 10: the right arrow key from the path at the bottom
-  right (clicks at the right edge stop at the fence).
-- Room 10: down the left side, to the foot of the steps, up arrow: Laura
-  walks in through the French doors (typing "open the door" answers "Just
-  do that yourself."). The study's description, then Lillian (bit 2,
-  about tick 159700; "What an interesting collection of weapons...", "Oh,
-  Laura... you startled me!"), over by about 162000.
-- Timer 369 is 1 from about tick 161800, so room 22's fight is open
-  (bit 8, as bit 1 is set): 10 south into 21, east into 22.
+Room exits (the room properties at 28, 30 and 32; for the outdoor rooms
+these read as east, south and west, but entries differ: from 14 Laura
+leaves north behind the playhouse and comes into 3 at its bottom right):
+3: 10, 14, 9; 4: 12, 33, 10; 6: 7, 18, 12; 7: 8, 6; 12: -, 23, 17; 21:
+22, 27; 23: 24, 29, 22; 24: 8, -, 23; 29: 30, -, 28.
+
+Route:
+
+- 14: round the right side of the playhouse ((285, 165), (285, 110),
+  (268, 108)) and north off the top behind it into room 3.
+- 3: Ethel (bit 4), then Rudy (bit 1), each with Enter for the clock; on
+  the path at the bottom right, the right arrow key east into 10.
+- 10: down the left side ((10, 110)) to the foot of the steps ((155,
+  150)); the up arrow key walks her in through the French doors to the
+  study 31 (typing "open the door" answers "Just do that yourself.").
+- 31: the description, then Lillian (bit 2); Enter closes the messages
+  (over by about tick 162000).
+- The left arrow key out to 10, off its bottom edge into 21 (its
+  description), the right arrow key east into 22 (its description): the
+  fight (bit 8), the "Act V" card, Enter for the messages; the fight is
+  over by about tick 168100. The left arrow key walks her west into 21:
+  Act V (tick 169510).
+
+`tests/playthrough/act-saves.txt` saves Act V at tick 170200 (room 21, no
+message on screen).
+
+New risks found:
+
+- **The clock waits for a key.** Script 406 stays on screen after the
+  chime, and its `handleEvent` eats every click and key until one closes
+  it (Act III's route closed it with Enter without needing to). It is one
+  object for every scene: if a second scene starts it while the first is
+  still up (Ethel at 155206 and Rudy at 155662 in room 3), the clock never
+  ends and every later click and key is ignored. The reference ScummVM
+  does the same (the run to tick 157300 matched on every comparison), so
+  it is the game's behaviour: the route closes each clock with Enter
+  before the next scene can start.
+- **Walks on timers.** Ethel's and Rudy's scenes need Laura in a given
+  room at a given cycle, so a change of the route before them moves or
+  loses them; check the timers with `--globals` (globals 113 to 115, 368
+  to 372) when changing it.
+- **Arrow keys at the edges.** Clicks at the right edge of room 3 stop at
+  the fence; the arrow keys walk Laura off the edges and through the
+  study's French doors.
 
 ## Images
 
@@ -269,6 +298,7 @@ tests/playthrough/playthrough.txt` (original | HD side by side):
 | I | 33300: the Colonel's room 42, the Colonel and Fifi ("Pardon, Henri! I got zee lipstick on you!") | 41000: the parlor 38, Gertie and Clarence at the bar ("Shhh. Here's that young friend of Lillian's.") |
 | II | 98400: the billiard room 36, Clarence and Gloria ("Everything all right, Gloria?") | 73300: the kitchen 35, Celie and Lillian |
 | III | 135000: Fifi's room in the attic 74 ("You'll regret that, you little vixen!") | 119000: room 48, Clarence and Rudy arguing |
+| IV | 166500: room 22, Clarence and Rudy fight by the statue | 161200: the study 31, Lillian ("Oh, Laura... you startled me!") |
 
 ## Planned route of the later acts
 
@@ -278,13 +308,12 @@ From the regions that set the bits of global 118 and the act each room's
 
 | Act | Candidate events (room: region, bit) |
 |---|---|
-| IV | region 203 outdoors (Clarence, rooms 6, 7, 8, 18, 23, 29 and 30, bit 8); the study 31: region 264 (bit 2, while bit 2 is clear); region 202 outdoors (Ethel, acts I to IV, bit 4, driven by timer 368 and global 113); Laura's room 44: region 265; room 6: region 266; room 24: region 263; billiard room 36: region 382 (global 141 bit 4 clear); room 50's holes: views 303 (starts timer 370), 335 and 306 (bit 1) |
-| V | the Colonel's room 42: region 270 (bit 2); the gardens: regions 268 |
+| V | the Colonel's room 42: region 270 (bit 2; room 42 loads it in Act V in place of 240) and the room's own script (bit 4, setter at 079a, when Laura enters in Act V with global 187 at 3: the clock counts the quarters of the hour there, so after three events); the parlor 38: region 272 (bit 8, Act V); views through the holes: 304 (scene38e, the parlor, bit 8) and 355 (scene42f, "missColo", the Colonel's room, bit 4); region 268 (rooms 5 and 61, from Act V) sets no bit. Act V starts in room 21 with all timers 0 and global 114 at 10, 115 at 12 |
 | VI | Laura's room 44: region 274 (bit 2); room 10: region 277 (bit 4); rooms 41 and 73: region 278; the attic 74: region 273 (global 123 bits 16 and 64) |
 | VII | the grounds: region 281 (bit 1); Laura's room 44: region 385 (bit 4); room 69: region 256 |
 | VIII | room 65: region 280; the chapel 58 (regions 256, 279, bit 8); bit 2 to find (region 261 in the attic is Act III's) |
 
-Other setters by room script: 6, 10, 22 and 59 (bit 1), 22 (bit 8), 48
+Other setters by room script: 6 (Act VI), 10 and 59 (bit 1), 22 (Act IV), 48
 (bit 1), and the 300 and 400 scripts of the scenes. The game ends after Act
 VIII whatever Laura found, so the route aims for the four events of each
 act, not the score. Where it costs little, it adds rooms, typed commands
