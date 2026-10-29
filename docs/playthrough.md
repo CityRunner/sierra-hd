@@ -193,6 +193,46 @@ New risks found:
   a timer running out while Laura is already in the room does not start
   the scene.
 
+## Act IV (in progress)
+
+Act IV starts at tick 153500 in room 14. The four setters of global 118
+loaded in Act IV (global 165 is 3), from the disassembly:
+
+- Bit 4, Ethel outdoors (region 202, script `ethelActions` at 0429, the
+  setter at 0470; loaded in rooms 3, 4, 5, 9, 10, 13, 14, 21, 25 to 27 in
+  Acts I to IV). Timer 368 drives her walk: a 202 room's `init` sets it to
+  1099 (global 113 to 0) when it is 0, and to 900 (113 to 2) when it has
+  run out. Her `doit` shows her when the timer is a multiple of 100 and
+  Laura is in room `local72[timer / 100]` (not in room 4): 1000 room 4,
+  900 room 10, 800 room 3, 700 room 9, 600 room 13, 500 room 25, 400
+  room 26, 300 room 27, 200 room 21, 100 room 14. Entering room
+  `local72[11 - g113]` while the timer is above (10 - g113) * 100 shows
+  her too. At Act IV's start room 14 sets the timer to 1099 (1068 at tick
+  153600, about 6.06 ticks per cycle).
+- Bit 8, Clarence outdoors (region 203, scripts `clarwand` /
+  `clarActions`, the setter at 02c2; rooms 6 (while global 115 is below
+  2), 7, 8, 18, 23, 29, 30 in Act IV). Timer 371 (368 + 3) and global 115:
+  the first 203 room sets the timer to 700 and 115 to 0; entering room 18
+  (`local42[7 - g115]`) while the timer is at least 600 shows him at once;
+  otherwise he shows at timer 600 in room 6, 500 in 7, 400 in 8, 300 in
+  30, 200 in 29 and 100 in 23 (`local42` = 22, 23, 29, 30, 8, 7, 6, 18).
+  When his walk reaches index 0 (room 22) the timer is set to 1.
+- Bit 1 (or bit 8 when bit 1 is set), Clarence and Rudy fight in room 22
+  (the room's script, setter at 05d7). Room 22's `init` starts it in Act
+  IV when global 114 or 115 is 8, or timer 371 or timer 369 is 1, and
+  global 114 is not 10.
+- Bit 2, Lillian in the study 31 (region 264, setter at 0224): room 31
+  loads 264 in Act IV while bit 2 is clear, and its script sets the bit
+  in state 0, with no other condition.
+
+Room exits (the room properties at 28, 30, 32: east, south, west): 3 E10
+S14 W9; 4 E12 S33 W10; 6 E7 S18 W12; 7 S8 W6; 12 S23 W17; 14 E10 W13; 18
+E8; 23 E24 S29 W22; 24 E8 W23; 29 E30 W28; 30 W29.
+
+Planned route: 14 to 3 for Ethel at timer 800 (about tick 155230), 10
+and the study 31, then 4, 12, 6 and 18 for Clarence, and room 22 once
+timer 371 has run out.
+
 ## Images
 
 Two images per act for the customer, at ticks of the replay (one during a
