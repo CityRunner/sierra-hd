@@ -12,3 +12,8 @@ act-2-study-door 85500 II 10
 act-2-billiards 98000 II 36
 act-2-end 109000 II 320
 act-3-start 111600 III 49
+act-3-room-48 119000 III 48
+act-3-billiards 126500 III 36
+act-3-attic 135000 III 74
+act-3-end 150000 III 63
+act-4-start 154400 IV 14

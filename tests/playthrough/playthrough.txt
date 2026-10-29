@@ -434,3 +434,196 @@ sierra-hd replay 1
 107206 up 200 122 0
 107600 key 18432
 107900 text look through the holes
+# Act III (10:00 PM, from tick 110800 in the west secret passage 49, on
+# the platform under the portrait). Looking through the holes again only
+# shows the library empty, so the route leaves: off the platform, east out
+# of the grandfather clock into 33 and out of its bottom edge into the
+# foyer 37.
+111700 move 255 125
+111702 down 255 125 0
+111706 up 255 125 0
+113000 key 19712
+113400 move 160 199
+113402 down 160 199 0
+113406 up 160 199 0
+# Room 37: round the foot of the left staircase and up it into 47.
+114000 move 115 188
+114002 down 115 188 0
+114006 up 115 188 0
+114600 move 25 190
+114602 down 25 190 0
+114606 up 25 190 0
+115100 move 45 30
+115102 down 45 30 0
+115106 up 45 30 0
+# Room 47: along the landing and the hallway to its east end (control
+# colour 1) into room 48.
+117700 move 240 118
+117702 down 240 118 0
+117706 up 240 118 0
+# Room 48: Clarence and Rudy argue about Gloria (event bit 4, region 259,
+# the clock at about tick 118450). The scene starts timer 370 (1800
+# cycles), which the attic scene waits for. Enter closes the message; back
+# west into 47.
+118400 key 13
+120800 move 0 110
+120802 down 0 110 0
+120806 up 0 110 0
+# Room 47: the arrow keys take Laura along the landing and down the left
+# staircase into 37 (as in Act II).
+121700 key 20480
+122100 move 60 125
+122102 down 60 125 0
+122106 up 60 125 0
+122700 key 20480
+122850 key 19200
+123200 key 20480
+# Room 37: to the billiard room door along the back (the way of Acts I
+# and II).
+123900 move 58 163
+123902 down 58 163 0
+123906 up 58 163 0
+124700 move 150 150
+124702 down 150 150 0
+124706 up 150 150 0
+125200 move 160 98
+125202 down 160 98 0
+125206 up 160 98 0
+125700 move 65 98
+125702 down 65 98 0
+125706 up 65 98 0
+# Room 36: from tick 125900 the scene of region 233 (event bit 8, no
+# precondition in Act III). Back east into 37.
+127600 move 319 108
+127602 down 319 108 0
+127606 up 319 108 0
+# Room 37: across to the foot of the left staircase and up into 47.
+127900 move 150 100
+127902 down 150 100 0
+127906 up 150 100 0
+128300 move 115 188
+128302 down 115 188 0
+128306 up 115 188 0
+128800 move 25 190
+128802 down 25 190 0
+128806 up 25 190 0
+129300 move 45 30
+129302 down 45 30 0
+129306 up 45 30 0
+# Room 47: to the right end of the landing, down a step, along to the
+# foot of the stairs on the right and, once timer 370 has run out (about
+# tick 132000), north onto control colour 4: room 74, the attic stairs.
+129900 move 254 136
+129902 down 254 136 0
+129906 up 254 136 0
+130400 key 20480
+130600 move 254 143
+130602 down 254 143 0
+130606 up 254 143 0
+132300 move 254 126
+132302 down 254 126 0
+132306 up 254 126 0
+# Room 74: close the description, up the stairs to the doors at the top
+# and right through the doorway into Fifi's room: a man with Fifi ("Stop
+# eet! Leave me alone!!", event bit 2, region 261, the clock at about tick
+# 134050; it needs timer 370 at 1). Enter closes the messages; the man
+# leaves down the stairs.
+132800 key 13
+133000 move 40 125
+133002 down 40 125 0
+133006 up 40 125 0
+133500 key 19712
+134000 key 13
+134400 key 13
+134800 key 13
+135200 key 13
+135600 key 13
+136000 key 13
+136400 key 13
+136800 key 13
+# Back out of Fifi's room, down the attic stairs into 47 (at the foot of
+# the right stairs), along the landing and down the left staircase into
+# 37.
+137000 key 19200
+137400 move 42 197
+137402 down 42 197 0
+137406 up 42 197 0
+137800 key 20480
+138300 move 60 150
+138302 down 60 150 0
+138306 up 60 150 0
+138900 key 19200
+139100 key 20480
+# Room 37: to the door under the landing and north into 33, then out of
+# the French doors into the garden 4, west into 10, west into 3 (Enter
+# closes its description), south-west into 14 (its description).
+139700 move 58 163
+139702 down 58 163 0
+139706 up 58 163 0
+140300 move 150 150
+140302 down 150 150 0
+140306 up 150 150 0
+140800 move 160 98
+140802 down 160 98 0
+140806 up 160 98 0
+141300 move 160 85
+141302 down 160 85 0
+141306 up 160 85 0
+141800 move 160 95
+141802 down 160 95 0
+141806 up 160 95 0
+142400 move 60 155
+142402 down 60 155 0
+142406 up 60 155 0
+143000 move 0 170
+143002 down 0 170 0
+143006 up 0 170 0
+143600 move 0 60
+143602 down 0 60 0
+143606 up 0 60 0
+144100 key 13
+144300 move 120 199
+144302 down 120 199 0
+144306 up 120 199 0
+145000 key 13
+# Room 14: Laura comes in behind the playhouse; round its right side to
+# the door. "knock on the door": "Is that you, Laura? Come in and join
+# me." Enter, and she goes in.
+145200 move 268 118
+145202 down 268 118 0
+145206 up 268 118 0
+145500 move 285 120
+145502 down 285 120 0
+145506 up 285 120 0
+145800 move 285 175
+145802 down 285 175 0
+145806 up 285 175 0
+146300 move 228 150
+146302 down 228 150 0
+146306 up 228 150 0
+146600 move 221 140
+146602 down 221 140 0
+146606 up 221 140 0
+147000 text knock on the door
+# Room 63, the playhouse: Ethel plays with the dolls (event bit 1, region
+# 257, the clock at about tick 148050; the fourth event, so the "Act IV"
+# card follows). Enter closes the messages. Out of the door into 14: the
+# room change starts Act IV (tick 153500).
+147500 key 13
+148000 key 13
+148400 key 13
+148800 key 13
+149200 key 13
+149600 key 13
+150000 key 13
+150400 key 13
+150800 key 13
+151200 key 13
+151600 key 13
+152000 key 13
+152400 key 13
+152800 key 13
+153200 key 13
+153400 move 215 199
+153402 down 215 199 0
+153406 up 215 199 0
