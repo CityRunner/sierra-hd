@@ -138,6 +138,7 @@ void after_restore(Machine& machine, const Clock::HostTime& host) {
     }
     machine.after_restore();
     subsystems.sound().reconstruct_play_list(machine);
+    machine.segments().after_restore();
     if (subsystems.sound().has_music() && subsystems.sound().music().all_paused()) {
         subsystems.sound().music().reset_global_pause();
     }

@@ -119,6 +119,12 @@ public:
 
     // System strings: the save directory and the parser's buffer.
     void init_sys_strings();
+    // What ScummVM's gamestate_restore leaves different from the saved
+    // segments: it neither saves nor loads the hunk table, so the hunk
+    // segment is gone (the saved handles point nowhere) and the next hunk
+    // gets a new segment, and it allocates the system strings again in a
+    // new segment (the saved one stays).
+    void after_restore();
 
     [[nodiscard]] Reg save_dir_pointer() const { return save_dir_pointer_; }
 

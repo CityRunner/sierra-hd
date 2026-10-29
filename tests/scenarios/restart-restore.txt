@@ -1,0 +1,43 @@
+sierra-hd replay 1
+# Restoring after a restart (milestone 8), with seed 0 and stop tick 9000.
+# The game offers no restore before Act I: F7 on the title (tick 300) and
+# on "Have you previously attended?" (tick 920) does nothing. Passes the
+# copy protection (seed 0) and answers "Yes", which starts Act I in
+# Laura's bedroom (room 44). Laura walks to the left; F5 saves with "Be"
+# as the description. F9 and Enter restart the game, which goes straight
+# to Act I (the clock and the "Act I" card in the bedroom, no title and
+# no copy protection). F7 during the card: "You cannot restore a game
+# right now.", closed with Enter. F7 once the card is gone: the restore
+# dialog lists the save, Enter restores it (Laura by the left wall), and
+# she walks to the right.
+300 key 16640
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+920 key 16640
+1000 key 13
+# A walk to the left, then F5: "Be", Enter.
+3400 key 19200
+3600 key 16128
+3800 key 66
+3810 key 101
+3900 key 13
+# F9: "Do you wish to start over?", Enter on Restart.
+4100 key 17152
+4300 key 13
+# F7 during the "Act I" card, its message closed with Enter.
+4700 key 16640
+4900 key 13
+# F7 after the card, Enter on the save; a walk to the right.
+7300 key 16640
+7500 key 13
+8000 key 19712
