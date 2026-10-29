@@ -291,6 +291,35 @@ New risks found:
 Act V starts at tick 169510 in room 21 (12:00 midnight), all timers 0,
 global 114 = 10, global 115 = 12.
 
+Findings so far (scripts and `--globals`):
+
+- Script 0's exports 5, 6 and 7 are Bset, Bclr and Btst on the flag
+  bits from global 440 (flag n: global 440 + n / 16, bit n mod 16).
+- Global 187 is the quarter of the hour (script 406 adds one per event
+  and wraps it after 3), so "global 187 is 3" in room 42 means after
+  three events of the act.
+- Room 42's `init` in Acts II to VIII (global 109 & 48 clear): region
+  270 (Act V; 240 otherwise) when flag 38 is set, or when global 187 is
+  below 3, global 123 bit 64 clear and flag 37 clear; otherwise, in Act
+  V with global 187 at 3, its own scene (bit 4, setter at 079a).
+- Region 270 sets timer 368 to 1800 when it is 0 and flag 38 (Bset at
+  01e4); its scene sets bit 2 (0332). Rooms 43 and 49 clear flags 37 and
+  38 when Laura leaves them for a room other than 42/49 (43) or 42/43
+  (49), so the room-42 scene needs a way out through 43 to another room
+  and back.
+- Room 50's "look through the holes" in Act V, with Laura come in from
+  33: facing up (loop 3) the view 306 (scene34e, Rudy in the dining
+  room, bit 1, setter at 0334); facing down the view 304 (scene38e,
+  Clarence in the parlor, bit 8, setter at 0378). Facing right: "Try
+  facing either set of holes."; off the platform: "You're not close
+  enough."
+- Tried: 21 up arrow into 10 (she walks on towards the study; clicks
+  stop her), 10 to 4 over the top left ((10, 70), (80, 55)), 4 off the
+  bottom into 33, "push the mirror" walks her into 50 (arrives at (16,
+  110)); on the platform at (121, 97) the up arrow and "look through the
+  holes": 306, bit 1 (about tick 179000); a click 3 pixels down to face
+  down and the same command: 304, bit 8 (about tick 181500).
+
 ## Images
 
 Two images per act for the customer, at ticks of the replay (one during a
