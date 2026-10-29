@@ -16,6 +16,9 @@
   under TSan (`ctest -L threads`).
 - `scenarios/`: scenario recordings, replays in the format of
   `docs/formats/replay-and-trace.md`, run against the game locally.
+- `playthrough/`: the playthrough of the whole game (milestone 9), one
+  replay with its checkpoints, run against the game locally with
+  `tools/playthrough/check.sh` (`docs/playthrough.md`).
 
 Seed corpora are hand-made; `fuzz/make_seeds.py` regenerates the
 sci-resource ones. libFuzzer runs write new inputs to a scratch directory

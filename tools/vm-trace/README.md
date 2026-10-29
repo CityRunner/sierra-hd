@@ -10,6 +10,7 @@ trace, in the format of the reference ScummVM's trace patch
                  [--parser <file>] [--layout <file>] [--opl <file>]
                  [--music mt32 [--roms <folder>] [--midi <file>]]
                  [--state-hash <tick>[,<tick>...] <file>]
+                 [--globals <tick>[,<tick>...] <file>]
                  [--save-check <tick>[,<tick>...] <file>] [--saves <folder>]
                  [--round-trip <tick>[,<tick>...] <file> [--round-trip-saves <folder>]]
     sci-vm-trace --scan-kernel <game folder> <output file>
@@ -59,6 +60,12 @@ does.
 
       sci-vm-trace /game build/boot.txt --replay tests/scenarios/boot.txt \
           --stop-tick 3600 --state-hash 1000,2000,3600 build/boot-state.txt
+- `--globals` writes the game's global variables when virtual time first
+  reaches each of the ticks, taken as for `--state-hash`: one line per
+  requested tick, `<tick> <reached>` then every global in order, a number
+  in decimal (0 to 65535) or a pointer as `<segment>:<offset>` in hex. The
+  playthrough reads the act and the room from it
+  (`tools/playthrough/where.py`, `docs/playthrough.md`).
 - `--save-check` makes the save round trip (milestone 8,
   `docs/formats/save-format.md`) at each of the ticks, taken as for
   `--state-hash`: the state is written as a save file and read into a
