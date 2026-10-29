@@ -10,7 +10,8 @@
 //                [--screens <folder>] [--screen-every <ticks>] [--actors <file>]
 //                [--parser <file>] [--layout <file>] [--opl <file>]
 //                [--music mt32 [--roms <folder>] [--midi <file>]]
-//                [--state-hash <ticks> <file>] [--save-check <ticks> <file>]
+//                [--state-hash <ticks> <file>] [--globals <ticks> <file>]
+//                [--save-check <ticks> <file>]
 //                [--round-trip <ticks> <file> [--round-trip-saves <folder>]]
 //                [--saves <folder>]
 //   sci-vm-trace --scan-kernel <game folder> <output file>
@@ -112,6 +113,7 @@ int usage() {
                          "[--parser <file>] [--layout <file>] [--opl <file>]\n"
                          "                    [--music mt32 [--roms <folder>] [--midi <file>]] "
                          "[--state-hash <tick>[,<tick>...] <file>]\n"
+                         "                    [--globals <tick>[,<tick>...] <file>]\n"
                          "                    [--save-check <tick>[,<tick>...] <file>] [--saves <folder>]\n"
                          "                    [--round-trip <tick>[,<tick>...] <file> [--round-trip-saves <folder>]]\n"
                          "       sci-vm-trace --scan-kernel <game folder> <output file>\n"
@@ -321,6 +323,7 @@ int main(int argc, char** argv) {
     std::filesystem::path midi;
     std::filesystem::path roms;
     std::filesystem::path state_hash;
+    std::filesystem::path globals;
     std::filesystem::path save_check;
     std::filesystem::path round_trip;
     std::filesystem::path round_trip_saves;
@@ -343,7 +346,7 @@ int main(int argc, char** argv) {
             return usage();
         }
         const std::string_view value = args[i + 1];
-        if (flag == "--state-hash" || flag == "--save-check" || flag == "--round-trip") {
+        if (flag == "--state-hash" || flag == "--globals" || flag == "--save-check" || flag == "--round-trip") {
             // Two values: the ticks, increasing, and the file.
             if (i + 2 >= args.size()) {
                 return usage();
@@ -353,6 +356,9 @@ int main(int argc, char** argv) {
             if (flag == "--state-hash") {
                 ticks = &options.state_hash_ticks;
                 file = &state_hash;
+            } else if (flag == "--globals") {
+                ticks = &options.globals_ticks;
+                file = &globals;
             } else if (flag == "--save-check") {
                 ticks = &options.save_check_ticks;
                 file = &save_check;
@@ -562,6 +568,28 @@ int main(int argc, char** argv) {
             }
         };
     }
+    std::ofstream globals_file;
+    if (!globals.empty()) {
+        globals_file.open(globals);
+        if (!globals_file) {
+            std::println(stderr, "cannot write {}", globals.string());
+            return 1;
+        }
+        // Per requested tick, one line: the tick requested, the tick reached,
+        // then every global: a number in decimal (0 to 65535), a pointer as
+        // <segment>:<offset> in hex.
+        options.on_globals = [&](std::uint32_t requested, std::uint32_t tick, std::span<const sci::vm::Reg> values) {
+            globals_file << std::format("{} {}", requested, tick);
+            for (const sci::vm::Reg value : values) {
+                if (value.is_number()) {
+                    globals_file << std::format(" {}", value.offset);
+                } else {
+                    globals_file << std::format(" {:04x}:{:04x}", value.segment, value.offset);
+                }
+            }
+            globals_file << '\n';
+        };
+    }
     std::ofstream save_check_file;
     if (!save_check.empty()) {
         save_check_file.open(save_check);
@@ -684,7 +712,7 @@ int main(int argc, char** argv) {
     }
     return trace && (actors.empty() || actor_file) && (parser.empty() || parser_file) &&
                    (layout.empty() || layout_file) && (opl.empty() || opl_file) && (midi.empty() || midi_file) &&
-                   (state_hash.empty() || state_file) && (save_check.empty() || save_check_file) &&
+                   (state_hash.empty() || state_file) && (globals.empty() || globals_file) && (save_check.empty() || save_check_file) &&
                    (round_trip.empty() || round_trip_file)
                ? 0
                : 1;

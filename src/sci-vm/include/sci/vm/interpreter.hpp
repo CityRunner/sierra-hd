@@ -134,6 +134,12 @@ struct RunOptions {
     // taken in the kernel call that let the time pass.
     std::vector<std::uint32_t> state_hash_ticks;
     std::function<void(std::uint32_t requested, std::uint32_t tick, const StateHash&)> on_state_hash;
+    // The game's global variables at each of these ticks, in increasing
+    // order, taken as state_hash_ticks are: on_globals is called with the
+    // tick requested, the tick reached and every global (milestone 9: the
+    // playthrough reads the act and the room from them).
+    std::vector<std::uint32_t> globals_ticks;
+    std::function<void(std::uint32_t requested, std::uint32_t tick, std::span<const Reg> globals)> on_globals;
     // The save round trip (milestone 8, docs/formats/save-format.md) at each
     // of these ticks, taken as state_hash_ticks are: the state is written as
     // a save file and read into a fresh machine on the same game files, and

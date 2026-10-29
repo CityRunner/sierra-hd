@@ -200,6 +200,20 @@ void report_state(Machine& machine, std::uint32_t tick, const RunOptions& option
     }
 }
 
+// The globals due at `tick`: those of the requested ticks reached.
+void report_globals(const Machine& machine, std::uint32_t tick, const RunOptions& options, std::size_t& next) {
+    if (!options.on_globals) {
+        return;
+    }
+    for (; next < options.globals_ticks.size() && tick >= options.globals_ticks[next]; ++next) {
+        std::vector<Reg> globals(machine.global_count());
+        for (std::size_t i = 0; i < globals.size(); ++i) {
+            globals[i] = machine.global(i);
+        }
+        options.on_globals(options.globals_ticks[next], tick, globals);
+    }
+}
+
 // The save round trips due at `tick`: the state saved, then read into a
 // fresh machine on the same game files.
 void check_saves(const resource::ResourceManager& resources, Machine& machine, std::uint32_t tick,
@@ -292,6 +306,7 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
         }
     };
     std::size_t next_state_hash = 0;
+    std::size_t next_globals = 0;
     std::size_t next_save_check = 0;
     std::size_t next_round_trip = 0;
     std::vector<CastEntry> cast;
@@ -306,6 +321,7 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
             check_stop();
             const std::uint32_t ticks = clock->ticks();
             report_state(*vm, ticks, options, next_state_hash);
+            report_globals(*vm, ticks, options, next_globals);
             check_saves(resources, *vm, ticks, options, next_save_check);
             if (options.on_tick && parts->graphics().attached()) {
                 Screen& screen = parts->graphics().screen();

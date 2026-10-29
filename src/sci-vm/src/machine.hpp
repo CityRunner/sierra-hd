@@ -168,6 +168,8 @@ public:
 
     [[nodiscard]] Reg game_object() const { return game_object_; }
 
+    // The number of global variables (0 before the game is loaded).
+    [[nodiscard]] std::size_t global_count() const;
     [[nodiscard]] Reg global(std::size_t index) const;
     void set_global(std::size_t index, Reg value);
     [[nodiscard]] std::uint16_t current_room_number() const;
