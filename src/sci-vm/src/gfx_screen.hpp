@@ -33,6 +33,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace sci::vm {
@@ -157,6 +158,22 @@ public:
     void save_state(StateWriter& out) const;
     // Reads it back (state_load.cpp).
     void load_state(StateReader& in);
+
+    // Takes what `other` shows and its HD bookkeeping, which are not VM
+    // state, keeping this screen's 1x maps: the round trip of sci-vm-trace
+    // hands them to the machine that goes on, as the same display would
+    // (docs/ASSUMPTIONS.md, "Milestone 8: round trips").
+    void take_presentation(const Screen& other) {
+        auto visual = std::move(visual_);
+        auto priority = std::move(priority_);
+        auto control = std::move(control_);
+        const int pic_not_valid = pic_not_valid_;
+        *this = other;
+        visual_ = std::move(visual);
+        priority_ = std::move(priority);
+        control_ = std::move(control);
+        pic_not_valid_ = pic_not_valid;
+    }
 
 private:
     [[nodiscard]] static std::size_t index(int x, int y) {

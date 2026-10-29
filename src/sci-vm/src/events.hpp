@@ -57,6 +57,9 @@ public:
 
     [[nodiscard]] bool has_pending() const { return !pending_.empty(); }
 
+    // The input not yet due, in order.
+    [[nodiscard]] const std::deque<InputEvent>& pending() const { return pending_; }
+
     // EventManager::getSciEvent: moves the input due at `tick` into the
     // queue and returns the first event the mask accepts (removing it
     // unless the mask peeks), or an empty event at the mouse position.

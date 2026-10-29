@@ -176,7 +176,7 @@ core::Result<SaveHeader> read_save_header(std::span<const std::uint8_t> file, co
     return parse_header(file, game, in);
 }
 
-core::Result<SaveHeader> read_save(Machine& machine, std::span<const std::uint8_t> file) {
+core::Result<SaveHeader> read_save(Machine& machine, std::span<const std::uint8_t> file, Execution execution) {
     const core::Sha256Digest game = game_identity(machine.resources().manager());
     // The reader stops before the checksum.
     const auto body = file.size() >= digest_size ? file.first(file.size() - digest_size) : file;
@@ -190,7 +190,7 @@ core::Result<SaveHeader> read_save(Machine& machine, std::span<const std::uint8_
         return core::make_error(core::ErrorCode::InvalidData, "This saved game's state does not fit the file.");
     }
     StateReader state_in(state);
-    if (!read_state(machine, state_in)) {
+    if (!read_state(machine, state_in, execution)) {
         return core::make_error(core::ErrorCode::InvalidData,
                                 std::format("This saved game cannot be restored: {}.", state_in.message()));
     }

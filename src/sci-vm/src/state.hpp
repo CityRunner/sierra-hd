@@ -136,14 +136,25 @@ private:
 // Writes the whole VM state, component by component.
 void write_state(Machine& machine, StateWriter& out);
 
+// What reading a state does with its execution component.
+enum class Execution : std::uint8_t {
+    // Only the counters are taken: a restore in the game (kRestoreGame)
+    // re-enters the game through its replay method.
+    Replay,
+    // The frames, registers and stack are taken too, so that
+    // Machine::resume_game goes on where the state was written: the round
+    // trip of sci-vm-trace (docs/ASSUMPTIONS.md, "Milestone 8: round
+    // trips"). The state must have been written at a resume point
+    // (Machine::set_suspend_hook).
+    Resume,
+};
+
 // Reads what write_state wrote into a machine that is attached to its
 // subsystems and initialised (init_game) on the same game files, replacing
 // its state and rebuilding what the stream leaves out
-// (docs/formats/save-format.md). Of the execution component only the
-// counters are taken: a restore re-enters the game through its replay
-// method. False, with the reason in `in`, if the data is inconsistent; the
-// machine must then not run.
-bool read_state(Machine& machine, StateReader& in);
+// (docs/formats/save-format.md). False, with the reason in `in`, if the
+// data is inconsistent; the machine must then not run.
+bool read_state(Machine& machine, StateReader& in, Execution execution = Execution::Replay);
 
 // The hashes of the state write_state writes.
 [[nodiscard]] StateHash state_hash(Machine& machine);

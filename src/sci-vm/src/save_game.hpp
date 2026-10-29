@@ -10,6 +10,7 @@
 #include "sci/core/error.hpp"
 #include "sci/core/sha256.hpp"
 #include "sci/vm/local_time.hpp"
+#include "state.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -71,7 +72,9 @@ struct SaveHeader {
 // Restores a save into a machine that is attached to its subsystems and
 // initialised (init_game) on the same game files. On an InvalidData error
 // after the header was accepted, the machine's state is undefined and it
-// must not run on.
-[[nodiscard]] core::Result<SaveHeader> read_save(Machine& machine, std::span<const std::uint8_t> file);
+// must not run on. `execution` as for read_state: a restore in the game
+// takes Replay.
+[[nodiscard]] core::Result<SaveHeader> read_save(Machine& machine, std::span<const std::uint8_t> file,
+                                                 Execution execution = Execution::Replay);
 
 } // namespace sci::vm

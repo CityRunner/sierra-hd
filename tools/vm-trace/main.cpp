@@ -10,8 +10,24 @@
 //                [--screens <folder>] [--screen-every <ticks>] [--actors <file>]
 //                [--parser <file>] [--layout <file>] [--opl <file>]
 //                [--music mt32 [--roms <folder>] [--midi <file>]]
+//                [--state-hash <ticks> <file>] [--save-check <ticks> <file>]
+//                [--round-trip <ticks> <file> [--round-trip-saves <folder>]]
+//                [--saves <folder>]
 //   sci-vm-trace --scan-kernel <game folder> <output file>
 //   sci-vm-trace --vocabulary <game folder> <output file>
+//   sci-vm-trace --load-save <game folder> <save file> <output file>
+//
+// --round-trip (milestone 8, docs/ASSUMPTIONS.md, "Milestone 8: round
+// trips") saves the state at the first resume point at or after each tick
+// and goes on in a fresh machine that read the save with its execution; the
+// outputs continue as one run, to be compared with a run without it
+// (run-round-trips.sh). The file gets one line per round trip:
+// "<requested tick> <tick> <kernel call> <save bytes> <persistent hash
+// saved> <restored> <equal|differ> total <equal|differ>", then a line per
+// component that differs. --round-trip-saves keeps the save files there, as
+// round-trip-<requested tick>.sav. --load-save reads a save file as the round
+// trip does and writes its total and persistent hashes and the components'
+// (for saves from another architecture).
 //
 // --screens writes the screen the player sees and the 1x priority and
 // control maps; --actors writes the cast of every kAnimate call; --parser
@@ -97,8 +113,10 @@ int usage() {
                          "                    [--music mt32 [--roms <folder>] [--midi <file>]] "
                          "[--state-hash <tick>[,<tick>...] <file>]\n"
                          "                    [--save-check <tick>[,<tick>...] <file>] [--saves <folder>]\n"
+                         "                    [--round-trip <tick>[,<tick>...] <file> [--round-trip-saves <folder>]]\n"
                          "       sci-vm-trace --scan-kernel <game folder> <output file>\n"
-                         "       sci-vm-trace --vocabulary <game folder> <output file>");
+                         "       sci-vm-trace --vocabulary <game folder> <output file>\n"
+                         "       sci-vm-trace --load-save <game folder> <save file> <output file>");
     return 2;
 }
 
@@ -242,6 +260,37 @@ int dump_vocabulary(const char* folder, const char* output) {
     return out ? 0 : 1;
 }
 
+// The state hash: total, persistent, then each component with its length.
+void write_hash(std::ostream& out, std::string_view prefix, const sci::vm::StateHash& hash) {
+    out << std::format("{}total {}\n", prefix, sci::core::to_hex(hash.total));
+    out << std::format("{}persistent {}\n", prefix, sci::core::to_hex(hash.persistent));
+    for (const sci::vm::StateComponentHash& component : hash.components) {
+        out << std::format("{}{} {} {}\n", prefix, component.name, component.bytes,
+                           sci::core::to_hex(component.digest));
+    }
+}
+
+int load_save(const char* folder, const char* save, const char* output) {
+    const auto manager = sci::tools::open_game(folder);
+    if (!manager) {
+        return 1;
+    }
+    std::ifstream in{std::filesystem::path(save), std::ios::binary};
+    const std::vector<std::uint8_t> file{std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+    if (!in && !in.eof()) {
+        std::println(stderr, "cannot read {}", save);
+        return 1;
+    }
+    const auto hash = sci::vm::load_save_hash(*manager, file);
+    if (!hash) {
+        std::println(stderr, "{}: {}", save, hash.error().message);
+        return 1;
+    }
+    std::ofstream out{std::filesystem::path(output)};
+    write_hash(out, "", *hash);
+    return out ? 0 : 1;
+}
+
 } // namespace
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): argument parsing.
@@ -254,6 +303,10 @@ int main(int argc, char** argv) {
     if (args.size() == 4 && std::string_view(args[1]) == "--vocabulary") {
         sci::tools::install_stderr_log();
         return dump_vocabulary(args[2], args[3]);
+    }
+    if (args.size() == 5 && std::string_view(args[1]) == "--load-save") {
+        sci::tools::install_stderr_log();
+        return load_save(args[2], args[3], args[4]);
     }
     if (args.size() < 3) {
         return usage();
@@ -269,6 +322,8 @@ int main(int argc, char** argv) {
     std::filesystem::path roms;
     std::filesystem::path state_hash;
     std::filesystem::path save_check;
+    std::filesystem::path round_trip;
+    std::filesystem::path round_trip_saves;
     std::filesystem::path saves_folder;
     bool on_mt32 = false;
     std::uint32_t screen_every = 60;
@@ -288,13 +343,14 @@ int main(int argc, char** argv) {
             return usage();
         }
         const std::string_view value = args[i + 1];
-        if (flag == "--state-hash" || flag == "--save-check") {
+        if (flag == "--state-hash" || flag == "--save-check" || flag == "--round-trip") {
             // Two values: the ticks, increasing, and the file.
             if (i + 2 >= args.size()) {
                 return usage();
             }
-            std::vector<std::uint32_t>& ticks =
-                flag == "--state-hash" ? options.state_hash_ticks : options.save_check_ticks;
+            std::vector<std::uint32_t>& ticks = flag == "--state-hash"   ? options.state_hash_ticks
+                                                : flag == "--save-check" ? options.save_check_ticks
+                                                                         : options.round_trip_ticks;
             for (const auto part : std::views::split(value, ',')) {
                 const auto tick = parse_number(std::string_view(part.begin(), part.end()));
                 if (!tick || (!ticks.empty() && *tick <= ticks.back())) {
@@ -302,7 +358,7 @@ int main(int argc, char** argv) {
                 }
                 ticks.push_back(*tick);
             }
-            (flag == "--state-hash" ? state_hash : save_check) = args[i + 2];
+            (flag == "--state-hash" ? state_hash : flag == "--save-check" ? save_check : round_trip) = args[i + 2];
             ++i;
             continue;
         }
@@ -328,6 +384,10 @@ int main(int argc, char** argv) {
         }
         if (flag == "--saves") {
             saves_folder = value;
+            continue;
+        }
+        if (flag == "--round-trip-saves") {
+            round_trip_saves = value;
             continue;
         }
         if (flag == "--actors") {
@@ -374,7 +434,7 @@ int main(int argc, char** argv) {
             return usage();
         }
     }
-    if (!on_mt32 && (!midi.empty() || !roms.empty())) {
+    if ((!on_mt32 && (!midi.empty() || !roms.empty())) || (round_trip.empty() && !round_trip_saves.empty())) {
         return usage();
     }
     if (on_mt32 && !opl.empty()) {
@@ -523,6 +583,46 @@ int main(int argc, char** argv) {
             }
         };
     }
+    std::ofstream round_trip_file;
+    if (!round_trip.empty()) {
+        round_trip_file.open(round_trip);
+        if (!round_trip_file) {
+            std::println(stderr, "cannot write {}", round_trip.string());
+            return 1;
+        }
+        if (!round_trip_saves.empty()) {
+            std::error_code created;
+            std::filesystem::create_directories(round_trip_saves, created);
+        }
+        // Per requested tick: where the state was saved, the save's size,
+        // the persistent hash saved and restored, whether the persistent
+        // and the total hashes are equal, then each component that differs;
+        // or why the save could not be read.
+        options.on_round_trip = [&](std::uint32_t requested, std::uint32_t tick, const sci::vm::RoundTrip& trip) {
+            if (!round_trip_saves.empty()) {
+                std::ofstream save{round_trip_saves / std::format("round-trip-{}.sav", requested), std::ios::binary};
+                save.write(reinterpret_cast<const char*>(trip.file.data()), // NOLINT(*-reinterpret-cast)
+                           static_cast<std::streamsize>(trip.file.size()));
+            }
+            if (trip.error) {
+                round_trip_file << std::format("{} {} {} {} error {}\n", requested, tick, trip.call,
+                                               trip.file.size(), *trip.error);
+                return;
+            }
+            round_trip_file << std::format(
+                "{} {} {} {} {} {} {} total {}\n", requested, tick, trip.call, trip.file.size(),
+                sci::core::to_hex(trip.saved.persistent), sci::core::to_hex(trip.restored.persistent),
+                trip.saved.persistent == trip.restored.persistent ? "equal" : "differ",
+                trip.saved.total == trip.restored.total ? "equal" : "differ");
+            for (std::size_t c = 0; c < trip.saved.components.size() && c < trip.restored.components.size(); ++c) {
+                if (trip.saved.components[c].digest != trip.restored.components[c].digest) {
+                    round_trip_file << std::format("{} {} component {} differs\n", requested, tick,
+                                                   trip.saved.components[c].name);
+                }
+            }
+            round_trip_file.flush();
+        };
+    }
     // The game folder's files for kFOpen to read, under lower-case names,
     // and nothing written yet: the reference starts with an empty save folder.
     std::map<std::string, std::vector<std::uint8_t>> game_files;
@@ -570,6 +670,7 @@ int main(int argc, char** argv) {
     midi_file.close();
     state_file.close();
     save_check_file.close();
+    round_trip_file.close();
     std::println(stderr, "{} kernel calls in {} ticks", result.calls, result.ticks);
     if (result.fault) {
         std::println(stderr, "stopped: {}", *result.fault);
@@ -577,7 +678,8 @@ int main(int argc, char** argv) {
     }
     return trace && (actors.empty() || actor_file) && (parser.empty() || parser_file) &&
                    (layout.empty() || layout_file) && (opl.empty() || opl_file) && (midi.empty() || midi_file) &&
-                   (state_hash.empty() || state_file) && (save_check.empty() || save_check_file)
+                   (state_hash.empty() || state_file) && (save_check.empty() || save_check_file) &&
+                   (round_trip.empty() || round_trip_file)
                ? 0
                : 1;
 }

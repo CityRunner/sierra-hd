@@ -142,10 +142,21 @@ void Machine::init_stack_base_with_selector(Selector selector) {
 
 void Machine::run_game() {
     init_stack_base_with_selector(selectors_.cache().play);
+    game_loop(false);
+}
+
+void Machine::resume_game() {
+    game_loop(true);
+}
+
+void Machine::game_loop(bool resume) {
     while (!faults_.raised()) {
-        stack_position_changed_ = false;
-        run_vm();
-        if (faults_.raised()) {
+        if (!resume) {
+            stack_position_changed_ = false;
+        }
+        run_vm(resume);
+        resume = false;
+        if (faults_.raised() || suspended_) {
             break;
         }
         if (abort_ != Abort::LoadGame) {
@@ -808,13 +819,19 @@ void Machine::setup_frame() {
 // The interpreter ------------------------------------------------------------------
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): the bytecode dispatch switch, as in ScummVM.
-void Machine::run_vm() {
-    rest_ = 0;
+void Machine::run_vm(bool resume) {
+    if (!resume) {
+        rest_ = 0;
+    }
     if (stack_frames_.empty()) {
         return;
     }
-    const int old_base = execution_stack_base_;
-    execution_stack_base_ = static_cast<int>(stack_frames_.size()) - 1;
+    // A resume point is in the top-level run_vm, whose base is the first
+    // frame and which run_game started with no base.
+    const int old_base = resume ? -1 : execution_stack_base_;
+    if (!resume) {
+        execution_stack_base_ = static_cast<int>(stack_frames_.size()) - 1;
+    }
     stack_position_changed_ = true;
     xs_ = &stack_frames_.back();
     if (segments_.script_if_loaded(xs_->local_segment) == nullptr) {
@@ -1077,6 +1094,14 @@ void Machine::run_vm() {
             stack_position_changed_ = true;
             if (abort_ != Abort::None) {
                 return;
+            }
+            if (execution_stack_base_ == 0 && suspend_hook_ && !faults_.raised()) {
+                // A resume point: the state as the next instruction sees it.
+                xs_ = xs_new;
+                if (suspend_hook_()) {
+                    suspended_ = true;
+                    return;
+                }
             }
             break;
         }

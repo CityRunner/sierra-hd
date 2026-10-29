@@ -33,9 +33,13 @@
 #include "timing.hpp"
 
 #include <algorithm>
+#include <array>
 #include <format>
+#include <iterator>
+#include <list>
 #include <memory>
 #include <utility>
+#include <vector>
 
 namespace sci::vm {
 
@@ -452,36 +456,77 @@ void SegManager::load_state(StateReader& in) {
     parser_pointer_ = parser;
 }
 
-void Machine::load_state(StateReader& in) {
-    // The execution: a restore re-enters the game through its replay
+void Machine::load_state(StateReader& in, Execution execution) {
+    // The execution. A restore in the game re-enters it through its replay
     // method, so the frames, registers and stack contents are read and
-    // left; only the counters carry over (docs/formats/save-format.md).
+    // left and only the counters carry over; a resume takes them all
+    // (docs/formats/save-format.md).
     in.begin("execution");
     constexpr std::size_t frame_bytes = 79;
-    const std::size_t frames = in.count(frame_bytes);
-    for (std::size_t i = 0; i < frames * frame_bytes && !in.failed(); ++i) {
-        (void)in.u8();
+    std::list<ExecStack> frames(in.count(frame_bytes));
+    for (ExecStack& frame : frames) {
+        frame.objp = in.reg();
+        frame.sendp = in.reg();
+        frame.pc = in.reg();
+        frame.var_object = in.reg();
+        frame.var_index = in.i32();
+        frame.fp = in.u64();
+        frame.sp = in.u64();
+        frame.argc = in.i32();
+        frame.argp = in.u64();
+        frame.temp_count = in.i32();
+        frame.local_segment = in.u16();
+        frame.debug_selector = in.i32();
+        frame.debug_export = in.i32();
+        frame.debug_local_call = in.i32();
+        frame.debug_origin = in.i32();
+        frame.debug_kernel = in.i32();
+        frame.debug_kernel_sub = in.i32();
+        const std::uint8_t type = in.u8();
+        if (type > static_cast<std::uint8_t>(ExecType::VarSelector)) {
+            in.fail("a frame of an unknown type");
+        }
+        frame.type = static_cast<ExecType>(type);
     }
-    (void)in.i32(); // The current frame.
-    (void)in.i32(); // The execution stack base.
-    (void)in.boolean();
-    for (std::size_t i = 0; i < variables_.size(); ++i) {
-        (void)in.boolean();
-        (void)in.u64();
-        (void)in.u16();
-        (void)in.i32();
+    const int xs_index = in.i32();
+    const int stack_base = in.i32();
+    const bool position_changed = in.boolean();
+    struct SavedVariables {
+        bool stored = false;
+        StackIndex start = 0;
+        SegmentId segment = 0;
+        int max = 0;
+    };
+    std::array<SavedVariables, 4> variables{};
+    for (SavedVariables& saved : variables) {
+        saved.stored = in.boolean();
+        saved.start = in.u64();
+        saved.segment = in.u16();
+        saved.max = in.i32();
     }
-    (void)in.reg(); // acc
-    (void)in.reg(); // prev
-    (void)in.i32(); // rest
-    (void)in.u8();  // abort
+    const Reg acc = in.reg();
+    const Reg prev = in.reg();
+    const int rest = in.i32();
+    const std::uint8_t abort = in.u8();
     const std::uint32_t steps = in.u32();
     const std::uint64_t kernel_calls = in.u64();
-    const std::size_t stack = in.count(4);
-    for (std::size_t i = 0; i < stack && !in.failed(); ++i) {
-        (void)in.reg();
+    std::vector<Reg> stack(in.count(4));
+    for (Reg& value : stack) {
+        value = in.reg();
     }
-
+    if (execution == Execution::Resume && !in.failed()) {
+        if (xs_index < -2 || xs_index >= static_cast<int>(frames.size()) || xs_index == -1 ||
+            stack_base >= static_cast<int>(frames.size()) ||
+            abort > static_cast<std::uint8_t>(Abort::QuitGame)) {
+            in.fail("the execution state is inconsistent");
+        }
+        for (const ExecStack& frame : frames) {
+            if (frame.fp > stack.size() || (frame.sp > stack.size() && frame.sp != carry) ||
+                frame.argp > stack.size()) {
+                in.fail("a frame points beyond the stack");
+            }
+        }
+    }
     in.begin("segments");
     if (in.failed()) {
         return;
@@ -522,6 +567,40 @@ void Machine::load_state(StateReader& in) {
     };
     steps_ = steps;
     kernel_calls_ = kernel_calls;
+    if (execution == Execution::Resume) {
+        if (stack.size() != stack_->entries.size()) {
+            in.fail("the stack's size differs from the state's stack segment");
+            return;
+        }
+        stack_->entries = std::move(stack);
+        stack_frames_ = std::move(frames);
+        xs_ = nullptr;
+        if (xs_index >= 0) {
+            xs_ = &*std::next(stack_frames_.begin(), xs_index);
+        }
+        execution_stack_base_ = stack_base;
+        stack_position_changed_ = position_changed;
+        // A variable store is the locals of its segment or the stack.
+        for (std::size_t i = 0; i < variables.size(); ++i) {
+            const SavedVariables& saved = variables[i];
+            std::vector<Reg>* store = nullptr;
+            if (saved.stored) {
+                if (saved.segment == stack_segment) {
+                    store = &stack_->entries;
+                } else if (Segment* locals = segments_.segment(saved.segment, SegmentType::Locals)) {
+                    store = &static_cast<LocalVariables*>(locals)->locals; // NOLINT(*-static-cast-downcast)
+                } else {
+                    in.fail("a variable store is neither the stack nor locals");
+                    return;
+                }
+            }
+            variables_[i] = Variables{.store = store, .start = saved.start, .segment = saved.segment, .max = saved.max};
+        }
+        acc_ = acc;
+        prev_ = prev;
+        rest_ = rest;
+        abort_ = static_cast<Abort>(abort);
+    }
     game_is_restarting_ = static_cast<Restarting>(restarting);
     gc_count_down_ = gc_count_down;
     last_save_virtual_id_ = last_save_virtual_id;
@@ -1041,8 +1120,8 @@ void Subsystems::load_state(StateReader& in) {
 
 // The whole state ------------------------------------------------------------
 
-bool read_state(Machine& machine, StateReader& in) {
-    machine.load_state(in);
+bool read_state(Machine& machine, StateReader& in, Execution execution) {
+    machine.load_state(in, execution);
     if (!in.failed()) {
         machine.subsystems().load_state(in);
     }

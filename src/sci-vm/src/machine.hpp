@@ -51,6 +51,7 @@ namespace sci::vm {
 class StateWriter;
 class StateReader;
 class Subsystems;
+enum class Execution : std::uint8_t;
 
 inline constexpr int vm_stack_size = 0x1000;
 inline constexpr int gc_interval = 0x8000;
@@ -135,6 +136,20 @@ public:
     // Runs the game's play method until it returns or a fault stops it
     // (runGame), restarting when the game asks for it.
     void run_game();
+    // Goes on as run_game from a state read with Execution::Resume, which
+    // was written at a resume point.
+    void resume_game();
+
+    // A resume point is the end of a kernel call made by the top-level
+    // run_vm (not from a kernel function's scripts), with no abort pending:
+    // there the interpreter keeps nothing outside the state, so a machine
+    // that reads the state with Execution::Resume can go on from it. The
+    // hook is called at each; when it returns true the machine stops there
+    // (run_game and resume_game return, suspended() is true) and is not to
+    // run again. For the round trip of sci-vm-trace.
+    void set_suspend_hook(std::function<bool()> hook) { suspend_hook_ = std::move(hook); }
+
+    [[nodiscard]] bool suspended() const { return suspended_; }
 
     // State used by the kernel functions.
     [[nodiscard]] SegManager& segments() { return segments_; }
@@ -247,7 +262,7 @@ public:
     // Writes its part of the VM state (state.cpp).
     void save_state(StateWriter& out) const;
     // Reads it back (state_load.cpp).
-    void load_state(StateReader& in);
+    void load_state(StateReader& in, Execution execution);
 
 private:
     struct Variables {
@@ -263,7 +278,10 @@ private:
     ExecStack* execute_method(int script, int export_index, StackIndex sp, Reg calling_obj, int argc, StackIndex argp);
     void call_kernel(int number, int argc);
     void call_kernel_untraced(int number, int argc);
-    void run_vm();
+    // `resume`: the top-level run_vm going on from a resume point.
+    void run_vm(bool resume = false);
+    // run_game's loop, from the first run_vm.
+    void game_loop(bool resume);
     void setup_frame();
     Reg read_var(int type, int index);
     void write_var(int type, int index, Reg value);
@@ -300,6 +318,8 @@ private:
     std::uint32_t steps_ = 0;
     std::function<void(const KernelCall&)> kernel_log_;
     std::uint64_t kernel_calls_ = 0;
+    std::function<bool()> suspend_hook_;
+    bool suspended_ = false;
 };
 
 } // namespace sci::vm

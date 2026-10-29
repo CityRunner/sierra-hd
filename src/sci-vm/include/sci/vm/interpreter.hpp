@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include "sci/core/error.hpp"
 #include "sci/resource/resource_manager.hpp"
 #include "sci/vm/events.hpp"
 #include "sci/vm/files.hpp"
@@ -61,6 +62,15 @@ struct SaveCheck {
     StateHash saved;                  // The state written.
     StateHash restored;               // The fresh machine's state after reading it.
     std::optional<std::string> error; // Why reading failed, if it did.
+};
+
+// One round trip of RunOptions::round_trip_ticks.
+struct RoundTrip {
+    std::uint64_t call = 0;           // The kernel calls traced when the state was saved.
+    std::vector<std::uint8_t> file;   // The save file.
+    StateHash saved;                  // The state written, with the execution.
+    StateHash restored;               // The fresh machine's state after reading it.
+    std::optional<std::string> error; // Why reading failed, if it did; the run then stops.
 };
 
 struct RunOptions {
@@ -131,7 +141,26 @@ struct RunOptions {
     // its own machine, unchanged.
     std::vector<std::uint32_t> save_check_ticks;
     std::function<void(std::uint32_t requested, std::uint32_t tick, const SaveCheck&)> on_save_check;
+    // Round trips (milestone 8, docs/ASSUMPTIONS.md, "Milestone 8: round
+    // trips"): at the first resume point (Machine::set_suspend_hook, the
+    // end of a kernel call of the top-level interpreter) once virtual time
+    // has reached each of these ticks, in increasing order, the machine
+    // stops, its state is written as a save file, and the run goes on in a
+    // fresh machine built from the game files that read the save with its
+    // execution (Execution::Resume). The fresh machine also gets what is
+    // not VM state: the input not yet due, the music device and what the
+    // screen shows. The trace and the other outputs go on as one run, so
+    // they can be compared with a run without round trips.
+    // on_round_trip is called after each, before the run goes on.
+    std::vector<std::uint32_t> round_trip_ticks;
+    std::function<void(std::uint32_t requested, std::uint32_t tick, const RoundTrip&)> on_round_trip;
 };
+
+// The hashes of a save file's state read into a fresh machine on the game
+// files with its execution, as the round trip reads it; the error if it
+// cannot be read.
+[[nodiscard]] core::Result<StateHash> load_save_hash(const resource::ResourceManager& resources,
+                                                     std::span<const std::uint8_t> file);
 
 struct RunResult {
     // Why the interpreter stopped early, if it did.
