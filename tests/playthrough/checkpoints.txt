@@ -17,3 +17,7 @@ act-3-billiards 126500 III 36
 act-3-attic 135000 III 74
 act-3-end 150000 III 63
 act-4-start 154400 IV 14
+act-4-room-3 156000 IV 3
+act-4-study 161000 IV 31
+act-4-fight 166500 IV 22
+act-5-start 170800 V 21

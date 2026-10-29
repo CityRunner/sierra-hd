@@ -627,3 +627,78 @@ sierra-hd replay 1
 153400 move 215 199
 153402 down 215 199 0
 153406 up 215 199 0
+# Act IV (11:00 PM, from tick 153412 in room 14, outside the playhouse).
+# Ethel (region 202, timer 368) and Rudy (region 281, timer 369) walk the
+# grounds; Clarence and Rudy fight in room 22 once Rudy's walk has ended.
+# Room 14: round the right side of the playhouse, then north off the top
+# behind it into room 3 (about tick 155060; room 3 starts timer 369).
+154100 move 285 175
+154102 down 285 175 0
+154106 up 285 175 0
+154500 move 285 120
+154502 down 285 120 0
+154506 up 285 120 0
+154800 move 268 118
+154802 down 268 118 0
+154806 up 268 118 0
+155000 move 276 80
+155002 down 276 80 0
+155006 up 276 80 0
+# Room 3: Ethel comes by at timer 368 800 (event bit 4, the clock at tick
+# 155206), then Rudy at timer 369 700 (event bit 1, the clock at 155662);
+# both walk off west. The clock stays up until a key closes it, and a
+# second scene while it is up would leave Laura without control, so Enter
+# closes each.
+155400 key 13
+155900 key 13
+# Onto the path at the bottom right, then the right arrow key into 10.
+156700 move 300 165
+156702 down 300 165 0
+156706 up 300 165 0
+157100 key 19712
+# Room 10: down the left side to the foot of the steps; the up arrow key
+# walks her in through the French doors into the study 31.
+157700 move 10 120
+157702 down 10 120 0
+157706 up 10 120 0
+158200 move 155 160
+158202 down 155 160 0
+158206 up 155 160 0
+158800 key 18432
+# The study 31: its description (Enter), then Lillian (region 264, event
+# bit 2, the clock at tick 159600): "What an interesting collection of
+# weapons...", "Oh, Laura... you startled me!". Enter closes the messages;
+# timer 369 runs out meanwhile (Rudy's walk is over, about tick 161800).
+159600 key 13
+160000 key 13
+160400 key 13
+160800 key 13
+161200 key 13
+161600 key 13
+162000 key 13
+162400 key 13
+# Back out to 10 with the left arrow key, off its bottom edge into 21 (its
+# description), right arrow key east into 22 (its description).
+162500 key 19200
+163300 move 200 199
+163302 down 200 199 0
+163306 up 200 199 0
+164500 key 13
+164700 key 19712
+# Room 22: Clarence and Rudy fight by the statue (room 22's script, timer
+# 369 at 1; event bit 8 as bit 1 is set, the clock at tick 165100), then
+# the "Act V" card. Enter closes the messages; the fight is over by about
+# tick 168100. The left arrow key walks her west into 21: the room change
+# starts Act V (tick 169510).
+165100 key 13
+165700 key 13
+166100 key 13
+166500 key 13
+166900 key 13
+167300 key 13
+167700 key 13
+168100 key 13
+168500 key 13
+168900 key 13
+169300 key 13
+169500 key 19200
