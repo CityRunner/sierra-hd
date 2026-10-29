@@ -51,7 +51,7 @@ std::vector<int> SaveFolder::slots() {
             result.push_back(*slot);
         }
     }
-    std::ranges::sort(result);
+    std::ranges::stable_sort(result); // Slots are distinct.
     return result;
 }
 

@@ -43,6 +43,59 @@ followed by that many bytes (`StateWriter::string`, `StateWriter::bytes`).
   from the file alone. The `execution` component is written but not
   restored (below).
 
+## Slots and the save folder
+
+- **Slots** 1 to 99, as ScummVM's (0 is its autosave slot, not used). The
+  game sees slot n as the virtual id 100 + n (`SAVEGAMEID_OFFICIALRANGE`).
+  sci-vm reads and writes saves through a `SaveStore` the host supplies
+  (`sci/vm/files.hpp`); it does no I/O itself.
+- **Files:** slot n is `sierra-hd-<nnn>.sav` (`sierra-hd-001.sav`), in the
+  folder `saves` next to the program's configuration
+  (`sci::platform::SaveFolder`). They are kept apart from the `files`
+  folder, where the files the game writes itself go, so that a game file
+  can never be taken for a save. There is no configuration key for another
+  folder yet. `sci-vm-trace` takes `--saves <folder>`, by default a new
+  empty folder per run, removed at its end.
+- **The list** the game's dialogs read (kGetSaveFiles, ScummVM's
+  `listSavegames`): every slot whose file starts with the magic and a
+  readable prefix (magic, version, game identity, description, date and
+  time) and has a description, newest first by the date and time in the
+  header; saves of the same second by slot, increasing (ScummVM's sort
+  leaves their order to the sort algorithm). At most 20 are listed, each
+  description cut to 35 bytes, in 36-byte entries followed by a zero byte,
+  and the slot ids (100 + slot) in the array the game passes. Other files
+  are left out.
+- **New saves** (kSaveGame with a virtual id below 100) take the first slot
+  without a listed save; the same low id again, without a kGetSaveFiles in
+  between, overwrites the last new save (ScummVM's `_lastSaveVirtualId`);
+  an id of 100 to 199 overwrites that slot if it is listed and fails
+  otherwise. The program named in a save is `sierra-hd <version>`, or
+  `sci-vm-trace`.
+- **kCheckSaveGame** is true only for a listed save that `read_save_header`
+  accepts: this format version, this release of the game and the right
+  checksum. Otherwise the game's own restore dialog says that it cannot
+  restore that game (ScummVM checks only the version there, and shows its
+  own message box for another release in kRestoreGame).
+- **kRestoreGame** returns failure to the game, logging the message of the
+  table below, for a missing save or a header that fails its checks;
+  nothing changes. A failure while reading the state stops the game with
+  the message as a fault. On success it does what ScummVM's
+  `gamestate_restore` does after loading: the 1x maps and the shown screen
+  are cleared (`clearForRestoreGame`), the GC countdown restarts, the
+  restart flag becomes 2 (kGameIsRestarting reports "restored"), the event
+  counter and the throttle are reset, the last new save is forgotten, the
+  global pause count of the music is reset; every song that was playing is
+  played again from its saved tick (`reconstructPlayList`,
+  `soundPlay(restoring)`: the channels' set-up, programs and controllers
+  go to the device again, notes are not started), or, if none was
+  playing, the first paused one. Then it aborts the running code, the
+  files are closed and the game object's `replay` method takes over
+  (runGame, `kAbortLoadGame`).
+- **The persistent hash** of "Milestone 8: the VM state" equals the one at
+  the save right after `read_save`, before these fixups (the round trip of
+  `--save-check` and the unit tests take it there); the fixups change the
+  machine part, the 1x maps and the songs as ScummVM's restore does.
+
 ## Reading
 
 `read_save` checks, in this order, and stops at the first failure with a
@@ -67,8 +120,8 @@ list) against what it refers to, and the sizes the engine relies on (the
 1x maps, the stack, a script's buffer) against the game's. A part takes the
 values it read only when all of them are consistent, but a failure in a
 later part leaves the earlier ones replaced, so a machine whose state fails
-to load must not run on (kRestoreGame, the next task, is to stop the game
-with the message as a fault).
+to load must not run on: kRestoreGame stops the game with the message as a
+fault.
 
 ## What a restore rebuilds
 
@@ -96,7 +149,8 @@ As ScummVM's `gamestate_restore` does after loading:
   its number; its MIDI parser comes back with the saved (channel-filtered)
   data and its exact position, timing, volumes and held notes, so the songs
   play on from where they were. The songs that were playing before the
-  restore get their notes switched off on the device.
+  restore get their notes switched off on the device. kRestoreGame then
+  plays the restored songs again from their tick, as above.
 - **Cursor, menu bar, parser**: the cursor's shape (checked against the
   game's cursors) and visibility, the menus and items, the parser's
   synonyms, last parse tree and pronoun come back as saved.
@@ -107,7 +161,10 @@ As ScummVM's `gamestate_restore` does after loading:
 
 ## Versions
 
-Version 1 is the first. When the format changes, the version goes up and
+Version 1 is the first. In every version the file starts with the magic,
+the version, the game identity, the description and the date and time as
+above, so that the save dialogs can list a save of any version (and the
+game then says it cannot be restored). When the format changes, the version goes up and
 this document gets a section per older version saying how a file of that
 version is migrated to the current one (a documented step that rewrites
 the old stream into the new one before reading it). An older version for
@@ -123,6 +180,13 @@ the message naming both versions (table above). Any change to what
   but `execution`; the header comes back as written; each error of the
   table above, every truncation of the state (with its length and the
   checksum made right) and bytes after the state are reported.
+- `tests/unit/vm/save_kernel_test.cpp`: the four kernel functions on the
+  synthetic machine with saves in memory: slot choice and overwriting, the
+  list's order and its limit of 20 and 35-byte names, a restore that
+  brings the state back, aborts with LoadGame and sets the restart flag to
+  2, and saves of another release, of another version, damaged or not
+  saves at all returning failure with nothing changed, and a state that
+  fails to load stopping the game.
 - `sci-vm-trace --save-check` (`tools/vm-trace/README.md`) makes the round
   trip with the real game at chosen ticks.
 - `tests/fuzz/fuzz_save.cpp` (`fuzz-save`) reads arbitrary bytes as a save

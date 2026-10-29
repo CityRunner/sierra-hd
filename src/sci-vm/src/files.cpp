@@ -50,6 +50,7 @@ bool MemoryFileStore::write(std::string_view name, std::span<const std::uint8_t>
 
 std::vector<int> MemorySaveStore::slots() {
     std::vector<int> result;
+    result.reserve(saves_.size());
     for (const auto& [slot, data] : saves_) {
         result.push_back(slot);
     }

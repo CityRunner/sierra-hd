@@ -10,7 +10,7 @@ trace, in the format of the reference ScummVM's trace patch
                  [--parser <file>] [--layout <file>] [--opl <file>]
                  [--music mt32 [--roms <folder>] [--midi <file>]]
                  [--state-hash <tick>[,<tick>...] <file>]
-                 [--save-check <tick>[,<tick>...] <file>]
+                 [--save-check <tick>[,<tick>...] <file>] [--saves <folder>]
     sci-vm-trace --scan-kernel <game folder> <output file>
     sci-vm-trace --vocabulary <game folder> <output file>
 
@@ -70,6 +70,13 @@ does.
 
       sci-vm-trace /game build/boot.txt --replay tests/scenarios/boot.txt \
           --stop-tick 3600 --save-check 1000,2000,3600 build/boot-save.txt
+- `--saves` names the folder of the game's saves (kSaveGame and the
+  others, `docs/formats/save-format.md`, "Slots and the save folder"). It
+  should be empty at the start for a reproducible run. Without it each run
+  gets a new empty folder in the system's temporary folder, removed at the
+  end, as the reference starts every scenario with no saves
+  (`run-scenario.sh` passes `<output folder>/sci-vm-saves` and gives the
+  reference `<output folder>/reference-saves`, both emptied first).
 - `--vocabulary` lists the parser's vocabulary as sci-text reads it:
   `word <spelling> <class> <group>` for every word of vocab.000,
   `suffix <typed> <stored> <class mask> <class>` for vocab.901 and

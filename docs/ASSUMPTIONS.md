@@ -2439,16 +2439,13 @@ The format, its checks and what a restore rebuilds are described in
   the persistent hash after a restore equals the one at the save, which is
   what the exit criterion compares. ScummVM resets the countdown
   (`GC_INTERVAL - 1`) and sets `gameIsRestarting` to "restore" after
-  loading; whether kRestoreGame does the same after `read_save` (to keep
-  the traces equal to the reference's after a restore) is decided with the
-  kernel functions. **Open** (next task).
+  loading; kRestoreGame does the same after `read_save` (see "Milestone
+  8: saving in the game"). **Decided.**
 - **The music device** is not part of the state. The songs playing before
-  a restore get their notes switched off; the restored songs' parsers are
-  exactly where they were, but the device does not get their program and
-  controller changes again (ScummVM re-plays each playing song up to its
-  saved tick, `soundPlay(restoring)`), so a restored song is heard from
-  its next notes, possibly with the instruments of before. **Open** (next
-  task, with the kernel functions).
+  a restore get their notes switched off; kRestoreGame then plays the
+  restored songs again from their tick as ScummVM does
+  (`soundPlay(restoring)`), which sends their programs and controllers to
+  the device. **Decided** (see "Milestone 8: saving in the game").
 - **A failed restore:** the header checks change nothing; an inconsistent
   state may leave parts replaced, so the machine must stop with the
   message (a fault) rather than run on. **Decided.**
@@ -2457,11 +2454,80 @@ The format, its checks and what a restore rebuilds are described in
   `execution`, for `boot.txt` at ticks 1000, 2000 and 3600 and for
   `intro.txt` at ticks 500, 5000, 12000 and 20000. Unit tests and the
   `fuzz-save` target as described in the format document.
-- **Not done yet** (the next task): kSaveGame, kRestoreGame,
-  kCheckSaveGame and kGetSaveFiles on this format, their slot naming and
-  save folder (`sci-vm-trace --saves`), the restore through
-  `Game::replay`, and the full scenario round trip ("replay continues
-  identically").
+- **Done by the next task** ("Milestone 8: saving in the game"): the four
+  kernel functions, slots and folder, the restore through the game's
+  `replay` method.
+
+## Milestone 8: saving in the game (2026-10-29)
+
+The kernel functions kSaveGame, kGetSaveFiles, kCheckSaveGame and
+kRestoreGame on the project's format; their behaviour in detail is in
+`docs/formats/save-format.md`, "Slots and the save folder".
+
+- **Slots and folder:** slots 1 to 99 (virtual ids 101 to 199), files
+  `sierra-hd-<nnn>.sav` in `saves/` next to the configuration, apart from
+  the `files/` folder of the game's own files; `sci-vm-trace --saves
+  <folder>`, by default a new empty folder per run. No configuration key
+  for another folder yet. **Decided.**
+- **Listing:** newest first by the date and time in the header, then by
+  slot; at most 20, names cut to 35 bytes; files that are not saves are
+  left out; saves of another version or release, or damaged, are listed
+  but kCheckSaveGame is false for them, so the game's own dialog says it
+  cannot restore that game (no extra message box; ScummVM shows its own
+  box for another release). kRestoreGame on such a save logs the format's
+  message and returns failure. **Decided.**
+- **Restore:** a state that fails to load after the header checks stops
+  the game with a fault. On success ScummVM's `gamestate_restore` fixups
+  (the 1x maps and the shown screen cleared, GC countdown, restart flag 2,
+  event counter, throttle, last new save, the music's global pause), the
+  songs played again from their tick, the abort with LoadGame; the run
+  loop closes the files and calls the game's `replay` method. The
+  persistent hash equals the save's right after `read_save`, before these
+  fixups. **Decided.**
+- **The machine component** of the state now also holds the restart flag
+  as a value (0, 1 or 2) and kSaveGame's last new slot (EngineState's
+  `_lastSaveVirtualId`, `_lastSaveNewId`), which decide future execution.
+  The format stays version 1: no save of version 1 was released.
+  **Decided.**
+- **Scenario saves:** `run-scenario.sh` gives each engine an empty save
+  folder per run (`reference-saves/`, `sci-vm-saves/` in the output
+  folder; `tools/reference-scummvm/run.sh` takes `SIERRA_HD_SAVEPATH`).
+  Before this the reference kept its saves in the build folder between
+  runs, so a scenario that saves changed the next run's dialogs.
+  **Decided.**
+- **The save-restore scenario** (`tests/scenarios/save-restore.txt`, stop
+  tick 6500, seed 0): File > Save game in Laura's bedroom with
+  "Bedroom", a walk, File > Restore game, Enter on the save, a walk.
+  Result: traces, screens, maps, actors, layout and OPL writes are equal
+  up to and including the RestoreGame call (call 40583 of about 49500;
+  GetSaveFiles, SaveGame, CheckSaveGame and RestoreGame return the same
+  values in both engines: 0 saves, saved, 1 save, valid, success).
+  After it, the calls are the same but for the tick until the first kWait
+  after the restore, then they differ, for two reasons:
+  - the reference is not deterministic after a restore: its
+    `gamestate_restore` sets `lastWaitTime` and `_screenUpdateTime` from
+    the host clock (`g_system->getMillis()`), which the trace patch does
+    not replace, so its first kWait returns a host-dependent count (4023
+    in the run made);
+  - the clocks: the reference's virtual time runs on (ScummVM's host time
+    never goes back; only its tick count is set to the save's play time,
+    which the trace patch overrides), while sci-vm restores the clock to
+    the save's tick (decided with the format), so the trace ticks go back
+    to 3801 in sci-vm and stay at 4901 in the reference.
+- **The comparison for save/restore scenarios** (decided now, until the
+  open point below is settled): everything must match up to and
+  including the RestoreGame call; after it, sci-vm alone is checked (no
+  fault, the game redraws the saved room and runs on), and the restored
+  state by the persistent hash and the unit tests. The scenario is
+  therefore not in `scenarios.txt`, whose runs must match to the end.
+- **Open:** (1) patch the reference's `gamestate_restore` to take the
+  wait and screen-update times from the virtual clock (a rebuild of the
+  reference); (2) then decide sci-vm's clock after a restore: keep the
+  virtual time running and set back only what kGetTime(ticks) reports
+  (ScummVM's split between host milliseconds and the tick count), or keep
+  restoring it as saved and accept tick differences in the comparison;
+  (3) whether the program should accept a save folder key in its
+  configuration.
 
 ## Spec items carried forward
 

@@ -145,7 +145,7 @@ void Sound::reconstruct_play_list(Machine& machine) {
     }
     const SelectorCache& selector = machine.selector();
     const auto replay = [&](Reg object) {
-        MusicEntry* entry = music_->slot(object);
+        const MusicEntry* entry = music_->slot(object);
         if (entry == nullptr) {
             return;
         }

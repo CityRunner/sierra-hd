@@ -62,10 +62,10 @@ struct KernelWorld {
         return std::move(*manager);
     }
 
-    sci::vm::Machine& machine() { return *world.machine; }
+    [[nodiscard]] sci::vm::Machine& machine() const { return *world.machine; }
 
     // The digest of the random source's part of the state.
-    sci::core::Sha256Digest random_state() {
+    [[nodiscard]] sci::core::Sha256Digest random_state() const {
         for (const sci::vm::StateComponentHash& component : sci::vm::state_hash(machine()).components) {
             if (component.name == "random") {
                 return component.digest;
@@ -88,10 +88,11 @@ struct KernelWorld {
         const Reg count = sci::vm::k_get_save_files(machine(), args);
         std::vector<std::pair<std::string, int>> result;
         const std::span<Reg> ids = machine().segments().deref_regs(slots, count.to_uint16());
-        for (int i = 0; i < count.to_uint16(); ++i) {
+        const std::size_t listed = count.to_uint16();
+        for (std::size_t i = 0; i < listed && i < ids.size(); ++i) {
             const std::string name = machine().segments().get_string(
                 sci::vm::make_reg(names.segment, static_cast<std::uint16_t>(names.offset + (i * 36))));
-            result.emplace_back(name, ids[static_cast<std::size_t>(i)].to_uint16());
+            result.emplace_back(name, ids[i].to_uint16());
         }
         return result;
     }
@@ -108,6 +109,11 @@ struct KernelWorld {
     }
 };
 
+// The file of a slot, or nothing.
+std::vector<std::uint8_t> file_of(sci::vm::SaveStore& saves, int slot) {
+    return saves.read(slot).value_or(std::vector<std::uint8_t>{});
+}
+
 void reseal(std::vector<std::uint8_t>& file) {
     file.resize(file.size() - checksum_size);
     const sci::core::Sha256Digest checksum = sci::core::sha256(file);
@@ -122,7 +128,7 @@ SCI_TEST(new_saves_take_free_slots_and_the_same_id_overwrites) {
     SCI_CHECK(game.list().empty());
     SCI_CHECK(!game.save(0, "First").is_null());
     SCI_CHECK(saves.slots() == std::vector<int>{1});
-    SCI_CHECK(sci::vm::read_save_summary(*saves.read(1))->description == "First");
+    SCI_CHECK(sci::vm::read_save_summary(file_of(saves, 1)).value_or(sci::vm::SaveHeader{}).description == "First");
     // The same low id again: the last new save is overwritten.
     SCI_CHECK(!game.save(0, "First again").is_null());
     SCI_CHECK(saves.slots() == std::vector<int>{1});
@@ -203,12 +209,12 @@ SCI_TEST(saves_of_another_release_version_or_damaged_fail_without_change) {
         sci::vm::MemorySaveStore other_saves;
         KernelWorld other(other_saves, 1);
         SCI_CHECK(!other.save(0, "Other release").is_null());
-        saves.write(1, *other_saves.read(1));
+        saves.write(1, file_of(other_saves, 1));
     }
     KernelWorld game(saves);
     (void)game.list();
     SCI_CHECK(!game.save(0, "Good").is_null()); // Slot 2.
-    std::vector<std::uint8_t> file = *saves.read(2);
+    const std::vector<std::uint8_t> file = file_of(saves, 2);
     // Slot 3: format version 2.
     std::vector<std::uint8_t> newer = file;
     newer[8] = 2;
@@ -240,7 +246,7 @@ SCI_TEST(an_inconsistent_state_stops_the_game) {
     sci::vm::MemorySaveStore saves;
     KernelWorld game(saves);
     SCI_CHECK(!game.save(0, "Good").is_null());
-    std::vector<std::uint8_t> file = *saves.read(1);
+    std::vector<std::uint8_t> file = file_of(saves, 1);
     // Cut the state short inside its block: the header and identity pass.
     file[file.size() - checksum_size - 1] ^= 0xFFU;
     file.resize(file.size() - checksum_size - 40);

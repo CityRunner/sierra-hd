@@ -33,8 +33,8 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <vector>
 #include <utility>
+#include <vector>
 
 namespace sci::vm {
 
