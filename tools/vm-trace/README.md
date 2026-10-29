@@ -9,8 +9,12 @@ trace, in the format of the reference ScummVM's trace patch
                  [--screens <folder>] [--screen-every <ticks>] [--actors <file>]
                  [--parser <file>] [--layout <file>] [--opl <file>]
                  [--music mt32 [--roms <folder>] [--midi <file>]]
+                 [--state-hash <tick>[,<tick>...] <file>]
+                 [--save-check <tick>[,<tick>...] <file>] [--saves <folder>]
+                 [--round-trip <tick>[,<tick>...] <file> [--round-trip-saves <folder>]]
     sci-vm-trace --scan-kernel <game folder> <output file>
     sci-vm-trace --vocabulary <game folder> <output file>
+    sci-vm-trace --load-save <game folder> <save file> <output file>
 
 Always give a stop tick: a run without one goes on for as long as the game
 does.
@@ -44,6 +48,65 @@ does.
   them (it renders nothing; without it the messages are only logged), and
   `--midi` writes every message the driver sends as `<timer call> <bytes>`
   (`docs/formats/replay-and-trace.md`, "MIDI files"). Not with `--opl`.
+- `--state-hash` writes the hash of the VM state (docs/ASSUMPTIONS.md,
+  "Milestone 8: the VM state") when virtual time first reaches each of the
+  ticks (increasing, comma-separated), taken in the kernel call that let
+  the time pass. Per requested tick: `<tick> <reached> total <sha-256>`,
+  `<tick> <reached> persistent <sha-256>` (all but the execution), then
+  `<tick> <reached> <component> <bytes> <sha-256>` for each component, so
+  that two files show which part of the state differs. Two runs of the
+  same scenario, and runs on x86-64 and ARM64, give the same file:
+
+      sci-vm-trace /game build/boot.txt --replay tests/scenarios/boot.txt \
+          --stop-tick 3600 --state-hash 1000,2000,3600 build/boot-state.txt
+- `--save-check` makes the save round trip (milestone 8,
+  `docs/formats/save-format.md`) at each of the ticks, taken as for
+  `--state-hash`: the state is written as a save file and read into a
+  fresh machine on the same game files; the run goes on unchanged with its
+  own machine. Per requested tick: `<tick> <reached> <save bytes> <saved
+  persistent hash> <restored persistent hash> equal|differ`, then
+  `<tick> <reached> component <name> differs` for each component whose
+  hash differs (always `execution`, which a restore does not take), or
+  `<tick> <reached> <save bytes> error <message>` if the save could not be
+  read:
+
+      sci-vm-trace /game build/boot.txt --replay tests/scenarios/boot.txt \
+          --stop-tick 3600 --save-check 1000,2000,3600 build/boot-save.txt
+- `--round-trip` (milestone 8, `docs/ASSUMPTIONS.md`, "Milestone 8: round
+  trips") stops the machine at the first resume point (the end of a kernel
+  call of the top-level interpreter) at or after each tick, writes its
+  state as a save file, and goes on in a fresh machine built from the game
+  files that read the save with its execution; the input not yet due, the
+  music device and the shown screen go over. All other outputs continue as
+  one run, to be compared with a run without `--round-trip`. Per requested
+  tick: `<tick> <reached> <kernel call> <save bytes> <saved persistent
+  hash> <restored persistent hash> equal|differ total equal|differ`, then
+  `<tick> <reached> component <name> differs` for each component that
+  differs, or `<tick> <reached> <call> <save bytes> error <message>` (the
+  run then stops). `--round-trip-saves <folder>` keeps each save there as
+  `round-trip-<tick>.sav`.
+- `--load-save` reads a save file into a fresh machine as the round trip
+  does and writes its hashes (`total`, `persistent`, then `<component>
+  <bytes> <hash>`), for saves from another architecture.
+- `--saves` names the folder of the game's saves (kSaveGame and the
+  others, `docs/formats/save-format.md`, "Slots and the save folder"). It
+  should be empty at the start for a reproducible run. Without it each run
+  gets a new empty folder in the system's temporary folder, removed at the
+  end, as the reference starts every scenario with no saves
+  (`run-scenario.sh` passes `<output folder>/sci-vm-saves` and gives the
+  reference `<output folder>/reference-saves`, both emptied first).
+- `run-round-trips.sh [<scenario list> [<results folder>]]` runs every
+  scenario (default `tests/scenarios/scenarios.txt`) without and with five
+  round trips (at 1/6 to 5/6 of its stop tick) in sci-vm alone and
+  compares the trace, screens and maps (by SHA-256), actors, parser,
+  layout, OPL and state-hash files; on a difference it runs each tick
+  alone. One result file per scenario in `build/round-trips`
+  (`<replay>-<stop>-<seed>.ok` or `.fail`; a scenario with a `.ok` is
+  skipped), the work folder kept only for failures. In the container with
+  the game at `/game`; `SIERRA_HD_VM_TRACE` (default the release build) and
+  `SIERRA_HD_JOBS` (default 4):
+
+      SIERRA_HD_MOUNTS=/path/to/game:/game docker/run.sh tools/vm-trace/run-round-trips.sh
 - `--vocabulary` lists the parser's vocabulary as sci-text reads it:
   `word <spelling> <class> <group>` for every word of vocab.000,
   `suffix <typed> <stored> <class mask> <class>` for vocab.901 and

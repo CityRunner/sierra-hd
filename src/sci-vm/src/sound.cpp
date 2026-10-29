@@ -131,7 +131,50 @@ Reg Sound::play(Machine& machine, std::span<Reg> args) {
     return machine.acc();
 }
 
-void Sound::process_play_sound(Machine& machine, Reg object) {
+void Sound::reconstruct_play_list(Machine& machine) {
+    if (!music_) {
+        return;
+    }
+    // Starting songs may re-sort the list: the songs as they are now.
+    std::vector<Reg> songs;
+    songs.reserve(music_->size());
+    for (std::size_t i = 0; i < music_->size(); ++i) {
+        songs.push_back(std::as_const(*music_).at(i).sound_object);
+    }
+    const SelectorCache& selector = machine.selector();
+    const auto replay = [&](Reg object) {
+        const MusicEntry* entry = music_->slot(object);
+        if (entry == nullptr) {
+            return;
+        }
+        // The object's loop and priority are those of the song (bug #5501).
+        write_value(machine, object, selector.loop, entry->loop);
+        write_value(machine, object, selector.priority, entry->priority);
+        process_play_sound(machine, object, true);
+    };
+    for (const Reg object : songs) {
+        MusicEntry* entry = music_->slot(object);
+        if (entry == nullptr) {
+            continue;
+        }
+        // initSoundResource: ScummVM gives every song with a resource a new
+        // parser (soundInitSnd); the state keeps the parser, which takes the
+        // new one's volumes, and the device gets the volume as in ScummVM.
+        if (entry->parser) {
+            entry->parser->reset_volumes(static_cast<std::uint8_t>(music_->master_volume()));
+        }
+        if (entry->status == SoundStatus::Playing) {
+            replay(object);
+        }
+    }
+    if (music_->first_slot_with_status(SoundStatus::Playing) == nullptr) {
+        if (const MusicEntry* paused = music_->first_slot_with_status(SoundStatus::Paused)) {
+            replay(paused->sound_object);
+        }
+    }
+}
+
+void Sound::process_play_sound(Machine& machine, Reg object, bool restoring) {
     const SelectorCache& selector = machine.selector();
     MusicEntry* slot = music_->slot(object);
     if (slot == nullptr) {
@@ -143,7 +186,9 @@ void Sound::process_play_sound(Machine& machine, Reg object) {
             return;
         }
     }
-    const std::uint16_t resource_id = read_value(machine, object, selector.number);
+    // A restored song plays the resource it was playing, even if the object
+    // names the next one already (bug #10907).
+    const std::uint16_t resource_id = restoring ? slot->resource_id : read_value(machine, object, selector.number);
     if (slot->resource_id != resource_id) {
         // Another sound was loaded into the object.
         process_dispose_sound(machine, object);
@@ -160,8 +205,10 @@ void Sound::process_play_sound(Machine& machine, Reg object) {
     slot->priority = static_cast<std::int16_t>(read_value(machine, object, selector.priority));
     // Hold is reset when a song starts; kDoSoundSetHold follows if needed.
     slot->hold = -1;
-    slot->play_bed = false;
-    music_->sound_play(*slot);
+    if (!restoring) {
+        slot->play_bed = false; // SCI0's play has no bed argument; a restore keeps the song's.
+    }
+    music_->sound_play(*slot, restoring);
     // Left-over signals are reset.
     slot->signal = 0;
     slot->fade_step = 0;

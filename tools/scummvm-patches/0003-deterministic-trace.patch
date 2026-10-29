@@ -22,7 +22,10 @@
 # write of the AdLib driver is written there with the number of the music
 # timer call; with SIERRA_HD_MIDI=<file> every MIDI message and SysEx the
 # SCI MIDI driver (MidiPlayer_Midi, the MT-32 path) hands to the MIDI driver,
-# also with the timer call. Used by tools/vm-trace to compare sci-vm with ScummVM
+# also with the timer call. In the deterministic mode (milestone 8) restoring a
+# saved game takes its times from the virtual clock: the play time is set back
+# to the save's on that clock, the wait and screen-update times are set to it.
+# Used by tools/vm-trace to compare sci-vm with ScummVM
 # (engines/sci/sierra_hd_trace.cpp describes the details).
 diff -ruN a/engines/sci/engine/kevent.cpp b/engines/sci/engine/kevent.cpp
 --- a/engines/sci/engine/kevent.cpp
@@ -219,6 +222,29 @@ diff -ruN a/engines/sci/engine/kparse.cpp b/engines/sci/engine/kparse.cpp
  		if (error) {
  			s->_segMan->strcpy_(s->_segMan->getParserPtr(), error);
  			debugC(kDebugLevelParser, "Word unknown: %s", error);
+diff -ruN a/engines/sci/engine/savegame.cpp b/engines/sci/engine/savegame.cpp
+--- a/engines/sci/engine/savegame.cpp
++++ b/engines/sci/engine/savegame.cpp
+@@ -28,6 +28,7 @@
+ #include "graphics/thumbnail.h"
+ 
+ #include "sci/sci.h"
++#include "sci/sierra_hd_trace.h"
+ #include "sci/event.h"
+ 
+ #include "sci/engine/features.h"
+@@ -1507,8 +1508,9 @@
+ 	s->gcCountDown = GC_INTERVAL - 1;
+ 
+ 	// Time state:
+-	s->lastWaitTime = g_system->getMillis();
+-	s->_screenUpdateTime = g_system->getMillis();
++	// sierra-hd: in the deterministic mode on the virtual clock.
++	s->lastWaitTime = sierraHdDeterministic() ? sierraHdMillis() : g_system->getMillis();
++	s->_screenUpdateTime = sierraHdDeterministic() ? sierraHdMillis() : g_system->getMillis();
+ 	if (meta.version >= 34) {
+ 		g_sci->setTickCount(meta.playTime);
+ 	} else {
 diff -ruN a/engines/sci/engine/state.cpp b/engines/sci/engine/state.cpp
 --- a/engines/sci/engine/state.cpp
 +++ b/engines/sci/engine/state.cpp
@@ -768,19 +794,32 @@ diff -ruN a/engines/sci/sci.cpp b/engines/sci/sci.cpp
  	const uint32 wakeUpTime = _system->getMillis() + msecs;
  
  	for (;;) {
-@@ -1099,6 +1110,8 @@
+@@ -1098,10 +1109,21 @@
+ 	}
  }
  
++// sierra-hd: in the deterministic mode the play time runs on the virtual
++// clock, from the virtual time it was last set at (Engine::setTotalPlayTime
++// on the host clock).
++static uint32 sierraHdPlayTimeStart = 0;
++
  uint32 SciEngine::getTickCount() {
 +	if (sierraHdDeterministic())
-+		return sierraHdMillis() * 60 / 1000;
++		return (sierraHdMillis() - sierraHdPlayTimeStart) * 60 / 1000;
  	return getTotalPlayTime() * 60 / 1000;
  }
  void SciEngine::setTickCount(const uint32 ticks) {
++	if (sierraHdDeterministic()) {
++		sierraHdPlayTimeStart = sierraHdMillis() - ticks * 1000 / 60;
++		return;
++	}
+ 	return setTotalPlayTime(ticks * 1000 / 60);
+ }
+ } // End of namespace Sci
 diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 --- a/engines/sci/sierra_hd_trace.cpp
 +++ b/engines/sci/sierra_hd_trace.cpp
-@@ -0,0 +1,696 @@
+@@ -0,0 +1,700 @@
 +/* sierra-hd reference tooling for ScummVM's SCI engine.
 + *
 + * This program is free software: you can redistribute it and/or modify
@@ -793,7 +832,11 @@ diff -ruN a/engines/sci/sierra_hd_trace.cpp b/engines/sci/sierra_hd_trace.cpp
 + *
 + * - Time is virtual. It advances only where the engine sleeps or waits
 + *   (SciEngine::sleep, the extra 10 ms delay in kGetEvent), never with the
-+ *   host clock. Game ticks are 1/60 s of virtual time.
++ *   host clock. Game ticks are 1/60 s of virtual time. The play time
++ *   (kGetTime(elapsed)) runs on the virtual clock too; restoring a saved
++ *   game sets it back to the save's play time, as on the host clock, and
++ *   takes the wait and screen-update times from the virtual clock (milestone
++ *   8). Virtual time itself runs on through a restore, as host time does.
 + * - The music timer runs on the virtual clock, once per base tempo of the
 + *   driver, on the main thread; the driver's own timer is not installed.
 + * - The "sci" random source is seeded with SIERRA_HD_SEED (default 0).

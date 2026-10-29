@@ -48,6 +48,27 @@ bool MemoryFileStore::write(std::string_view name, std::span<const std::uint8_t>
     return true;
 }
 
+std::vector<int> MemorySaveStore::slots() {
+    std::vector<int> result;
+    result.reserve(saves_.size());
+    for (const auto& [slot, data] : saves_) {
+        result.push_back(slot);
+    }
+    return result;
+}
+
+std::optional<std::vector<std::uint8_t>> MemorySaveStore::read(int slot) {
+    if (const auto found = saves_.find(slot); found != saves_.end()) {
+        return found->second;
+    }
+    return std::nullopt;
+}
+
+bool MemorySaveStore::write(int slot, std::span<const std::uint8_t> data) {
+    saves_[slot] = std::vector<std::uint8_t>(data.begin(), data.end());
+    return true;
+}
+
 std::uint16_t Files::open(const std::string& name, int mode, std::string& error) {
     Handle opened;
     opened.name = name;

@@ -2275,6 +2275,451 @@ scripts' bytecode (after the script patches), not from runs:
 - The gate is approved as is and merged: the Linux and Windows matrix is
   green; macOS is optional.
 
+## Milestone 8: the VM state (2026-10-28)
+
+Milestone 8's exit criterion compares "the VM state" before saving and
+after restoring by its hash. This defines that state and its canonical
+serialisation, which is meant to become the core of the save format (the
+next task); `sci::vm::state_hash` (`src/sci-vm/src/state.cpp`) hashes it.
+
+- **The state is everything that influences future execution**, given the
+  game files and the future input. It is written in ten components, in
+  this order; each component's bytes are hashed on their own (SHA-256, the
+  project's `sci::core::Sha256`) so a difference can be located, and all
+  of them together give the total:
+  - `execution`: the execution stack (every field of every frame,
+    including the debug fields, which choose workarounds), which frame is
+    current, the execution stack base, the variable bases (`start`,
+    segment, size), `acc`, `prev`, `rest`, the abort request, the step and
+    kernel-call counters (kGetTime's elapsed-time rule reads the latter),
+    and the whole data stack: uninitialised temporaries read what earlier
+    calls left on it.
+  - `segments`: the segment table in id order (each segment's type and
+    contents, empty slots too), the script-to-segment map, the class
+    table, the ids of the clone, list, node and hunk tables and the two
+    system strings. Scripts: number, the whole buffer (the patched
+    resource plus the strings the game wrote into it), lockers, the
+    deleted mark, the locals segment, and the objects in offset order with
+    their position, name, freed mark, method and property selectors and
+    properties. Tables (clones, lists, nodes, hunks): the size, the free
+    list (first free entry, each entry's successor) and the count in use,
+    then each entry in use; the free list decides which entry the next
+    allocation gets, so it is state. Locals, hunks (type, whether they
+    still have memory, bytes) and dynamic memory are written whole. The
+    data stack's contents belong to `execution`; here only its size.
+  - `machine`: the game object, the restart flag, and the GC countdown
+    (when the next collection runs decides when entries are freed).
+  - `clock`: virtual time, the wait window, the music timer's due time
+    and tempo, the last kWait time, the start of the play time (milestone
+    8, "saving in the game"), the last elapsed-time read, the throttler,
+    and the last screen update.
+  - `random`: the random source's state and the seed kRestartGame reuses.
+  - `events`: the SCI event queue, the mouse position, and the kGetEvent
+    counter.
+  - `files`: the file handles (open flag, name, the file read and the
+    position in it, what is being written).
+  - `parser`: the vocabulary language, the parser event and its valid
+    flag, the synonyms, and what the last parse left in the vocabulary:
+    the parse tree (kSaid reads it) and the pronoun's word.
+  - `sound`: the music player (tempo, sound on, master volume, reverbs,
+    global pause, time counter, timer calls) and the play list in play
+    order: per song every MusicEntry field, the MIDI parser's position,
+    timing, volumes, held notes and channel use, the signal queue; and
+    the queued commands, their track by its place in the list.
+  - `graphics`: the 1x visual, priority and control maps and the picture
+    validity flag; the ports (the window manager and menu ports, every
+    window with its frame, saved-bits handles, title and style, freed
+    windows still current, the visual order, the id table, the picture
+    window, the current port, the free counter, the priority bands); the
+    picture stack and the lines drawn into it, and the colour pairs that
+    carry over to pictures added later; the cursor's shape and
+    visibility; the transition; the menu bar (menus, items with all their
+    attributes, the current menu and item, the saved-bits handles, the
+    port to return to); the edit control's cursor and blink time; the
+    last cast, which windows removed with reanimation redraw.
+- **Where the state is taken.** A SCI save happens inside kSaveGame and a
+  restore re-enters the game through `Game::replay` after kRestoreGame
+  aborts the running code, as in Sierra's interpreter and ScummVM, so the
+  execution stack at the save is never restored. The hash therefore also
+  has a `persistent` digest of all components but `execution`: that is
+  what a save must hold and what "the same hash as before saving" compares
+  (the next task decides how the restore point is matched). For tests at
+  set ticks, `sci-vm-trace --state-hash` takes the whole state when
+  virtual time first reaches each tick, in the clock's advance hook,
+  inside the kernel call that let time pass (kWait, kGetEvent, ...);
+  there the interpreter's registers are those that call sees.
+- **Canonical:** integers little-endian at fixed widths, whatever the
+  host; containers as a count and their elements in a defined order
+  (segment ids, map keys, play order, visual order); pointers as what
+  they point to (a port by its owner and id, a frame by its index, a
+  queued track by its place in the play list, a variable store by its
+  segment). Values are SCI values (`segment:offset`), whose segment ids
+  are allocated deterministically, so no address or allocator detail
+  enters the stream. Each component starts with its name in the stream.
+- **Excluded, with the reason:**
+  - Everything read from the game files: the resources and their cache,
+    the selector table, the kernel table, the script patcher, the
+    vocabulary's words, suffixes and rules, the view and font caches, the
+    current font object (the current port's font id is state), and the
+    sound resources (a song is written by its resource number and the
+    MIDI parser's copy filtered by channel).
+  - The script fields derived from the buffer when a script loads
+    (exports, synonyms, locals offset and count).
+  - What is shown rather than drawn: the displayed screen, the HD
+    bookkeeping (owner and priority-source maps, the background layer,
+    sprite lists and their generations), the shown picture stack and
+    lines, the cast reported to the tracer. Presentation follows the
+    drawn state at the next show; after a restore the replay redraws.
+  - The audio device and its synthesiser (OPL chip, MT-32 emulation,
+    driver voices, mixer): they receive the player's messages and send
+    nothing back to the game. Their state after a restore is a question
+    for the save format (ScummVM resets the driver and re-plays the
+    songs).
+  - Host input and requests: the replay input not yet due, the quit
+    request, the kernel-call and tracing logs, the parser and layout
+    recorders, the HD caches, the analysis cache and the frame.
+  - Faults: a raised fault ends the run.
+  - The scratch list of kAnimate (rebuilt by every call) and the
+    interpreter's locals inside `run_vm` (a hash taken inside a kernel
+    call sees the state that call sees).
+- **For the save format.** Each part writes itself with a
+  `save_state(StateWriter&) const` member (ScummVM's
+  `saveLoadWithSerializer`, saving side); `StateReader` reads the same
+  primitives back and checks for running out of data. The format can
+  store this stream with a version and header and add `load_state` per
+  part, rebuilding what is excluded above (reloading scripts and
+  checking their buffers, re-parsing songs, reconnecting the ports), or
+  store less where a part can be rebuilt (for example the scripts'
+  string blocks only, as ScummVM does). **Decided** (the definition; the
+  save format is the next task).
+- **Checks:** the hash is equal across two runs of `boot.txt` at ticks
+  1000, 2000 and 3600 and of `intro.txt` at ticks 500, 5000, 12000, 20000
+  and 30000, and equal on ARM64 under qemu (boot at the three ticks,
+  intro at the first three). Unit tests (`tests/unit/vm/state_test.cpp`)
+  change one thing at a time (a local variable, a list node, a freed
+  node, a hunk byte, the accumulator, the clock, the random source, an
+  event, a synonym, a song signal, a port, a control-map pixel) and check
+  that exactly that component's hash changes, and that two machines in
+  equal states at different addresses hash equally.
+
+## Milestone 8: the save format (2026-10-28)
+
+The format, its checks and what a restore rebuilds are described in
+`docs/formats/save-format.md`. The decisions:
+
+- **The file holds the whole state stream**, all ten components with their
+  names, behind a header (magic `SCIHDSAV`, format version 1, game
+  identity, description, date and time, play time in ticks, program
+  version) and before a SHA-256 checksum of the whole file. Storing less
+  (ScummVM keeps only the scripts' string blocks) would save little: a save
+  of the real game is 360 to 500 KB, mostly the three 1x maps, the colour
+  pairs and the hunks (490 to 940 KB since the owner and priority source
+  maps joined the state, "Milestone 8: round trips"). **Decided.**
+- **Game identity:** SHA-256 of all script and vocabulary resources, not
+  ScummVM's script 0 size and game object offset, so that any release or
+  script patch the state depends on is caught. A save of another release
+  is refused with "This saved game was made with another release of the
+  game." **Decided.**
+- **Versions:** 1 now; an older version is read through a documented
+  migration step added with the version that follows it, or refused with a
+  message naming both versions; a newer version is always refused.
+  **Decided.**
+- **The execution component is not restored.** A restore re-enters the
+  game through `Game::replay` (next task), as ScummVM does, so the frames,
+  registers and stack contents of the save are read and dropped; the stack
+  is recreated cleared, as ScummVM recreates it. Only the counters are
+  taken: the kernel-call counter (kGetTime's consecutive-read rule compares
+  call numbers with the clock's last read, which is restored too) and the
+  step counter. **Decided.**
+- **The clock is restored** as saved: virtual time, the waits, the music
+  timer and the throttle. ScummVM also sets its tick count back to the
+  save's play time; its wait and screen-update times are set to "now"
+  after the restore, which here is the restored time, so restoring them as
+  saved is the same. Input scheduled at ticks (a replay) waits until
+  virtual time reaches its tick again. **Replaced** by "Milestone 8:
+  saving in the game", "The clock on a restore": virtual time is the
+  host's time and runs on; the clock is read as saved (for the hash) and
+  then put back as ScummVM leaves it.
+- **gc_count_down and the restart flag** are restored as saved, so that
+  the persistent hash after a restore equals the one at the save, which is
+  what the exit criterion compares. ScummVM resets the countdown
+  (`GC_INTERVAL - 1`) and sets `gameIsRestarting` to "restore" after
+  loading; kRestoreGame does the same after `read_save` (see "Milestone
+  8: saving in the game"). **Decided.**
+- **The music device** is not part of the state. The songs playing before
+  a restore get their notes switched off; kRestoreGame then plays the
+  restored songs again from their tick as ScummVM does
+  (`soundPlay(restoring)`), which sends their programs and controllers to
+  the device. **Decided** (see "Milestone 8: saving in the game").
+- **A failed restore:** the header checks change nothing; an inconsistent
+  state may leave parts replaced, so the machine must stop with the
+  message (a fault) rather than run on. **Decided.**
+- **Checks:** the in-process round trip (`sci-vm-trace --save-check`)
+  gives equal persistent hashes, and equal hashes of each component but
+  `execution`, for `boot.txt` at ticks 1000, 2000 and 3600 and for
+  `intro.txt` at ticks 500, 5000, 12000 and 20000. Unit tests and the
+  `fuzz-save` target as described in the format document.
+- **Done by the next task** ("Milestone 8: saving in the game"): the four
+  kernel functions, slots and folder, the restore through the game's
+  `replay` method.
+
+## Milestone 8: saving in the game (2026-10-29)
+
+The kernel functions kSaveGame, kGetSaveFiles, kCheckSaveGame and
+kRestoreGame on the project's format; their behaviour in detail is in
+`docs/formats/save-format.md`, "Slots and the save folder".
+
+- **Slots and folder:** slots 1 to 99 (virtual ids 101 to 199), files
+  `sierra-hd-<nnn>.sav` in `saves/` next to the configuration, apart from
+  the `files/` folder of the game's own files; `sci-vm-trace --saves
+  <folder>`, by default a new empty folder per run. **Decided.**
+- **The save folder key:** the configuration takes an optional
+  `saves = <folder>` (a path, which may contain `;` and `#` like the other
+  paths; a relative path is taken from the configuration's folder; empty
+  or missing: `saves/` next to the configuration), written back on exit
+  (`sci::platform::saves_folder`, `src/app/README.md`). **Decided.**
+- **Listing:** newest first by the date and time in the header, then by
+  slot; at most 20, names cut to 35 bytes; files that are not saves are
+  left out; saves of another version or release, or damaged, are listed
+  but kCheckSaveGame is false for them, so the game's own dialog says it
+  cannot restore that game (no extra message box; ScummVM shows its own
+  box for another release). kRestoreGame on such a save logs the format's
+  message and returns failure. **Decided.**
+- **Restore:** a state that fails to load after the header checks stops
+  the game with a fault. On success ScummVM's `gamestate_restore` fixups
+  (the 1x maps and the shown screen cleared, GC countdown, restart flag 2,
+  event counter, throttle, last new save, the music's global pause), the
+  songs played again from their tick, the abort with LoadGame; the run
+  loop closes the files and calls the game's `replay` method. The
+  persistent hash equals the save's right after `read_save`, before these
+  fixups. **Decided.**
+- **The clock on a restore** follows ScummVM, where virtual time is the
+  host's `getMillis` and the game's time is the engine's play time
+  (decided by the main session after the first save-restore run).
+  - *Host time, not restored:* virtual time, the wait under way (its start
+    and end) and the music timer (its due time and period). They are in
+    the `clock` component, so `read_save` reads the saved values and the
+    persistent hash right after it equals the save's (the exit criterion);
+    kRestoreGame then puts back the values from before the restore
+    (`Clock::HostTime`), first thing after the state is read. The trace,
+    screen and stop ticks and the replay's input ticks run on, as in the
+    reference.
+  - *Game state, restored:* the play time, which kGetTime(elapsed)
+    reports (`SciEngine::getTickCount`): a new field of the clock, the
+    virtual time at which the play time was 0 (`play_time_start`, in ms,
+    as `Engine::getTotalPlayTime` counts). A restore sets the play time
+    back to the saved one (`setTickCount(meta.playTime)`); a save's
+    header `ticks` is the play time (ScummVM's `playTime`). Also restored:
+    the kernel-call counter with the last elapsed-time read (the
+    consecutive-read rule only compares them with each other).
+  - *Reset as ScummVM does:* the last kWait time and the screen-update
+    time become now (`lastWaitTime`, `_screenUpdateTime`), the throttle's
+    last time 0 and its trigger off (`EngineState::reset(true)`), the event
+    counter 0.
+  The format stays version 1 (the clock gained the play-time start; no
+  version 1 save was released). The reference's patch 0003 does the same
+  in the deterministic mode: `setTickCount` sets the play time's start on
+  the virtual clock, `getTickCount` counts from it, and
+  `gamestate_restore` takes the wait and screen-update times from the
+  virtual clock instead of the host's. **Decided.**
+- **The picture window on a restore:** ScummVM's
+  `EngineState::saveLoadWithSerializer` sets it with `kernelSetPicWindow`,
+  which the layout file records (`picwindow`); sci-vm's ports come back
+  whole with the state, so kRestoreGame sets the picture window to its own
+  values once, after the clock, for the same record. **Decided.**
+- **The machine component** of the state now also holds the restart flag
+  as a value (0, 1 or 2) and kSaveGame's last new slot (EngineState's
+  `_lastSaveVirtualId`, `_lastSaveNewId`), which decide future execution.
+  The format stays version 1: no save of version 1 was released.
+  **Decided.**
+- **Scenario saves:** `run-scenario.sh` gives each engine an empty save
+  folder per run (`reference-saves/`, `sci-vm-saves/` in the output
+  folder; `tools/reference-scummvm/run.sh` takes `SIERRA_HD_SAVEPATH`).
+  Before this the reference kept its saves in the build folder between
+  runs, so a scenario that saves changed the next run's dialogs.
+  **Decided.**
+- **The save-restore scenario** (`tests/scenarios/save-restore.txt`, stop
+  tick 6500, seed 0): File > Save game in Laura's bedroom with
+  "Bedroom", a walk, File > Restore game, Enter on the save, a walk.
+  GetSaveFiles, SaveGame, CheckSaveGame and RestoreGame return the same
+  values in both engines (0 saves, saved, 1 save, valid, success; the
+  RestoreGame call is call 40583). The first runs differed after the
+  restore: the reference's `gamestate_restore` took the wait and
+  screen-update times from the host clock (its first kWait returned 4023),
+  and sci-vm restored virtual time to the save's tick (3801) while the
+  reference's ran on (4901). With the clock above and the patched
+  reference, and the picture window record, everything matches to the
+  end: 49510 kernel calls, 109 screens and maps, 953 actor frames, 407
+  layout lines and 1040 OPL writes. The scenario is in `scenarios.txt`.
+  **Decided.**
+
+## Milestone 8: more in-game restores (2026-10-29)
+
+Four more scenarios save and restore through the game's own dialogs and
+shortcuts (F5, F7, F9) and match the reference to the end
+(`tests/scenarios/README.md`): `attic-restore.txt` (14500, both stacks of
+room 74 on restore, two saves restored older then newer),
+`outdoors-restore.txt` (13600, music playing), `inventory-restore.txt`
+(25000, the inventory) and `restart-restore.txt` (9000, after a restart).
+
+- **Where the game offers a restore:** not on the title nor on "Have you
+  previously attended?" (F7 does nothing, in both engines); during the
+  "Act I" card the game says "You cannot restore a game right now."
+  without listing the saves; after a restart (which goes straight to Act
+  I, with no title or copy protection) once the card is gone. **Decided.**
+- **Found and fixed** (sci-vm followed the save more closely than
+  ScummVM's `gamestate_restore` does):
+  - *Hunks and system strings.* ScummVM neither saves nor loads the hunk
+    table (its segment is empty after the load, the saved handles point
+    nowhere) and allocates the system strings again after loading
+    (`initSysStrings`), which takes the lowest free segment; the next hunk
+    then gets a new segment. sci-vm kept the hunk table, so after a
+    restore a hunk freed by the game was 1a:0be2 instead of 29:0000
+    (attic-restore, kUnLoad after the first restore). kRestoreGame now
+    frees the hunk segment and allocates the system strings again
+    (`SegManager::after_restore`), after `read_save`.
+  - *Random source and music timer count.* SciEngine's random source and
+    the music timer's call count (the OPL and MIDI logs' time key) are the
+    host's in ScummVM and go on across a restore; sci-vm took them from
+    the save (outdoors-restore: the first kRandom after the restore, and
+    the OPL log's timer calls). kRestoreGame now keeps them with the
+    clock's host time (`Subsystems::HostState`).
+  `read_save` still reads the whole state, so the persistent hash right
+  after it equals the save's and the round trips are unchanged; these are
+  fixups of the in-game restore only. **Decided.**
+- **Room 74 on restore:** the restores of attic-restore draw
+  `DrawPic(74,100,1,1)` then `DrawPic(174,100,0,1)` (stairway save) and
+  `DrawPic(74,100,1,0)`, `DrawPic(174,100,0,0)` (Fifi's room), in both
+  engines. `sci-hd-frames` (which now gives the game an in-memory save
+  store, so replays that save and restore work there) renders the
+  restored frames through the analysis cache's entries
+  `pic.074.*.palette1.over.174.palette1` and `pic.074.*.over.174`, the
+  variants of the stacks `74.palette1+174.palette1` and `74+174` whose
+  golden hashes were recorded at milestone 5. **Decided.**
+
+## Milestone 8: restores on the MT-32 (2026-10-29)
+
+The five save scenarios matched on the AdLib but not on the MT-32
+(`SIERRA_HD_MUSIC=mt32`). Two causes, neither in patch 0003; the
+reference was not rebuilt.
+
+- **Parallel reference runs shared their settings.** `run.sh` wrote the
+  reference's settings, with the save folder, to one `reference.ini` in the
+  build folder; runs started in parallel (4 at a time) overwrote it, so a
+  reference run could save into and list another scenario's folder.
+  attic-restore and inventory-restore then found a save before their first
+  one (kGetSaveFiles 1 instead of 0, tick 6724 and 21702, the save
+  dialog's box differing in the layout), and everything after differed.
+  With `SIERRA_HD_SAVEPATH` the settings now go next to the save folder
+  (`<folder>.ini`). **Decided.**
+- **What the device sees on a restore** (save-restore, outdoors-restore,
+  restart-restore: everything matched but the MIDI log, from the restore
+  on). On the AdLib a volume change of the driver only renews the notes
+  sounding, of which there are none on a restore, so the OPL log did not
+  show it; on the MT-32 the play switch and every volume change send
+  channel volumes 1 to 9 (`MidiPlayer_Midi::setVolume`). ScummVM's in-game
+  restore does, in this order: `soundSetSoundOn` (the saved switch: the
+  play switch), `soundSetMasterVolume` (the saved volume) on the parsers of
+  the songs of the game before, `setGlobalReverb`, `clearPlayList` on
+  those songs (each parser's all notes off, queued for the next timer
+  call); `reconstructPlayList` gives every restored song with a resource
+  a new parser (`soundInitSnd`: volume 127 and the master volume, a driver
+  volume) and plays again those that were playing; then `runGame`, before
+  the replay method, calls `syncSoundSettings`, which sets the master
+  volume of ScummVM's music volume setting (the game's kDoSound
+  MasterVolume goes through it, so it is the master volume before the
+  restore) on the restored songs. sci-vm kept the songs' parsers from the
+  save and only stopped the songs playing before. Now `Music::load_state`
+  keeps the songs before aside, kRestoreGame runs that sequence
+  (`Music::after_restore`, `Sound::reconstruct_play_list`, the host's
+  master volume in `Subsystems::HostState`), and a round trip that resumes
+  the execution drops them as before (`drop_previous_play_list`). save-
+  restore: 7 rounds of channel volumes at the restore's timer call, then
+  the all notes off of the 2 songs before at the next. **Decided.**
+- **Result:** the five save scenarios match on all seven comparisons on
+  both devices, and boot (3600) and intro (30000) still do.
+
+## Milestone 8: round trips (2026-10-29)
+
+The exit criterion's second half, "replay continues identically", checked
+over every scenario of `tests/scenarios/scenarios.txt`.
+
+- **The check:** at a tick T of a deterministic run the machine stops, its
+  state is written as a save file (the project's format, the same
+  `write_save` as kSaveGame), a fresh machine is built from the game files
+  (`init_game`), the save is read into it with its execution
+  (`Execution::Resume`, docs/formats/save-format.md, "Execution on
+  reading"), and the run goes on in the fresh machine to the stop tick
+  with the rest of the replay. Its kernel trace, screens and 1x maps,
+  actors, parser, layout and OPL files must be identical to those of the
+  run without round trips, and so must the state hashes at the round-trip
+  ticks and at the end; the persistent and the total hash (with
+  `execution`) after reading the save must equal those before writing it.
+  `sci-vm-trace --round-trip <ticks> <file>`; `tools/vm-trace/run-round-trips.sh`
+  runs every scenario with five round trips (at 1/6 to 5/6 of its stop
+  tick, chained in one run) in sci-vm alone, and when the outputs differ,
+  each tick alone to name the one at fault. **Decided.**
+- **Resume rather than re-entry.** A save made at a tick is not made in
+  kSaveGame, so the game's own re-entry (kRestoreGame, then `replay`)
+  would not continue the same run. The round trip therefore also restores
+  the `execution` component, the strongest test of the format: every part
+  of the state survives a file round trip and drives the same execution.
+  The game itself still restores through kRestoreGame and `replay`; that
+  path is checked against ScummVM by the save-restore scenario.
+  **Decided.**
+- **Resume points:** the end of a kernel call made by the top-level
+  interpreter (not by scripts a kernel function runs), after the
+  instruction is counted, with no abort pending: there the interpreter's
+  locals (`scr`, `obj`, the variable stores, `xs`) are rebuilt from the
+  frames at the next instruction, so nothing outside the state is needed.
+  The round trip at T is taken at the first such point at or after T
+  (`Machine::set_suspend_hook`, `resume_game`). **Decided.**
+- **What goes over that is not VM state** (as the host keeps it across a
+  restore): the replay input not yet due, a requested quit, the music
+  device (the same AdLib or MT-32 driver plays on; the player of the
+  machine that stopped is detached first, so its songs send nothing), and
+  what the screen shows with the HD bookkeeping (`Screen::take_presentation`).
+  Without the device the OPL log stops at the round trip; without the
+  shown screen the next screen differs until the game redraws it. Neither
+  changes the state. **Decided.**
+- **Found and fixed:**
+  - The owner and priority source maps were left out of the state as HD
+    bookkeeping, but the saved bits keep them beside the visual and
+    priority maps (`Screen::bits_save`, in place of ScummVM's display
+    map), so they come back into the screen and into later saved bits:
+    after a round trip the hunks of later windows differed (persistent
+    hash at the next tick). They are now in the `graphics` component; a
+    save grows by 128000 bytes. kRestoreGame clears them as before. The
+    format stays version 1 (no save of version 1 was released).
+  - The first resume code stopped before the instruction was counted, so
+    the step counter of the fresh machine was one behind (execution hash
+    at the next tick); the hook now runs after the count.
+  - A frame of a send that carries the stack pointer over has `sp` and
+    `fp` at the carry value, which the first resume check refused.
+- **Results** (2026-10-29): all 34 runs identical, every round trip with
+  equal persistent and total hashes; 168 round trips (mouse.txt ends at
+  tick 1800, so three), saves of 491 to 938 KB, at points in the parser
+  runs, the menus, windows and dialogs (text, copy protection, menus,
+  save-restore before and after its restore), walks and the intro's
+  music. `boot.txt` 3600 and `save-restore.txt` 6500 against the
+  reference after the fixes: everything matches (12022 and 49510 kernel
+  calls). **Decided.**
+- **Across architectures:** the saves of `boot.txt` at 1000, 2000 and 3000
+  and of `save-restore.txt` at 3000 and 5000 are byte for byte the same
+  from the x86-64 and the ARM64 build (qemu), the round-trip results and
+  traces too, and each read on the other architecture
+  (`sci-vm-trace --load-save`) gives the same hashes, whose persistent
+  part is the hash at the save. **Decided.**
+
+## Milestone 8 approval (2026-10-29)
+
+- The gate is approved as is and merged: the Linux and Windows matrix is
+  green; macOS is optional.
+- Two details of a restore still follow the save rather than ScummVM's
+  restore: the MT-32's global reverb and the order numbers of restored
+  songs. Neither changes what the scripts see. They are fixed as the first
+  task of milestone 9.
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with

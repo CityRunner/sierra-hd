@@ -10,8 +10,24 @@
 //                [--screens <folder>] [--screen-every <ticks>] [--actors <file>]
 //                [--parser <file>] [--layout <file>] [--opl <file>]
 //                [--music mt32 [--roms <folder>] [--midi <file>]]
+//                [--state-hash <ticks> <file>] [--save-check <ticks> <file>]
+//                [--round-trip <ticks> <file> [--round-trip-saves <folder>]]
+//                [--saves <folder>]
 //   sci-vm-trace --scan-kernel <game folder> <output file>
 //   sci-vm-trace --vocabulary <game folder> <output file>
+//   sci-vm-trace --load-save <game folder> <save file> <output file>
+//
+// --round-trip (milestone 8, docs/ASSUMPTIONS.md, "Milestone 8: round
+// trips") saves the state at the first resume point at or after each tick
+// and goes on in a fresh machine that read the save with its execution; the
+// outputs continue as one run, to be compared with a run without it
+// (run-round-trips.sh). The file gets one line per round trip:
+// "<requested tick> <tick> <kernel call> <save bytes> <persistent hash
+// saved> <restored> <equal|differ> total <equal|differ>", then a line per
+// component that differs. --round-trip-saves keeps the save files there, as
+// round-trip-<requested tick>.sav. --load-save reads a save file as the round
+// trip does and writes its total and persistent hashes and the components'
+// (for saves from another architecture).
 //
 // --screens writes the screen the player sees and the 1x priority and
 // control maps; --actors writes the cast of every kAnimate call; --parser
@@ -40,12 +56,15 @@
 #include "game_folder.hpp"
 #include "sci/audio/mt32.hpp"
 #include "sci/core/log.hpp"
+#include "sci/core/sha256.hpp"
 #include "sci/platform/mt32_roms.hpp"
+#include "sci/platform/save_folder.hpp"
 #include "sci/render/colors.hpp"
 #include "sci/resource/resource_id.hpp"
 #include "sci/text/parser.hpp"
 #include "sci/vm/interpreter.hpp"
 #include "sci/vm/scan.hpp"
+#include "sci/vm/state_hash.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -61,6 +80,8 @@
 #include <optional>
 #include <ostream>
 #include <print>
+#include <random>
+#include <ranges>
 #include <set>
 #include <span>
 #include <sstream>
@@ -89,9 +110,13 @@ int usage() {
                          "[--stop-tick <n>] [--stop-calls <n>] [--callers] [--vm-log]\n"
                          "                    [--screens <folder>] [--screen-every <ticks>] [--actors <file>] "
                          "[--parser <file>] [--layout <file>] [--opl <file>]\n"
-                         "                    [--music mt32 [--roms <folder>] [--midi <file>]]\n"
+                         "                    [--music mt32 [--roms <folder>] [--midi <file>]] "
+                         "[--state-hash <tick>[,<tick>...] <file>]\n"
+                         "                    [--save-check <tick>[,<tick>...] <file>] [--saves <folder>]\n"
+                         "                    [--round-trip <tick>[,<tick>...] <file> [--round-trip-saves <folder>]]\n"
                          "       sci-vm-trace --scan-kernel <game folder> <output file>\n"
-                         "       sci-vm-trace --vocabulary <game folder> <output file>");
+                         "       sci-vm-trace --vocabulary <game folder> <output file>\n"
+                         "       sci-vm-trace --load-save <game folder> <save file> <output file>");
     return 2;
 }
 
@@ -235,6 +260,37 @@ int dump_vocabulary(const char* folder, const char* output) {
     return out ? 0 : 1;
 }
 
+// The state hash: total, persistent, then each component with its length.
+void write_hash(std::ostream& out, std::string_view prefix, const sci::vm::StateHash& hash) {
+    out << std::format("{}total {}\n", prefix, sci::core::to_hex(hash.total));
+    out << std::format("{}persistent {}\n", prefix, sci::core::to_hex(hash.persistent));
+    for (const sci::vm::StateComponentHash& component : hash.components) {
+        out << std::format("{}{} {} {}\n", prefix, component.name, component.bytes,
+                           sci::core::to_hex(component.digest));
+    }
+}
+
+int load_save(const char* folder, const char* save, const char* output) {
+    const auto manager = sci::tools::open_game(folder);
+    if (!manager) {
+        return 1;
+    }
+    std::ifstream in{std::filesystem::path(save), std::ios::binary};
+    const std::vector<std::uint8_t> file{std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+    if (!in && !in.eof()) {
+        std::println(stderr, "cannot read {}", save);
+        return 1;
+    }
+    const auto hash = sci::vm::load_save_hash(*manager, file);
+    if (!hash) {
+        std::println(stderr, "{}: {}", save, hash.error().message);
+        return 1;
+    }
+    std::ofstream out{std::filesystem::path(output)};
+    write_hash(out, "", *hash);
+    return out ? 0 : 1;
+}
+
 } // namespace
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): argument parsing.
@@ -248,6 +304,10 @@ int main(int argc, char** argv) {
         sci::tools::install_stderr_log();
         return dump_vocabulary(args[2], args[3]);
     }
+    if (args.size() == 5 && std::string_view(args[1]) == "--load-save") {
+        sci::tools::install_stderr_log();
+        return load_save(args[2], args[3], args[4]);
+    }
     if (args.size() < 3) {
         return usage();
     }
@@ -260,6 +320,11 @@ int main(int argc, char** argv) {
     std::filesystem::path opl;
     std::filesystem::path midi;
     std::filesystem::path roms;
+    std::filesystem::path state_hash;
+    std::filesystem::path save_check;
+    std::filesystem::path round_trip;
+    std::filesystem::path round_trip_saves;
+    std::filesystem::path saves_folder;
     bool on_mt32 = false;
     std::uint32_t screen_every = 60;
     for (std::size_t i = 3; i < args.size(); i += 2) {
@@ -278,6 +343,31 @@ int main(int argc, char** argv) {
             return usage();
         }
         const std::string_view value = args[i + 1];
+        if (flag == "--state-hash" || flag == "--save-check" || flag == "--round-trip") {
+            // Two values: the ticks, increasing, and the file.
+            if (i + 2 >= args.size()) {
+                return usage();
+            }
+            std::vector<std::uint32_t>* ticks = &options.round_trip_ticks;
+            std::filesystem::path* file = &round_trip;
+            if (flag == "--state-hash") {
+                ticks = &options.state_hash_ticks;
+                file = &state_hash;
+            } else if (flag == "--save-check") {
+                ticks = &options.save_check_ticks;
+                file = &save_check;
+            }
+            for (const auto part : std::views::split(value, ',')) {
+                const auto tick = parse_number(std::string_view(part.begin(), part.end()));
+                if (!tick || (!ticks->empty() && *tick <= ticks->back())) {
+                    return usage();
+                }
+                ticks->push_back(*tick);
+            }
+            *file = args[i + 2];
+            ++i;
+            continue;
+        }
         if (flag == "--replay") {
             const std::ifstream file{std::filesystem::path(value)};
             std::stringstream text;
@@ -296,6 +386,14 @@ int main(int argc, char** argv) {
         }
         if (flag == "--screens") {
             screens = value;
+            continue;
+        }
+        if (flag == "--saves") {
+            saves_folder = value;
+            continue;
+        }
+        if (flag == "--round-trip-saves") {
+            round_trip_saves = value;
             continue;
         }
         if (flag == "--actors") {
@@ -342,7 +440,7 @@ int main(int argc, char** argv) {
             return usage();
         }
     }
-    if (!on_mt32 && (!midi.empty() || !roms.empty())) {
+    if ((!on_mt32 && (!midi.empty() || !roms.empty())) || (round_trip.empty() && !round_trip_saves.empty())) {
         return usage();
     }
     if (on_mt32 && !opl.empty()) {
@@ -446,6 +544,91 @@ int main(int argc, char** argv) {
             midi_file << '\n';
         };
     }
+    std::ofstream state_file;
+    if (!state_hash.empty()) {
+        state_file.open(state_hash);
+        if (!state_file) {
+            std::println(stderr, "cannot write {}", state_hash.string());
+            return 1;
+        }
+        // Per requested tick: the total, the persistent part, then each
+        // component with the length of its serialisation.
+        options.on_state_hash = [&](std::uint32_t requested, std::uint32_t tick, const sci::vm::StateHash& hash) {
+            state_file << std::format("{} {} total {}\n", requested, tick, sci::core::to_hex(hash.total));
+            state_file << std::format("{} {} persistent {}\n", requested, tick, sci::core::to_hex(hash.persistent));
+            for (const sci::vm::StateComponentHash& component : hash.components) {
+                state_file << std::format("{} {} {} {} {}\n", requested, tick, component.name, component.bytes,
+                                          sci::core::to_hex(component.digest));
+            }
+        };
+    }
+    std::ofstream save_check_file;
+    if (!save_check.empty()) {
+        save_check_file.open(save_check);
+        if (!save_check_file) {
+            std::println(stderr, "cannot write {}", save_check.string());
+            return 1;
+        }
+        // Per requested tick: the save's size, the persistent hash saved and
+        // restored and whether they are equal, then each component that
+        // differs; or why the save could not be read.
+        options.on_save_check = [&](std::uint32_t requested, std::uint32_t tick, const sci::vm::SaveCheck& check) {
+            if (check.error) {
+                save_check_file << std::format("{} {} {} error {}\n", requested, tick, check.bytes, *check.error);
+                return;
+            }
+            const bool equal = check.saved.persistent == check.restored.persistent;
+            save_check_file << std::format("{} {} {} {} {} {}\n", requested, tick, check.bytes,
+                                           sci::core::to_hex(check.saved.persistent),
+                                           sci::core::to_hex(check.restored.persistent), equal ? "equal" : "differ");
+            for (std::size_t c = 0; c < check.saved.components.size() && c < check.restored.components.size(); ++c) {
+                if (check.saved.components[c].digest != check.restored.components[c].digest) {
+                    save_check_file << std::format("{} {} component {} differs\n", requested, tick,
+                                                   check.saved.components[c].name);
+                }
+            }
+        };
+    }
+    std::ofstream round_trip_file;
+    if (!round_trip.empty()) {
+        round_trip_file.open(round_trip);
+        if (!round_trip_file) {
+            std::println(stderr, "cannot write {}", round_trip.string());
+            return 1;
+        }
+        if (!round_trip_saves.empty()) {
+            std::error_code created;
+            std::filesystem::create_directories(round_trip_saves, created);
+        }
+        // Per requested tick: where the state was saved, the save's size,
+        // the persistent hash saved and restored, whether the persistent
+        // and the total hashes are equal, then each component that differs;
+        // or why the save could not be read.
+        options.on_round_trip = [&](std::uint32_t requested, std::uint32_t tick, const sci::vm::RoundTrip& trip) {
+            if (!round_trip_saves.empty()) {
+                std::ofstream save{round_trip_saves / std::format("round-trip-{}.sav", requested), std::ios::binary};
+                save.write(reinterpret_cast<const char*>(trip.file.data()), // NOLINT(*-reinterpret-cast)
+                           static_cast<std::streamsize>(trip.file.size()));
+            }
+            if (trip.error) {
+                round_trip_file << std::format("{} {} {} {} error {}\n", requested, tick, trip.call, trip.file.size(),
+                                               *trip.error);
+                return;
+            }
+            round_trip_file << std::format("{} {} {} {} {} {} {} total {}\n", requested, tick, trip.call,
+                                           trip.file.size(), sci::core::to_hex(trip.saved.persistent),
+                                           sci::core::to_hex(trip.restored.persistent),
+                                           trip.saved.persistent == trip.restored.persistent ? "equal" : "differ",
+                                           trip.saved.total == trip.restored.total ? "equal" : "differ");
+            for (std::size_t c = 0; c < trip.saved.components.size() && c < trip.restored.components.size(); ++c) {
+                if (trip.saved.components[c].digest != trip.restored.components[c].digest) {
+                    round_trip_file << std::format("{} {} component {} differs\n", requested, tick,
+                                                   trip.saved.components[c].name);
+                }
+            }
+            round_trip_file.flush();
+        };
+    }
     // The game folder's files for kFOpen to read, under lower-case names,
     // and nothing written yet: the reference starts with an empty save folder.
     std::map<std::string, std::vector<std::uint8_t>> game_files;
@@ -463,20 +646,46 @@ int main(int argc, char** argv) {
     }
     sci::vm::MemoryFileStore files(std::move(game_files));
     options.files = &files;
+    // The saves: the folder given, or a fresh one for this run, removed at
+    // its end, so that every run starts with no saves, as the reference does.
+    const bool own_saves = saves_folder.empty();
+    if (own_saves) {
+        std::random_device random;
+        const std::filesystem::path temporary = std::filesystem::temp_directory_path(error);
+        bool made = false;
+        for (int attempt = 0; attempt < 100 && !made; ++attempt) {
+            saves_folder = temporary / std::format("sci-vm-trace-saves-{:08x}", random());
+            made = std::filesystem::create_directory(saves_folder, error);
+        }
+        if (!made) {
+            std::println(stderr, "cannot make a folder for the saves in {}", temporary.string());
+            return 1;
+        }
+    }
+    sci::platform::SaveFolder saves(saves_folder);
+    options.saves = &saves;
     const sci::vm::RunResult result = sci::vm::run_deterministic(*manager, options);
+    if (own_saves) {
+        std::filesystem::remove_all(saves_folder, error);
+    }
     trace.close();
     actor_file.close();
     parser_file.close();
     layout_file.close();
     opl_file.close();
     midi_file.close();
+    state_file.close();
+    save_check_file.close();
+    round_trip_file.close();
     std::println(stderr, "{} kernel calls in {} ticks", result.calls, result.ticks);
     if (result.fault) {
         std::println(stderr, "stopped: {}", *result.fault);
         return 1;
     }
     return trace && (actors.empty() || actor_file) && (parser.empty() || parser_file) &&
-                   (layout.empty() || layout_file) && (opl.empty() || opl_file) && (midi.empty() || midi_file)
+                   (layout.empty() || layout_file) && (opl.empty() || opl_file) && (midi.empty() || midi_file) &&
+                   (state_hash.empty() || state_file) && (save_check.empty() || save_check_file) &&
+                   (round_trip.empty() || round_trip_file)
                ? 0
                : 1;
 }

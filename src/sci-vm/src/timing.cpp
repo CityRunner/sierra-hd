@@ -51,6 +51,29 @@ void Clock::read_elapsed(std::uint64_t call) {
     last_elapsed_read_ = call;
 }
 
+Clock::HostTime Clock::host_time() const {
+    return HostTime{
+        .microseconds = microseconds_,
+        .wait_start = wait_start_,
+        .wait_end = wait_end_,
+        .music_due = music_due_,
+        .tempo = tempo_,
+    };
+}
+
+void Clock::after_restore(const HostTime& host) {
+    const std::uint32_t play_ticks = this->play_ticks();
+    microseconds_ = host.microseconds;
+    wait_start_ = host.wait_start;
+    wait_end_ = host.wait_end;
+    music_due_ = host.music_due;
+    tempo_ = host.tempo;
+    set_play_ticks(play_ticks);
+    last_wait_ = millis();
+    throttle_last_ = 0;
+    throttle_trigger_ = false;
+}
+
 void Clock::advance(std::uint32_t milliseconds) {
     wait_start_ = microseconds_;
     wait_end_ = microseconds_ + (static_cast<std::uint64_t>(milliseconds) * 1000);

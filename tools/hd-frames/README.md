@@ -19,6 +19,9 @@ run is deterministic: a replay file, a seed and virtual time.
 - `--at` writes `<output>/<tick>.png` once the virtual time reaches each
   tick (60 per second): original | HD, and with `--snap` a third panel, HD
   with `priority_snap = on`. N is 5 unless `--scale` says otherwise.
+- Saves made in the game during the run (kSaveGame) are kept in memory:
+  every run starts with none, as `sci-vm-trace`'s do, so a replay that
+  saves and restores through the game's dialogs renders the same frames.
 - `--hints hints` uses the repository's hint files; `--cache <directory>`
   keeps the analysed scenes between runs (`docs/formats/analysis-cache.md`).
 - `--timing <from>-<to>` composes the HD frame whenever the shown screen

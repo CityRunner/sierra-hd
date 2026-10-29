@@ -37,6 +37,9 @@
 
 namespace sci::vm {
 
+class StateWriter;
+class StateReader;
+
 class EventQueue {
 public:
     // Input due at a game tick, in order.
@@ -53,6 +56,9 @@ public:
     }
 
     [[nodiscard]] bool has_pending() const { return !pending_.empty(); }
+
+    // The input not yet due, in order.
+    [[nodiscard]] const std::deque<InputEvent>& pending() const { return pending_; }
 
     // EventManager::getSciEvent: moves the input due at `tick` into the
     // queue and returns the first event the mask accepts (removing it
@@ -73,6 +79,11 @@ public:
     [[nodiscard]] Point mouse() const { return mouse_; }
 
     void set_mouse(Point position) { mouse_ = position; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
 
 private:
     void take_due(std::uint32_t tick);

@@ -33,6 +33,8 @@
 
 namespace sci::vm {
 
+class StateWriter;
+class StateReader;
 class Graphics;
 
 class Cursor {
@@ -51,6 +53,12 @@ public:
     void kernel_move_cursor(GPoint position);
     [[nodiscard]] GPoint position() const;
 
+    // A restored game's cursor (state_load.cpp checks the shape exists).
+    void restore(bool visible, int shape) {
+        visible_ = visible;
+        shape_ = shape;
+    }
+
 private:
     void set_position(GPoint position);
 
@@ -68,6 +76,11 @@ public:
 
     // The last transition shown, for the renderer.
     [[nodiscard]] int last() const { return last_; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
 
 private:
     void do_transition(int number, bool blackout);

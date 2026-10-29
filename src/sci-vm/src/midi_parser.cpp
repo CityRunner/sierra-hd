@@ -601,6 +601,11 @@ void MidiParser::set_master_volume(std::uint8_t volume) {
     set_volume(volume_);
 }
 
+void MidiParser::reset_volumes(std::uint8_t master_volume) {
+    volume_ = music_volume_max;
+    set_master_volume(master_volume);
+}
+
 void MidiParser::set_volume(std::uint8_t volume) {
     // The SCI0 AdLib driver has one global volume, set directly (not
     // queued) from either thread.

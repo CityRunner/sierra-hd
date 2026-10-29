@@ -36,6 +36,8 @@
 
 namespace sci::vm {
 
+class StateWriter;
+class StateReader;
 class Graphics;
 
 inline constexpr unsigned control_style_enabled = 0x0001U;
@@ -61,6 +63,11 @@ public:
     void draw_control(Reg control, bool hilite);
     // kEditControl on an edit field: applies a key event to its text.
     void kernel_textedit_change(Reg control, Reg event);
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
 
 private:
     void draw_button(Rect rect, const std::string& text, int font_id, unsigned style, bool hilite);

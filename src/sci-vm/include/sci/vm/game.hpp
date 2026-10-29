@@ -86,6 +86,11 @@ public:
     // its last note-offs when it goes.
     void set_music_device(audio::MidiDevice* device);
 
+    // Where the game's saves go (kSaveGame and the others), set before
+    // run(); `program` names the program in the saves written. Without
+    // one, no saves are listed and saving fails.
+    void set_saves(SaveStore* saves, std::string program);
+
     // Runs until the game quits; the fault that stopped it, if any.
     std::optional<std::string> run();
 

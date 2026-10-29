@@ -30,6 +30,8 @@ public:
 
     [[nodiscard]] bool contains(ResourceId id) const { return manager_->contains(id); }
 
+    [[nodiscard]] const resource::ResourceManager& manager() const { return *manager_; }
+
 private:
     const resource::ResourceManager* manager_;
     std::map<ResourceId, std::vector<std::uint8_t>> cache_;

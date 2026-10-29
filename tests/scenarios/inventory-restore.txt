@@ -1,0 +1,174 @@
+sierra-hd replay 1
+# A save with something in the inventory, a change, and the restore
+# (milestone 8), with seed 0 and stop tick 25000. Starts as
+# inventory-and-actions.txt up to the kitchen (room 35), where "open the
+# icebox" puts the soup bone into the inventory. F5: "Bone", Enter.
+# "give the bone to beauregard": Laura walks to the dog, who gnaws on it,
+# and Tab shows the inventory without the bone. F7 and Enter restore the
+# save; Tab shows the inventory with the notebook & pencil and the soup
+# bone again.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 key 13
+# Room 44: typed commands, each message closed with Enter ("In two
+# corners of the room, you see two dressers.", "There is nothing of
+# interest in the dresser.", "You see the clothes you packed for the
+# weekend.", "It is already closed."), then Tab: the inventory holds only
+# the notebook & pencil.
+3500 text look at the dresser
+3700 key 13
+3800 text open the drawer
+4000 key 13
+4200 text open my suitcase
+4800 key 13
+5000 text close my suitcase
+5300 key 13
+5500 key 9
+5700 key 13
+# Out of the bedroom by mouse: past the armchair, out of the west door.
+6500 move 50 157
+6502 down 50 157 0
+6506 up 50 157 0
+6900 move 0 157
+6902 down 0 157 0
+6906 up 0 157 0
+# Room 43: close the description, south into 47.
+7317 down 160 100 0
+7321 up 160 100 0
+7417 move 160 199
+7419 down 160 199 0
+7423 up 160 199 0
+# Room 47: close the description, to the landing, east along it, down the
+# right staircase into 37.
+8257 down 160 100 0
+8261 up 160 100 0
+8317 move 215 150
+8319 down 215 150 0
+8323 up 215 150 0
+8617 move 272 148
+8619 down 272 148 0
+8623 up 272 148 0
+9017 move 290 199
+9019 down 290 199 0
+9023 up 290 199 0
+# Room 37: close the description (Laura walks down the stairs), a right
+# click on the rug, a click to close it; round the banister and north
+# into 33.
+9817 down 160 100 0
+9821 up 160 100 0
+10117 move 160 110
+10119 down 160 110 3
+10123 up 160 110 3
+10317 move 290 156
+10319 down 290 156 0
+10323 up 290 156 0
+10517 move 289 166
+10519 down 289 166 0
+10523 up 289 166 0
+10717 move 120 170
+10719 down 120 170 0
+10723 up 120 170 0
+11117 move 160 60
+11119 down 160 60 0
+11123 up 160 60 0
+# Room 33: close the description, a right click on the grandfather clock,
+# close; out of the French doors into the back garden 4.
+12317 down 160 100 0
+12321 up 160 100 0
+12417 move 52 130
+12419 down 52 130 3
+12423 up 52 130 3
+12617 down 52 130 0
+12621 up 52 130 0
+13017 move 160 95
+13019 down 160 95 0
+13023 up 160 95 0
+# Room 4: close the description and the "creepy" warning, east along the
+# path into 12 (the northeast corner, on the back porch).
+14017 down 160 100 0
+14021 up 160 100 0
+14417 down 160 100 0
+14421 up 160 100 0
+14517 move 300 176
+14519 down 300 176 0
+14523 up 300 176 0
+14917 move 319 176
+14919 down 319 176 0
+14923 up 319 176 0
+# Room 12: close the description, off the porch and round the tree to
+# the doghouse.
+15517 down 160 100 0
+15521 up 160 100 0
+15617 move 290 72
+15619 down 290 72 0
+15623 up 290 72 0
+15917 move 312 85
+15919 down 312 85 0
+15923 up 312 85 0
+16117 move 312 140
+16119 down 312 140 0
+16123 up 312 140 0
+16417 move 195 182
+16419 down 195 182 0
+16423 up 195 182 0
+16817 move 160 125
+16819 down 160 125 0
+16823 up 160 125 0
+# "look in the doghouse" (Laura crawls in: "Currently, it's empty."),
+# "inventory", "open the door" ("Just do that yourself.").
+17117 text look in the doghouse
+17517 key 13
+17717 text inventory
+17917 key 13
+18117 text open the door
+18417 key 13
+# Past the doghouse and through the kitchen door into 35.
+18617 move 192 138
+18619 down 192 138 0
+18623 up 192 138 0
+18817 move 160 130
+18819 down 160 130 0
+18823 up 160 130 0
+# Room 35: close the description, its second part and "You feel better
+# now that you're back in the house."; walk to the left of the stove, the
+# place from which the game lets Laura reach the icebox.
+19817 down 160 100 0
+19821 up 160 100 0
+20017 down 160 100 0
+20021 up 160 100 0
+20217 down 160 100 0
+20221 up 160 100 0
+20500 move 40 105
+20502 down 40 105 0
+20506 up 40 105 0
+# "open the icebox": the soup bone ("Aha! A leftover soup bone!") goes
+# into the inventory.
+21000 text open the icebox
+21600 key 13
+# F5, "Bone", Enter.
+21700 key 16128
+21900 key 66
+21910 key 111
+21920 key 110
+21930 key 101
+22000 key 13
+# The bone to the dog; Tab: the inventory without it.
+22200 text give the bone to beauregard
+22800 key 13
+23000 key 9
+23200 key 13
+# F7, Enter on the save; Tab: the bone is back.
+23400 key 16640
+23600 key 13
+24200 key 9
+24600 key 13

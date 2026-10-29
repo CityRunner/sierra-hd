@@ -37,3 +37,8 @@ parser-words-bedroom.txt 24024 0
 parser-words-downstairs.txt 22057 0
 menus-mouse.txt 8700 0
 menus-keys-2.txt 9500 0
+save-restore.txt 6500 0
+attic-restore.txt 14500 0
+outdoors-restore.txt 13600 0
+inventory-restore.txt 25000 0
+restart-restore.txt 9000 0

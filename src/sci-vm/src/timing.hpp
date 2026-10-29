@@ -39,6 +39,9 @@
 
 namespace sci::vm {
 
+class StateWriter;
+class StateReader;
+
 class Clock {
 public:
     // Called once per `tempo` microseconds of virtual time (the music
@@ -64,8 +67,17 @@ public:
 
     [[nodiscard]] std::uint32_t millis() const { return static_cast<std::uint32_t>(microseconds_ / 1000); }
 
-    // Game ticks: 1/60 s.
+    // Game ticks of virtual time: 1/60 s. Virtual time is the host's time
+    // (ScummVM's getMillis): it never goes back, not even on a restore.
     [[nodiscard]] std::uint32_t ticks() const { return static_cast<std::uint32_t>(microseconds_ * 60 / 1000000); }
+
+    // The play time in game ticks, which kGetTime(elapsed) reports
+    // (SciEngine::getTickCount): virtual time since the virtual time it was
+    // last set at, in whole milliseconds as Engine::getTotalPlayTime counts.
+    [[nodiscard]] std::uint32_t play_ticks() const { return (millis() - play_time_start_) * 60U / 1000U; }
+
+    // SciEngine::setTickCount: the play time is `ticks` now.
+    void set_play_ticks(std::uint32_t ticks) { play_time_start_ = millis() - (ticks * 1000U / 60U); }
 
     void advance(std::uint32_t milliseconds);
     // While the wait hook runs: `milliseconds` of the wait have passed in
@@ -97,6 +109,28 @@ public:
 
     void reset_wait() { last_wait_ = millis(); }
 
+    // The host's time: virtual time, the wait under way and the music
+    // timer. A restore reads the saved values with the state (so that its
+    // hash equals the save's) and then puts these back.
+    struct HostTime {
+        std::uint64_t microseconds = 0;
+        std::uint64_t wait_start = 0;
+        std::uint64_t wait_end = 0;
+        std::uint64_t music_due = 0;
+        std::uint32_t tempo = 0;
+    };
+
+    [[nodiscard]] HostTime host_time() const;
+    // gamestate_restore after the state is read: the host's time goes on
+    // from `host`, the play time is the saved one again, the last wait is
+    // now (lastWaitTime), and the throttle is reset (EngineState::reset).
+    void after_restore(const HostTime& host);
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
+
 private:
     // Runs the music timer calls due by `until` (microseconds).
     void run_music_timer(std::uint64_t until);
@@ -113,6 +147,8 @@ private:
     std::function<void(std::uint32_t)> wait_hook_;
     std::function<LocalTime()> local_time_;
     std::uint32_t last_wait_ = 0;
+    // The virtual time, in milliseconds, at which the play time was 0.
+    std::uint32_t play_time_start_ = 0;
     std::uint64_t last_elapsed_read_ = 0;
     std::uint32_t throttle_last_ = 0;
     bool throttle_trigger_ = false;

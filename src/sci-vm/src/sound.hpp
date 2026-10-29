@@ -80,9 +80,17 @@ public:
     // For tests and tools: the music player.
     [[nodiscard]] Music& music() { return *music_; }
 
+    [[nodiscard]] bool has_music() const { return music_ != nullptr; }
+
+    // After a restore (SoundCommandParser::reconstructPlayList): every song
+    // that was playing is played again from its saved tick, which sends
+    // its channel set-up, programs and controllers to the device again;
+    // if none was playing, the first paused one is (SCI0).
+    void reconstruct_play_list(Machine& machine);
+
 private:
     void process_init_sound(Machine& machine, Reg object);
-    void process_play_sound(Machine& machine, Reg object);
+    void process_play_sound(Machine& machine, Reg object, bool restoring = false);
     void process_dispose_sound(Machine& machine, Reg object);
     void process_stop_sound(Machine& machine, Reg object, bool sample_finished_playing);
     void process_update_cues(Machine& machine, Reg object);

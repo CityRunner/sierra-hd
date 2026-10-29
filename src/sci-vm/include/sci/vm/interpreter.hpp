@@ -10,10 +10,12 @@
 
 #pragma once
 
+#include "sci/core/error.hpp"
 #include "sci/resource/resource_manager.hpp"
 #include "sci/vm/events.hpp"
 #include "sci/vm/files.hpp"
 #include "sci/vm/reg.hpp"
+#include "sci/vm/state_hash.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -55,6 +57,22 @@ struct ScreenMaps {
     std::span<const std::uint8_t> control;
 };
 
+struct SaveCheck {
+    std::size_t bytes = 0;            // The save file's size.
+    StateHash saved;                  // The state written.
+    StateHash restored;               // The fresh machine's state after reading it.
+    std::optional<std::string> error; // Why reading failed, if it did.
+};
+
+// One round trip of RunOptions::round_trip_ticks.
+struct RoundTrip {
+    std::uint64_t call = 0;           // The kernel calls traced when the state was saved.
+    std::vector<std::uint8_t> file;   // The save file.
+    StateHash saved;                  // The state written, with the execution.
+    StateHash restored;               // The fresh machine's state after reading it.
+    std::optional<std::string> error; // Why reading failed, if it did; the run then stops.
+};
+
 struct RunOptions {
     std::uint32_t seed = 0;
     std::vector<InputEvent> input;
@@ -69,6 +87,9 @@ struct RunOptions {
     bool trace_callers = false;
     // The files the game may open; none can be opened without a store.
     FileStore* files = nullptr;
+    // The saved games kSaveGame writes and kRestoreGame reads; none are
+    // listed and saving fails without a store.
+    SaveStore* saves = nullptr;
     // Called whenever virtual time passes, with the game tick and the maps,
     // once graphics are up.
     std::function<void(const ScreenMaps&)> on_tick;
@@ -106,7 +127,40 @@ struct RunOptions {
     // timer calls made so far (milestone 7, docs/formats/replay-and-trace.md,
     // "MIDI files").
     std::function<void(std::uint32_t timer_call, std::span<const std::uint8_t> message)> on_midi;
+    // The hash of the VM state (milestone 8, docs/ASSUMPTIONS.md, "Milestone
+    // 8: the VM state") at each of these ticks, in increasing order: when
+    // virtual time first reaches the tick, on_state_hash is called with it,
+    // the tick reached (a wait may pass several) and the hash. The state is
+    // taken in the kernel call that let the time pass.
+    std::vector<std::uint32_t> state_hash_ticks;
+    std::function<void(std::uint32_t requested, std::uint32_t tick, const StateHash&)> on_state_hash;
+    // The save round trip (milestone 8, docs/formats/save-format.md) at each
+    // of these ticks, taken as state_hash_ticks are: the state is written as
+    // a save file and read into a fresh machine on the same game files, and
+    // on_save_check is called with what came of it. The run goes on with
+    // its own machine, unchanged.
+    std::vector<std::uint32_t> save_check_ticks;
+    std::function<void(std::uint32_t requested, std::uint32_t tick, const SaveCheck&)> on_save_check;
+    // Round trips (milestone 8, docs/ASSUMPTIONS.md, "Milestone 8: round
+    // trips"): at the first resume point (Machine::set_suspend_hook, the
+    // end of a kernel call of the top-level interpreter) once virtual time
+    // has reached each of these ticks, in increasing order, the machine
+    // stops, its state is written as a save file, and the run goes on in a
+    // fresh machine built from the game files that read the save with its
+    // execution (Execution::Resume). The fresh machine also gets what is
+    // not VM state: the input not yet due, the music device and what the
+    // screen shows. The trace and the other outputs go on as one run, so
+    // they can be compared with a run without round trips.
+    // on_round_trip is called after each, before the run goes on.
+    std::vector<std::uint32_t> round_trip_ticks;
+    std::function<void(std::uint32_t requested, std::uint32_t tick, const RoundTrip&)> on_round_trip;
 };
+
+// The hashes of a save file's state read into a fresh machine on the game
+// files with its execution, as the round trip reads it; the error if it
+// cannot be read.
+[[nodiscard]] core::Result<StateHash> load_save_hash(const resource::ResourceManager& resources,
+                                                     std::span<const std::uint8_t> file);
 
 struct RunResult {
     // Why the interpreter stopped early, if it did.

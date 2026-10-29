@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The files a game opens (kFOpen and the other file kernel functions),
-// supplied by the host: sci-vm itself does no I/O (spec section 4.2).
+// The files a game opens (kFOpen and the other file kernel functions) and
+// its saved games (kSaveGame and the other save kernel functions), supplied
+// by the host: sci-vm itself does no I/O (spec section 4.2).
 
 #pragma once
 
@@ -49,6 +50,39 @@ public:
 private:
     std::map<std::string, std::vector<std::uint8_t>> game_files_;
     std::map<std::string, std::vector<std::uint8_t>, std::less<>> written_;
+};
+
+// Saved games by slot, 1 to 99 (docs/formats/save-format.md, "Slots and
+// the save folder"), as ScummVM keeps them in its save folder.
+inline constexpr int save_slot_first = 1;
+inline constexpr int save_slot_last = 99;
+
+class SaveStore {
+public:
+    SaveStore() = default;
+    SaveStore(const SaveStore&) = delete;
+    SaveStore& operator=(const SaveStore&) = delete;
+    SaveStore(SaveStore&&) = delete;
+    SaveStore& operator=(SaveStore&&) = delete;
+    virtual ~SaveStore() = default;
+
+    // The slots that hold a file, in increasing order.
+    [[nodiscard]] virtual std::vector<int> slots() = 0;
+    // The file of a slot, if it holds one that can be read.
+    [[nodiscard]] virtual std::optional<std::vector<std::uint8_t>> read(int slot) = 0;
+    // Creates or replaces the file of a slot.
+    virtual bool write(int slot, std::span<const std::uint8_t> data) = 0;
+};
+
+// Saved games in memory, kept until the store goes.
+class MemorySaveStore final : public SaveStore {
+public:
+    [[nodiscard]] std::vector<int> slots() override;
+    [[nodiscard]] std::optional<std::vector<std::uint8_t>> read(int slot) override;
+    bool write(int slot, std::span<const std::uint8_t> data) override;
+
+private:
+    std::map<int, std::vector<std::uint8_t>> saves_;
 };
 
 } // namespace sci::vm

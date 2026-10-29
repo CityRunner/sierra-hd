@@ -228,6 +228,15 @@ void Screen::bits_restore(std::span<const std::uint8_t> memory) {
     }
 }
 
+void Screen::clear_for_restore() {
+    std::ranges::fill(visual_, 0);
+    std::ranges::fill(priority_, 0);
+    std::ranges::fill(control_, 0);
+    std::ranges::fill(owner_, static_cast<std::uint8_t>(Owner::Interface));
+    std::ranges::fill(source_, priority_from_drawing);
+    show(Rect{.top = 0, .left = 0, .bottom = height, .right = width});
+}
+
 void Screen::show(const Rect& rect) {
     Rect clipped = rect;
     clipped.clip(Rect{.top = 0, .left = 0, .bottom = height, .right = width});

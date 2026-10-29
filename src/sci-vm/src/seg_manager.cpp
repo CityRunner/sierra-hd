@@ -119,6 +119,14 @@ void SegManager::init_sys_strings() {
     parser_pointer_ = make_reg(save_dir_pointer_.segment, save_dir_pointer_.offset + 256);
 }
 
+void SegManager::after_restore() {
+    if (hunks_ != 0) {
+        deallocate(hunks_);
+        hunks_ = 0;
+    }
+    init_sys_strings();
+}
+
 SegmentId SegManager::find_free_segment() const {
     std::size_t id = 1;
     while (id < heap_.size() && heap_[id]) {

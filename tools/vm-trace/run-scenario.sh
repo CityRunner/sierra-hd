@@ -29,7 +29,9 @@
 # (reference-parser.txt, sci-vm-parser.txt), the layout (reference-layout.txt,
 # sci-vm-layout.txt), the OPL writes (reference-opl.txt, sci-vm-opl.txt) and
 # the MIDI messages (reference-midi.txt, sci-vm-midi.txt) and the screens
-# and maps in reference/ and sci-vm/. Exits with 1 if anything differs.
+# and maps in reference/ and sci-vm/; the saves each engine wrote, starting
+# from none, in reference-saves/ and sci-vm-saves/. Exits with 1 if anything
+# differs.
 set -euo pipefail
 
 replay="${1:?usage: run-scenario.sh <replay> <stop tick> <output folder> [seed]}"
@@ -63,20 +65,20 @@ elif [[ "${compare_opl}" != 0 ]]; then
 fi
 
 mkdir -p "${out}"
-rm -rf "${out}/reference" "${out}/sci-vm"
-mkdir -p "${out}/reference" "${out}/sci-vm"
+rm -rf "${out}/reference" "${out}/sci-vm" "${out}/reference-saves" "${out}/sci-vm-saves"
+mkdir -p "${out}/reference" "${out}/sci-vm" "${out}/reference-saves" "${out}/sci-vm-saves"
 
 env SIERRA_HD_TRACE="${out}/reference.txt" SIERRA_HD_STOP_TICK="${stop_tick}" \
     SIERRA_HD_SEED="${seed}" SIERRA_HD_REPLAY="${replay}" SIERRA_HD_SCREENS="${out}/reference" \
     SIERRA_HD_ACTORS="${out}/reference-actors.txt" SIERRA_HD_PARSER="${out}/reference-parser.txt" \
-    SIERRA_HD_LAYOUT="${out}/reference-layout.txt" "${reference_opl[@]}" \
+    SIERRA_HD_LAYOUT="${out}/reference-layout.txt" SIERRA_HD_SAVEPATH="${out}/reference-saves" "${reference_opl[@]}" \
     xvfb-run -a env SDL_AUDIODRIVER=dummy \
     "${root}/tools/reference-scummvm/run.sh" "${reference_build}" /game "${reference_driver[@]}" \
     > "${out}/reference.log" 2>&1 || true
 
 "${vm_trace}" /game "${out}/sci-vm.txt" --seed "${seed}" --stop-tick "${stop_tick}" \
     --replay "${replay}" --screens "${out}/sci-vm" --actors "${out}/sci-vm-actors.txt" \
-    --parser "${out}/sci-vm-parser.txt" --layout "${out}/sci-vm-layout.txt" "${sci_vm_opl[@]}" \
+    --parser "${out}/sci-vm-parser.txt" --layout "${out}/sci-vm-layout.txt" --saves "${out}/sci-vm-saves" "${sci_vm_opl[@]}" \
     > "${out}/sci-vm.log" 2>&1 || true
 
 status=0

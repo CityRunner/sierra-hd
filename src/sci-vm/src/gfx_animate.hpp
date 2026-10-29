@@ -35,6 +35,8 @@
 
 namespace sci::vm {
 
+class StateWriter;
+class StateReader;
 class Graphics;
 
 inline constexpr unsigned signal_stop_update = 0x0001U;
@@ -83,6 +85,11 @@ public:
     // it was drawn with; empty if that call drew nothing (for the actor
     // positions of the deterministic runs).
     [[nodiscard]] const std::vector<AnimateEntry>& drawn_cast() const { return drawn_cast_; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
 
 private:
     bool invoke(Reg list);

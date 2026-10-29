@@ -15,6 +15,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace sci::text {
@@ -126,6 +127,15 @@ public:
     bool store_pronoun_reference();
 
     [[nodiscard]] std::span<const ParseNode> nodes() const { return nodes_; }
+
+    // The word the pronouns stand for (Vocabulary::_pronounReference).
+    [[nodiscard]] int pronoun_reference() const { return pronoun_reference_; }
+
+    // What a saved game restores: the last parse tree and the pronoun's word.
+    void restore_parse(std::vector<ParseNode> nodes, int pronoun_reference) {
+        nodes_ = std::move(nodes);
+        pronoun_reference_ = pronoun_reference;
+    }
 
 private:
     bool load_words(std::span<const std::uint8_t> data);

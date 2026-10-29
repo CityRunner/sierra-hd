@@ -40,6 +40,8 @@
 
 namespace sci::vm {
 
+class StateWriter;
+class StateReader;
 class Music;
 struct MusicEntry;
 
@@ -59,6 +61,10 @@ public:
 
     void set_master_volume(std::uint8_t volume);
     void set_volume(std::uint8_t volume);
+    // The volumes of a new parser (MidiParser_SCI's constructor) with the
+    // player's master volume, as SciMusic::soundInitSnd sets them; the
+    // device gets the volume.
+    void reset_volumes(std::uint8_t master_volume);
 
     // MidiParser_SCI::sendInitCommands: resets the channels the song uses.
     void send_init_commands();
@@ -80,6 +86,11 @@ public:
     [[nodiscard]] std::uint32_t tick() const { return position_.play_tick; }
 
     [[nodiscard]] bool is_tracking() const { return position_.play_pos.has_value(); }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in, MusicEntry& sound);
 
 private:
     struct EventInfo {

@@ -35,6 +35,10 @@ Game::Game(const resource::ResourceManager& resources, GameHost& host, FileStore
 
 Game::~Game() = default;
 
+void Game::set_saves(SaveStore* saves, std::string program) {
+    state_->subsystems.files().set_saves(saves, std::move(program));
+}
+
 void Game::set_music_device(audio::MidiDevice* device) {
     state_->subsystems.sound().set_device(device);
 }

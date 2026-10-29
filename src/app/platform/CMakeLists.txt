@@ -14,6 +14,7 @@ sci_add_library(NAME sci-platform
         src/identify.cpp
         src/mt32_roms.cpp
         src/picture_hints.cpp
+        src/save_folder.cpp
         src/thread_executor.cpp
     DEPENDS sci-core sci-resource sci-pic sci-vector sci-render sci-vm sci-audio)
 target_link_libraries(sci-platform PUBLIC Threads::Threads)

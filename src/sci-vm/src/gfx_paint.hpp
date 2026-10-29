@@ -38,6 +38,8 @@
 
 namespace sci::vm {
 
+class StateWriter;
+class StateReader;
 class Graphics;
 class GfxView;
 
@@ -81,6 +83,11 @@ public:
     [[nodiscard]] const std::vector<ShownPicture>& shown_stack() const { return shown_stack_; }
 
     [[nodiscard]] const std::vector<ShownLine>& shown_lines() const { return shown_lines_; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
 
 private:
     Graphics* graphics_;

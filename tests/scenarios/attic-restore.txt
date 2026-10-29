@@ -1,0 +1,112 @@
+sierra-hd replay 1
+# Two saves in the attic stairway (room 74) and their restores (milestone
+# 8), with seed 0 and stop tick 14500. Starts as attic.txt (the same
+# route to room 74, about tick 5460, where the stairway shows picture 174
+# with EGA palette 1 and 74 over it, global 61 = 1).
+# F5 on the stairway: "Stairway", Enter (slot 0). Up the stairway and
+# right into Fifi's room (174 with palette 0 and 74 over it, global
+# 61 = 0). F5: the description field holds the selected save's
+# "Stairway", Ctrl+C clears it, "Fifi's room", Enter (a new slot, 1).
+# Laura leaves room 74 down the stairway into the front upstairs hallway
+# (room 47). F7: the restore dialog lists "Fifi's room" (newer, first)
+# and "Stairway"; Down and Enter restore the older one: the game's
+# `replay` draws the room's picture 74 with global 61's palette and 174
+# over it (stack 74.palette1+174.palette1). F7 again: Up (already on the
+# first line) and Enter restore the newer one, in Fifi's room (stack
+# 74+174, palette 0); a few steps.
+600 key 13
+650 key 20480
+670 key 20480
+690 key 20480
+710 key 20480
+730 key 20480
+750 key 19712
+770 key 19712
+790 key 18432
+810 key 18432
+830 key 13
+831 key 13
+1000 key 13
+# Room 44 to the west door; room 43 south; room 47 to the doorway on the
+# right and up into room 74 (as attic.txt).
+3400 move 105 143
+3402 down 105 143 0
+3406 up 105 143 0
+3700 move 0 157
+3702 down 0 157 0
+3706 up 0 157 0
+4000 down 160 100 0
+4004 up 160 100 0
+4060 move 160 199
+4062 down 160 199 0
+4066 up 160 199 0
+4330 down 160 100 0
+4334 up 160 100 0
+4400 move 200 145
+4402 down 200 145 0
+4406 up 200 145 0
+4900 move 255 145
+4902 down 255 145 0
+4906 up 255 145 0
+5400 move 255 112
+5402 down 255 112 0
+5406 up 255 112 0
+# Room 74: close the description; F5, "Stairway", Enter.
+6700 down 160 100 0
+6704 up 160 100 0
+6720 key 16128
+6900 key 83
+6910 key 116
+6920 key 97
+6930 key 105
+6940 key 114
+6950 key 119
+6960 key 97
+6970 key 121
+7000 key 13
+# Up the stairway, right into Fifi's room, close its description, a few
+# steps.
+7200 move 42 124
+7202 down 42 124 0
+7206 up 42 124 0
+7900 move 150 124
+7902 down 150 124 0
+7906 up 150 124 0
+9200 down 160 100 0
+9204 up 160 100 0
+9300 move 180 150
+9302 down 180 150 0
+9306 up 180 150 0
+# F5, Ctrl+C, "Fifi's room", Enter.
+9600 key 16128
+9790 key 3 4
+9800 key 70
+9810 key 105
+9820 key 102
+9830 key 105
+9840 key 39
+9850 key 115
+9860 key 32
+9870 key 114
+9880 key 111
+9890 key 111
+9900 key 109
+10000 key 13
+# Back to the top of the stairway and down into room 47.
+10100 move 42 124
+10102 down 42 124 0
+10106 up 42 124 0
+10800 move 40 199
+10802 down 40 199 0
+10806 up 40 199 0
+# F7, Down to "Stairway", Enter.
+12100 key 16640
+12300 key 20480
+12400 key 13
+# F7, Up to "Fifi's room", Enter; a few steps.
+13000 key 16640
+13200 key 18432
+13300 key 13
+13700 move 120 150
+13702 down 120 150 0
+13706 up 120 150 0

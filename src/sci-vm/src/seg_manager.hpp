@@ -42,6 +42,8 @@
 
 namespace sci::vm {
 
+class StateWriter;
+class StateReader;
 class ScriptPatcher;
 
 // Whether getting a script's segment loads the script, and whether it
@@ -117,6 +119,12 @@ public:
 
     // System strings: the save directory and the parser's buffer.
     void init_sys_strings();
+    // What ScummVM's gamestate_restore leaves different from the saved
+    // segments: it neither saves nor loads the hunk table, so the hunk
+    // segment is gone (the saved handles point nowhere) and the next hunk
+    // gets a new segment, and it allocates the system strings again in a
+    // new segment (the saved one stays).
+    void after_restore();
 
     [[nodiscard]] Reg save_dir_pointer() const { return save_dir_pointer_; }
 
@@ -142,6 +150,11 @@ public:
     [[nodiscard]] std::string get_string(Reg pointer) const;
 
     static constexpr std::size_t unbounded = 0xFFFFFFFF;
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
 
 private:
     [[nodiscard]] SegmentId find_free_segment() const;

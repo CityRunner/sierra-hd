@@ -33,9 +33,13 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace sci::vm {
+
+class StateWriter;
+class StateReader;
 
 inline constexpr unsigned mask_visual = 1U;
 inline constexpr unsigned mask_priority = 2U;
@@ -120,6 +124,10 @@ public:
 
     [[nodiscard]] const std::vector<std::uint8_t>& shown() const { return shown_; }
 
+    // GfxScreen::clearForRestoreGame: the 1x maps are cleared and shown, so
+    // the restored game's replay method draws on a black screen.
+    void clear_for_restore();
+
     [[nodiscard]] const std::vector<std::uint8_t>& shown_owner() const { return shown_owner_; }
 
     // The background layer of what is shown: visual, owner, priority and
@@ -145,6 +153,31 @@ public:
     [[nodiscard]] int pic_not_valid() const { return pic_not_valid_; }
 
     void set_pic_not_valid(int value) { pic_not_valid_ = value; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
+
+    // Takes what `other` shows and the HD bookkeeping that is not VM state,
+    // keeping this screen's state (save_state): the round trip of
+    // sci-vm-trace hands them to the machine that goes on, as the same
+    // display would (docs/ASSUMPTIONS.md, "Milestone 8: round trips").
+    void take_presentation(const Screen& other) {
+        auto visual = std::move(visual_);
+        auto priority = std::move(priority_);
+        auto control = std::move(control_);
+        auto owner = std::move(owner_);
+        auto source = std::move(source_);
+        const int pic_not_valid = pic_not_valid_;
+        *this = other;
+        visual_ = std::move(visual);
+        priority_ = std::move(priority);
+        control_ = std::move(control);
+        owner_ = std::move(owner);
+        source_ = std::move(source);
+        pic_not_valid_ = pic_not_valid;
+    }
 
 private:
     [[nodiscard]] static std::size_t index(int x, int y) {

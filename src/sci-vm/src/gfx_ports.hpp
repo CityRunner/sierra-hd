@@ -39,6 +39,8 @@
 
 namespace sci::vm {
 
+class StateWriter;
+class StateReader;
 class Graphics;
 
 inline constexpr std::uint16_t first_window_id = 2;
@@ -161,6 +163,11 @@ public:
     [[nodiscard]] const Rect& menu_rect() const { return menu_rect_; }
 
     [[nodiscard]] const Rect& menu_line() const { return menu_line_; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
 
 private:
     // The window a port is: GfxPorts casts the ports from id 2 on, which are

@@ -34,6 +34,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace sci::vm {
@@ -196,6 +197,57 @@ public:
     }
 
     [[nodiscard]] std::size_t size() const { return table_.size(); }
+
+    // The free list, for the VM state: the first free entry and each
+    // entry's successor in it (its own index while in use), -1 ending it.
+    [[nodiscard]] int first_free() const { return first_free_; }
+
+    [[nodiscard]] int entries_used() const { return entries_used_; }
+
+    [[nodiscard]] int next_free(std::size_t index) const { return table_[index].next_free; }
+
+    // Restoring a saved table: `size` empty entries, then each entry's
+    // successor (an entry in use gets an empty element). The caller checks
+    // that the free list is consistent (valid_free_list).
+    void restore(std::size_t size, int first_free, int entries_used) {
+        table_.clear();
+        table_.resize(size);
+        first_free_ = first_free;
+        entries_used_ = entries_used;
+    }
+
+    void restore_entry(std::size_t index, int next_free) {
+        table_[index].next_free = next_free;
+        if (std::cmp_equal(next_free, index)) {
+            table_[index].data = std::make_unique<T>();
+        }
+    }
+
+    // Whether the free list runs through free entries only, each once, and
+    // the entries in use are counted right.
+    [[nodiscard]] bool valid_free_list() const {
+        int used = 0;
+        for (std::size_t i = 0; i < table_.size(); ++i) {
+            const int next = table_[i].next_free;
+            if (std::cmp_equal(next, i)) {
+                ++used;
+            } else if (next < invalid || std::cmp_greater_equal(next, table_.size())) {
+                return false;
+            }
+        }
+        if (used != entries_used_) {
+            return false;
+        }
+        std::vector<bool> seen(table_.size(), false);
+        for (int index = first_free_; index != invalid; index = table_[static_cast<std::size_t>(index)].next_free) {
+            if (index < 0 || std::cmp_greater_equal(index, table_.size()) || is_valid_entry(index) ||
+                seen[static_cast<std::size_t>(index)]) {
+                return false;
+            }
+            seen[static_cast<std::size_t>(index)] = true;
+        }
+        return true;
+    }
 
     [[nodiscard]] T& at(std::size_t index) { return *table_[index].data; }
 

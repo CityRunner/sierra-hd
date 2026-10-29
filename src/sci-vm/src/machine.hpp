@@ -48,7 +48,10 @@
 
 namespace sci::vm {
 
+class StateWriter;
+class StateReader;
 class Subsystems;
+enum class Execution : std::uint8_t;
 
 inline constexpr int vm_stack_size = 0x1000;
 inline constexpr int gc_interval = 0x8000;
@@ -102,6 +105,15 @@ struct ExecStack {
 
 enum class Abort : std::uint8_t { None, LoadGame, RestartGame, QuitGame };
 
+// What kGameIsRestarting reports (GAMEISRESTARTING_*): 1 after a restart,
+// 2 after a restore.
+enum class Restarting : std::uint8_t { None = 0, Restart = 1, Restore = 2 };
+
+// kSaveGame's virtual ids of saved games (SAVEGAMEID_OFFICIALRANGE_*): slot
+// n is id 100 + n.
+inline constexpr int save_id_first = 100;
+inline constexpr int save_id_last = 199;
+
 // One kernel call as traced (docs/formats/replay-and-trace.md).
 struct KernelCall {
     const char* name = "";
@@ -124,6 +136,20 @@ public:
     // Runs the game's play method until it returns or a fault stops it
     // (runGame), restarting when the game asks for it.
     void run_game();
+    // Goes on as run_game from a state read with Execution::Resume, which
+    // was written at a resume point.
+    void resume_game();
+
+    // A resume point is the end of a kernel call made by the top-level
+    // run_vm (not from a kernel function's scripts), with no abort pending:
+    // there the interpreter keeps nothing outside the state, so a machine
+    // that reads the state with Execution::Resume can go on from it. The
+    // hook is called at each; when it returns true the machine stops there
+    // (run_game and resume_game return, suspended() is true) and is not to
+    // run again. For the round trip of sci-vm-trace.
+    void set_suspend_hook(std::function<bool()> hook) { suspend_hook_ = std::move(hook); }
+
+    [[nodiscard]] bool suspended() const { return suspended_; }
 
     // State used by the kernel functions.
     [[nodiscard]] SegManager& segments() { return segments_; }
@@ -154,9 +180,25 @@ public:
 
     [[nodiscard]] Abort aborting() const { return abort_; }
 
-    [[nodiscard]] bool game_is_restarting() const { return game_is_restarting_; }
+    [[nodiscard]] Restarting game_is_restarting() const { return game_is_restarting_; }
 
-    void clear_game_is_restarting() { game_is_restarting_ = false; }
+    void set_game_is_restarting(Restarting value) { game_is_restarting_ = value; }
+
+    // kSaveGame's last new slot (EngineState::_lastSaveVirtualId and
+    // _lastSaveNewId): a save with the same low virtual id overwrites it.
+    [[nodiscard]] int last_save_virtual_id() const { return last_save_virtual_id_; }
+
+    [[nodiscard]] int last_save_new_id() const { return last_save_new_id_; }
+
+    void set_last_save(int virtual_id, int new_id) {
+        last_save_virtual_id_ = virtual_id;
+        last_save_new_id_ = new_id;
+    }
+
+    // gamestate_restore after the state is read: the GC runs a full
+    // interval later, the scripts are told of the restore, and the last
+    // save is forgotten (EngineState::reset).
+    void after_restore();
 
     [[nodiscard]] std::uint32_t steps() const { return steps_; }
 
@@ -214,6 +256,14 @@ public:
     // Where the running run_vm started: 0 unless a kernel function invoked it.
     [[nodiscard]] int execution_stack_base() const { return execution_stack_base_; }
 
+    // For tests that call kernel functions as the top-level run_vm would.
+    void set_execution_stack_base(int base) { execution_stack_base_ = base; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in, Execution execution);
+
 private:
     struct Variables {
         std::vector<Reg>* store = nullptr;
@@ -228,7 +278,10 @@ private:
     ExecStack* execute_method(int script, int export_index, StackIndex sp, Reg calling_obj, int argc, StackIndex argp);
     void call_kernel(int number, int argc);
     void call_kernel_untraced(int number, int argc);
-    void run_vm();
+    // `resume`: the top-level run_vm going on from a resume point.
+    void run_vm(bool resume = false);
+    // run_game's loop, from the first run_vm.
+    void game_loop(bool resume);
     void setup_frame();
     Reg read_var(int type, int index);
     void write_var(int type, int index, Reg value);
@@ -258,11 +311,15 @@ private:
     Reg prev_{};
     int rest_ = 0;
     Abort abort_ = Abort::None;
-    bool game_is_restarting_ = false;
+    Restarting game_is_restarting_ = Restarting::None;
+    int last_save_virtual_id_ = save_id_first;
+    int last_save_new_id_ = 0;
     int gc_count_down_ = 0;
     std::uint32_t steps_ = 0;
     std::function<void(const KernelCall&)> kernel_log_;
     std::uint64_t kernel_calls_ = 0;
+    std::function<bool()> suspend_hook_;
+    bool suspended_ = false;
 };
 
 } // namespace sci::vm

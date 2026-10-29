@@ -7,6 +7,7 @@
 #pragma once
 
 #include "sci/vm/reg.hpp"
+#include "timing.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -14,9 +15,9 @@
 
 namespace sci::vm {
 
+class StateWriter;
+class StateReader;
 class Machine;
-class Clock;
-class RandomSource;
 class EventQueue;
 class Graphics;
 class Sound;
@@ -40,6 +41,26 @@ public:
     void on_init_game(Machine& machine);
     void on_stop_game(Machine& machine);
     void on_restart_game(Machine& machine);
+
+    // What the host keeps across a restore in ScummVM, which a save holds
+    // as VM state: the clock's host time, the random source (SciEngine's,
+    // not saved) and the music timer's call count (the OPL and MIDI logs'
+    // time key).
+    struct HostState {
+        Clock::HostTime time;
+        std::uint32_t random_seed = 0;
+        std::uint32_t timer_calls = 0;
+        // ScummVM's music volume setting as a master volume: the game's
+        // kDoSound MasterVolume goes through it, so it is the master volume
+        // before the restore.
+        std::uint16_t master_volume = 0;
+    };
+
+    [[nodiscard]] HostState host_state();
+    // gamestate_restore after the state is read: the host's state goes on
+    // from `host` (Clock::after_restore), the screen-update time is now and
+    // the event counter is reset.
+    void after_restore(const HostState& host);
     // EventManager::updateScreen: at most once per 1000/60 ms of virtual
     // time, a requested quit aborts the game (after the kernel call in
     // progress).
@@ -69,6 +90,11 @@ public:
     [[nodiscard]] Parser& parser() { return *parser_; }
 
     [[nodiscard]] Files& files() { return *files_; }
+
+    // Writes its part of the VM state (state.cpp).
+    void save_state(StateWriter& out) const;
+    // Reads it back (state_load.cpp).
+    void load_state(StateReader& in);
 
 private:
     std::unique_ptr<Clock> clock_;

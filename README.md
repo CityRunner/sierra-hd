@@ -58,6 +58,11 @@ From a Visual Studio developer prompt with LLVM 23.1.4 first on `PATH`, run
 - **Files:** the program reads `sierra-hd.ini` and `hints/` next to the
   executable. In a build tree, copy `hints/` next to it, or the HD pictures
   are drawn without hints.
+- **Saves:** the game's own File menu saves and restores; the saves go to
+  `saves/` next to the configuration, one file per slot
+  (`sierra-hd-001.sav` to `sierra-hd-099.sav`,
+  `docs/formats/save-format.md`), and the files the game itself writes to
+  `files/`.
 - **Help:** `sierra-hd --help` lists the keys and options.
   `docs/USER-README.md` is the user guide that ships with the binaries.
 

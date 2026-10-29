@@ -156,11 +156,11 @@ Reg k_restart_game(Machine& machine, std::span<Reg> /*args*/) {
 }
 
 Reg k_game_is_restarting(Machine& machine, std::span<Reg> args) {
-    const auto previous = static_cast<std::uint16_t>(machine.game_is_restarting() ? 1 : 0);
+    const auto previous = static_cast<std::uint16_t>(machine.game_is_restarting());
     if (args.empty() || args[0].to_uint16() != 0) {
         return number(previous);
     }
-    machine.clear_game_is_restarting();
+    machine.set_game_is_restarting(Restarting::None);
     // The speed throttle of ScummVM; no game-specific delay for this game.
     machine.subsystems().clock().speed_throttler(speed_throttle_delay);
     machine.subsystems().reset_event_counter();
@@ -209,7 +209,7 @@ Reg k_get_time(Machine& machine, std::span<Reg> args) {
     switch (mode) {
     case 0:
         machine.subsystems().clock().read_elapsed(machine.kernel_calls());
-        value = machine.subsystems().clock().ticks();
+        value = machine.subsystems().clock().play_ticks();
         break;
     case 1: {
         unsigned hour = hour24 % 12;
