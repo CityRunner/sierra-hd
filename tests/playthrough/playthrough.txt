@@ -1351,6 +1351,42 @@ sierra-hd replay 1
 314600 move 25 190
 314602 down 25 190 0
 314606 up 25 190 0
-315100 move 45 30
-315102 down 45 30 0
-315106 up 45 30 0
+315200 key 13
+315400 move 45 30
+315402 down 45 30 0
+315406 up 45 30 0
+# Room 47: Enter closes "You hear scuffling further upstairs."; to the right
+# end of the landing, down a step, along to the foot of the stairs on the
+# right and north onto control colour 4 into the attic stairs 74 (as in Act
+# III).
+316100 key 13
+316300 move 254 136
+316302 down 254 136 0
+316306 up 254 136 0
+316800 key 20480
+317000 move 257 143
+317002 down 257 143 0
+317006 up 257 143 0
+317500 key 13
+317700 key 18432
+# Room 74: up the stairs to the attic door at the top (inside x 21 to 47,
+# y 95 to 110). Its control colour 3 is illegal for Laura until the door is
+# open (global 117 bit 32768): "unlock the door" (the skeleton key: "Using
+# the skeleton key, you unlock the attic door."), Enter, "open the door",
+# and the up arrow key walks her onto colour 3 (with global 123 bit 64)
+# into the attic 75, with timer 368 at 800 (at 1 the fight would be over:
+# "too late").
+318100 move 35 121
+318102 down 35 121 0
+318106 up 35 121 0
+318600 key 18432
+318900 text unlock the door
+319500 key 13
+319700 text open the door
+320600 key 18432
+# Room 75: the fight ("Oh, no!! Colonel Dijon and Rudy are in the midst of
+# a fierce struggle! ..."); Enter closes it and starts the 10 seconds of
+# region 290's state 1, in which "shoot rudy" with the loaded derringer
+# wounds Rudy.
+320900 key 13
+321100 text shoot rudy
