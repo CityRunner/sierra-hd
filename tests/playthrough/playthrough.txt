@@ -223,9 +223,16 @@ sierra-hd replay 1
 62800 move 319 112
 62802 down 319 112 0
 62806 up 319 112 0
+# Act II (9:00 PM, from tick 62840 in room 47). The arrow keys walk Laura
+# along the landing to the top of the left staircase (clicks on the stairs
+# do not reach them) and down into 37.
 63700 key 20480
 63850 key 19200
 64200 key 20480
+# Room 37: off the foot of the stairs onto the bottom steps, which walk
+# her down to the floor. Her father's advice at the start of the act (three
+# messages and "Thanks, Daddy!"), each closed with Enter; north under the
+# landing into the back hallway 33.
 64900 move 58 163
 64902 down 58 163 0
 64906 up 58 163 0
@@ -236,6 +243,8 @@ sierra-hd replay 1
 66700 move 160 85
 66702 down 160 85 0
 66706 up 160 85 0
+# Room 33: out of the French doors into the back garden 4 (its
+# description), east along the path into the northeast corner 12.
 67500 move 160 95
 67502 down 160 95 0
 67506 up 160 95 0
@@ -247,6 +256,9 @@ sierra-hd replay 1
 69400 move 319 176
 69402 down 319 176 0
 69406 up 319 176 0
+# Room 12: close the description; Jeeves feeds Beauregard ("Come and get
+# it!") while Laura stands on the path behind the house. Round the path,
+# past the doghouse and through the kitchen door into 35.
 69900 key 13
 71000 move 312 65
 71002 down 312 65 0
@@ -263,6 +275,8 @@ sierra-hd replay 1
 72800 move 160 138
 72802 down 160 138 0
 72806 up 160 138 0
+# Room 35, the kitchen: Celie and Lillian (event bit 4, region 236, the
+# clock at about tick 72850). Enter closes their messages.
 73700 key 13
 74100 key 13
 74500 key 13
@@ -280,6 +294,9 @@ sierra-hd replay 1
 79300 key 13
 79700 key 13
 80100 key 13
+# Out to 12 (Jeeves goes down into the cellar, Laura waits for him),
+# round the path to the back garden 4 and past the statue west into the
+# northwest corner 10.
 80500 move 258 143
 80502 down 258 143 0
 80506 up 258 143 0
@@ -304,6 +321,12 @@ sierra-hd replay 1
 84500 move 0 170
 84502 down 0 170 0
 84506 up 0 170 0
+# Room 10, outside the study: two guests (views 400 and 420) talk ("I
+# can't go on with this any longer!"; event bit 1, room 10's own script,
+# the clock at about tick 85100): global 154 becomes 1 and timer 368
+# starts (1800 cycles). They stop in the study door and keep it
+# blocked, so Laura goes back to 4 (leaving 10 by another way than the
+# study sets global 154 to 3).
 85000 key 13
 85400 key 13
 85800 key 13
@@ -336,6 +359,8 @@ sierra-hd replay 1
 90300 move 80 55
 90302 down 80 55 0
 90306 up 80 55 0
+# Room 4: behind the statue and off the bottom edge into 33, then south into
+# 37, where Laura waits for the timer (it reaches 1 at about tick 95900).
 90700 move 60 155
 90702 down 60 155 0
 90706 up 60 155 0
@@ -348,6 +373,8 @@ sierra-hd replay 1
 92200 move 160 199
 92202 down 160 199 0
 92206 up 160 199 0
+# Room 37: along the back of the hall to the billiard room door, the way
+# Act I took it.
 96500 move 150 150
 96502 down 150 150 0
 96506 up 150 150 0
@@ -357,6 +384,10 @@ sierra-hd replay 1
 97500 move 65 98
 97502 down 65 98 0
 97506 up 65 98 0
+# Room 36: Clarence and Gloria at billiards (event bit 2, region 245,
+# the clock at about tick 97750; the timer has run out, so global 154
+# becomes 4). Enter closes their messages. Back east into 37 and north
+# into 33.
 98200 key 13
 98600 key 13
 99000 key 13
@@ -365,3 +396,41 @@ sierra-hd replay 1
 100200 key 13
 100600 key 13
 101000 key 13
+101300 move 319 108
+101302 down 319 108 0
+101306 up 319 108 0
+101800 move 160 85
+101802 down 160 85 0
+101806 up 160 85 0
+# Room 33: "push the mirror" opens the secret panel behind the mirror and
+# Laura walks into the east secret passage 50 ("You have found a small
+# hidden room in the house!"); back out into 33. "pull the clock" opens the
+# grandfather clock into the west passage 49.
+102200 move 62 152
+102202 down 62 152 0
+102206 up 62 152 0
+102700 text push the mirror
+103500 key 13
+103900 move 8 132
+103902 down 8 132 0
+103906 up 8 132 0
+104200 move 8 132
+104202 down 8 132 0
+104206 up 8 132 0
+104600 text pull the clock
+106200 key 13
+# Room 49: to the portrait on the platform, facing it, "look through the
+# holes": the view of the library 320 shows the doctor reading (event bit 8,
+# region 402 with global 154 at 4, tick about 108000), then the "Act III"
+# card. Back in 49 the room change starts Act III (tick 110800).
+106600 move 250 124
+106602 down 250 124 0
+106606 up 250 124 0
+106900 move 250 124
+106902 down 250 124 0
+106906 up 250 124 0
+107200 move 200 122
+107202 down 200 122 0
+107206 up 200 122 0
+107600 key 18432
+107900 text look through the holes

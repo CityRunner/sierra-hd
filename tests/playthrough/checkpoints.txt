@@ -7,3 +7,8 @@ opening 26000 I -
 act-1-start 29000 I 44
 act-1-end 62800 I 46
 act-2-start 63600 II 47
+act-2-kitchen 73000 II 35
+act-2-study-door 85500 II 10
+act-2-billiards 98000 II 36
+act-2-end 109000 II 320
+act-3-start 111600 III 49
