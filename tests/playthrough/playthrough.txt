@@ -1390,3 +1390,27 @@ sierra-hd replay 1
 # wounds Rudy.
 320900 key 13
 321100 text shoot rudy
+# Enter closes "You have shot and wounded Rudy."; the Colonel's story
+# (his messages close by themselves), then room 784 at tick 328628, "The
+# next morning...": the Colonel leaves his money to Celie (Laura found no
+# treasure on this route, so its lines are left out), and room 786 at tick 332162: the sleuth-o-meter and "Would you
+# like to review your notes?" (Yes, Quit).
+322100 key 13
+# Room 786: Enter is Yes: Laura's notebook (Open, Exit); Enter opens it,
+# Enter twice turns its pages ("Person Befriended", "Took Food Item From",
+# ...), a click on CLOSE and one on Exit; "Some portions of your notes are
+# rather scanty. ..." (HINTS, RESTORE, RESTART, QUIT): a click on QUIT sets
+# global 4 and the game ends (tick 337613), before the stop tick.
+332900 key 13
+333500 key 13
+334500 key 13
+335000 key 13
+335500 move 256 43
+335502 down 256 43 0
+335506 up 256 43 0
+336000 move 270 43
+336002 down 270 43 0
+336006 up 270 43 0
+337600 move 262 56
+337602 down 262 56 0
+337606 up 262 56 0
