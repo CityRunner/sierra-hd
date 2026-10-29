@@ -363,6 +363,9 @@ Route:
 `tests/playthrough/act-saves.txt` saves Act VI at tick 201800 (room 43, no
 message on screen).
 
+Act V's route leaves room 21 at tick 170300, so the checkpoint
+`act-5-start` moved from 170800 (Act IV's stop tick) to 170200.
+
 New risks found:
 
 - **Flags outside the act's globals.** Flags 37 and 38 (global 442) live
