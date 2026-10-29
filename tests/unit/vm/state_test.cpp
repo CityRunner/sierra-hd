@@ -133,8 +133,10 @@ SCI_TEST(the_state_has_the_components_in_order) {
 SCI_TEST(a_game_reports_the_state_of_its_machine) {
     struct Host final : sci::vm::GameHost {
         void wait(sci::vm::Game& /*game*/, std::uint32_t /*milliseconds*/) override {}
+
         [[nodiscard]] sci::vm::LocalTime local_time() override { return {}; }
     };
+
     const ResourceManager resources = folder();
     Host host;
     sci::vm::Game game(resources, host, nullptr, 3);

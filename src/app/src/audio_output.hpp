@@ -91,6 +91,7 @@ public:
     // music does not hold the game to real time. The driver's timer calls
     // run as before; only what is heard differs.
     void set_fast(bool fast) { fast_ = fast; }
+
     // The output rate and the queue target, in frames.
     [[nodiscard]] std::uint32_t rate() const { return rate_; }
 
