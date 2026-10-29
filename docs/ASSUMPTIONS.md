@@ -2781,6 +2781,45 @@ over every scenario of `tests/scenarios/scenarios.txt`.
   five other save scenarios still match on both devices, and its five
   round trips give equal hashes and an identical continuation.
 
+## Milestone numbers after A4 (2026-10-29)
+
+Addendum A4 (`docs/SPEC_ADDENDA.md`) adds the mandatory milestone 10 "HD
+background quality" and renumbers the remaining milestones. This table maps
+the old numbers to the new ones, so older references stay unambiguous:
+
+| Old | New | Content | Status |
+|---|---|---|---|
+| 12 (optional: exact area coverage) | 10 | HD background quality: object-level reconstruction (A4 part A), mandatory; exact area coverage (spec section 6.6) as an optional part, approved or declined by the customer at the start of milestone 10 | mandatory, next after 9 |
+| 10 | 11 | ScummVM-compatible saves (spec section 9) | optional: approved or declined after milestone 10 |
+| 11 | 12 | Vectorised font glyphs (spec section 6.9) | optional: approved or declined after milestone 11 |
+| — | — | Audit and iteration 2 (`review/TASK.md`) | last, unchanged |
+
+- **Completed milestones** keep their numbers, and their reports are not
+  changed. A report or an entry dated before 2026-10-29 that names
+  "milestone 10", "11" or "12" uses the old numbers.
+- **The spec document** keeps its wording; "milestone 10", "11" or "12" there
+  is read through this table.
+- **Milestone 9** is finished as planned; its scope and exit criteria do not
+  change.
+- **Hint files:** frozen at milestone 3b, they are unfrozen at the start of
+  milestone 10 and frozen again at its gate.
+- **Golden hashes** are regenerated once, at the milestone 10 gate, for all
+  of its changes.
+- **Visual reviews** use the format of A4 part B from now on: the milestone
+  9 report if it shows pictures, milestone 10, the audit and iteration 2,
+  and any re-review. **Decided.**
+- **Reading of two details of A4** (to be confirmed when milestone 10
+  starts):
+  - The grid's row boundaries are at y = 0, 63, 127, 190 of the picture
+    area, that is screen rows 10, 73, 137, 200 with the menu bar. A
+    quarter boundary is the cell's midpoint rounded half up to a whole
+    original pixel: x = 32, 96, 160, 224, 288 and picture y = 32, 95, 159.
+    **Assumed.**
+  - The round-trip check of A.6 rasterises the reconstructed primitives
+    back to 1x with path-1's rules for lines and fills, and compares them
+    with the original pixels of the same commands (the owner and pair maps
+    of path 1 say which pixels those are). **Assumed.**
+
 ## Spec items carried forward
 
 - Edge coverage is blended in the same sRGB-encoded space as the pairs, with

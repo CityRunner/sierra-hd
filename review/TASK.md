@@ -1,10 +1,12 @@
 # Audit and iteration 2: the customer's task
 
-Given by the customer on 2026-10-29, added to the end of the work list.
-Placed after the optional milestones 10 to 12 (customer's decision,
-2026-10-29): it starts once each of them is either done or declined at
-its own approval. Not started yet. The text below is the customer's,
-unchanged.
+Given by the customer on 2026-10-29, added to the end of the work list,
+last of all (customer's decisions, 2026-10-29): after the mandatory
+milestone 10 (HD background quality, addendum A4) and the optional
+milestones 11 and 12, which start only once each is done or declined at
+its own approval. (Before A4 renumbered them, this note said "the optional
+milestones 10 to 12".) Not started yet. Its visual reviews use the format
+of A4 part B. The text below is the customer's, unchanged.
 
 ---
 
