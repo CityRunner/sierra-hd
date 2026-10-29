@@ -1146,6 +1146,9 @@ int run(const Options& options) {
         running.set_music_device(audio.get());
         host.set_audio(audio.get());
         host.set_fast(options.fast);
+        if (audio != nullptr) {
+            audio->set_fast(options.fast);
+        }
         running.schedule(replay);
         // A replay plays as in sci-vm-trace: the time of day too.
         if (options.replay) {

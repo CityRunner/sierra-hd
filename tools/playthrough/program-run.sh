@@ -90,14 +90,16 @@ volume = 100
 saves = ${out}/saves
 EOF
 
-# The reference: sci-vm-trace's end state. The music device does not touch
-# the VM state but for the MT-32's polyphony, so MT-32 runs get their own.
+# The reference: sci-vm-trace's end state on the same music driver (the
+# state hash's "sound" part holds the driver's state): AdLib with --opl,
+# MT-32 with --music mt32, off with the silent driver.
 reference="${base}/reference-${music}.txt"
 if [[ ! -f "${reference}" ]]; then
     device=()
-    if [[ "${music}" == mt32 ]]; then
-        device=(--music mt32)
-    fi
+    case "${music}" in
+    adlib) device=(--opl /dev/null) ;;
+    mt32) device=(--music mt32) ;;
+    esac
     "${vm_trace}" /game /dev/null --seed 0 --replay "${replay}" "${device[@]}" \
         --globals 4000000000 "${base}/reference-globals.tmp" \
         --state-hash 4000000000 "${base}/reference-hash.tmp" > "${base}/reference.log" 2>&1

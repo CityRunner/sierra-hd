@@ -156,6 +156,11 @@ void AudioOutput::on_timer() {
     // one. Both drivers run the timer at 250 calls a second.
     static_assert(audio::AdlibDriver::timer_frequency == audio::Mt32Driver::timer_frequency);
     const std::uint64_t next = timer_calls_ * synth_.rate / audio::AdlibDriver::timer_frequency;
+    if (fast_ && dropping_ && queued_frames() > target_frames_) {
+        dropped_frames_ += (next - synth_frames_) * rate_ / synth_.rate;
+        synth_frames_ = next;
+        return;
+    }
     synth_samples_.resize(static_cast<std::size_t>(next - synth_frames_) * channels);
     synth_frames_ = next;
     synth_.render(synth_samples_);
