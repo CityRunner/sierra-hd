@@ -978,3 +978,230 @@ sierra-hd replay 1
 228600 move 0 150
 228602 down 0 150 0
 228606 up 0 150 0
+# Act VII (2:00 AM, from tick 229082 in room 12). The playhouse 63 (region
+# 282, bit 2: room 44's scene needs it first), the chapel 58 (region 279,
+# Celie praying, bit 8), Laura's room 44 (region 385, Rudy searching the
+# room, bit 4, loaded only once bit 2 is set), and Clarence's notebook in
+# room 48 ("read the notebook" by the desk, room 48's LookNote, bit 1).
+# Region 281 walks Rudy round the grounds in this act but sets no bit.
+# Room 12: Laura stands on the back path at the top right; west along it
+# into the garden 4.
+230000 move 240 65
+230002 down 240 65 0
+230006 up 240 65 0
+230800 move 200 63
+230802 down 200 63 0
+230806 up 200 63 0
+# Room 4: in at the right; the fountain stops a walk west, so behind the
+# statue and west into 10.
+231200 move 250 168
+231202 down 250 168 0
+231206 up 250 168 0
+231800 move 60 160
+231802 down 60 160 0
+231806 up 60 160 0
+232400 move 175 130
+232402 down 175 130 0
+232406 up 175 130 0
+233000 move 60 155
+233002 down 60 155 0
+233006 up 60 155 0
+233800 move 0 170
+233802 down 0 170 0
+233806 up 0 170 0
+# Room 10: in at the top left; the left arrow key walks Laura west into 3,
+# the down arrow key south from 3's bottom right into 14.
+234400 key 19200
+235000 key 20480
+# Room 14: behind the playhouse, round its right side to the door (as in
+# Act III). "knock on the door": "You hear a muffled reply."; Enter, and
+# she goes in.
+235700 move 268 118
+235702 down 268 118 0
+235706 up 268 118 0
+236000 move 285 120
+236002 down 285 120 0
+236006 up 285 120 0
+236300 move 285 175
+236302 down 285 175 0
+236306 up 285 175 0
+236800 move 228 150
+236802 down 228 150 0
+236806 up 228 150 0
+237100 move 221 140
+237102 down 221 140 0
+237106 up 221 140 0
+237500 text knock on the door
+238200 key 13
+# Room 63, the playhouse: Ethel and her dolls ("We have a visitor,
+# darlings. Sit up straight now."; event bit 2, region 282, the clock at
+# tick 238320). "Rock-a-bye, baby." comes back by itself; a click leaves by
+# the door into 14. Never go in again by the door this act: with bit 2 set,
+# room 14 then clears bit 4.
+242200 move 215 199
+242202 down 215 199 0
+242206 up 215 199 0
+# Room 14: round the right side of the playhouse and north behind it into
+# 3; along the path west into 9.
+242800 move 285 175
+242802 down 285 175 0
+242806 up 285 175 0
+243300 move 285 120
+243302 down 285 120 0
+243306 up 285 120 0
+243700 move 268 118
+243702 down 268 118 0
+243706 up 268 118 0
+244000 move 276 80
+244002 down 276 80 0
+244006 up 276 80 0
+244800 move 150 185
+244802 down 150 185 0
+244806 up 150 185 0
+245600 move 0 185
+245602 down 0 185 0
+245606 up 0 185 0
+# Room 9: Enter closes the description. The bushes block the left of the
+# chapel steps: to their right, up them onto the porch and in through the
+# door (control colour 4) into the chapel 58.
+246600 key 13
+246900 move 250 165
+246902 down 250 165 0
+246906 up 250 165 0
+247500 move 296 172
+247502 down 296 172 0
+247506 up 296 172 0
+248000 move 282 150
+248002 down 282 150 0
+248006 up 282 150 0
+248600 move 240 141
+248602 down 240 141 0
+248606 up 240 141 0
+# Room 58, the chapel: Enter closes the description; Celie prays in a pew
+# (event bit 8, region 279, the clock at tick 250000, closes by itself).
+# "talk to celie": "What're you doin' here, girl?! ... I think we're
+# a'goin' to die before this night is over!!" Enter closes it; out of the
+# door (control colour 1) into 9.
+250000 key 13
+252200 text talk to celie
+254000 key 13
+254400 key 13
+254800 move 236 174
+254802 down 236 174 0
+254806 up 236 174 0
+# Room 9: off the porch, down the steps and east into 3; along the path to
+# its bottom right, the right arrow key east into 10.
+255300 move 266 142
+255302 down 266 142 0
+255306 up 266 142 0
+255700 move 280 150
+255702 down 280 150 0
+255706 up 280 150 0
+256100 move 296 172
+256102 down 296 172 0
+256106 up 296 172 0
+256600 move 319 185
+256602 down 319 185 0
+256606 up 319 185 0
+257000 move 150 185
+257002 down 150 185 0
+257006 up 150 185 0
+257800 move 305 197
+257802 down 305 197 0
+257806 up 305 197 0
+258800 key 19712
+# Room 10: in at the top left; over the top left into 4 (as in Act V),
+# behind the statue and off its bottom edge into 33, off 33's bottom edge
+# into 37 and up the left staircase into 47 (as in Act V).
+259300 move 10 70
+259302 down 10 70 0
+259306 up 10 70 0
+259800 move 80 55
+259802 down 80 55 0
+259806 up 80 55 0
+260600 move 60 155
+260602 down 60 155 0
+260606 up 60 155 0
+261200 move 250 158
+261202 down 250 158 0
+261206 up 250 158 0
+261700 move 215 199
+261702 down 215 199 0
+261706 up 215 199 0
+262500 move 160 199
+262502 down 160 199 0
+262506 up 160 199 0
+263300 move 115 188
+263302 down 115 188 0
+263306 up 115 188 0
+263900 move 25 190
+263902 down 25 190 0
+263906 up 25 190 0
+264400 move 45 30
+264402 down 45 30 0
+264406 up 45 30 0
+# Room 47: off the top of the stairs to the right, onto the landing and
+# north into 43; to the upper door on the right into Laura's room 44 (as
+# in Act VI).
+265400 move 100 147
+265402 down 100 147 0
+265406 up 100 147 0
+265800 move 160 125
+265802 down 160 125 0
+265806 up 160 125 0
+266300 move 160 95
+266302 down 160 95 0
+266306 up 160 95 0
+267000 move 280 175
+267002 down 280 175 0
+267006 up 280 175 0
+267500 move 220 150
+267502 down 220 150 0
+267506 up 220 150 0
+268000 move 245 140
+268002 down 245 140 0
+268006 up 245 140 0
+268400 move 300 140
+268402 down 300 140 0
+268406 up 300 140 0
+# Room 44: Rudy searches the room (event bit 4, region 385, the clock at
+# tick 268436, closes by itself). Out of the west door into 43, south into
+# 47 and along the hallway to its east end into 48 (as in Act VI).
+271200 move 50 157
+271202 down 50 157 0
+271206 up 50 157 0
+271600 move 0 157
+271602 down 0 157 0
+271606 up 0 157 0
+272200 move 160 199
+272202 down 160 199 0
+272206 up 160 199 0
+273000 move 240 118
+273002 down 240 118 0
+273006 up 240 118 0
+# Room 48: Enter closes "Uh, oh! A bad feeling comes over you ..." (the
+# overturned chair and the bloodstain). Down round the dresser to the desk
+# (x 249 to 306, y 118 to 144), "read the notebook": the clock (event bit
+# 1, LookNote, the clock at tick 276518), the "Act VIII" card and
+# Clarence's page ("I'm terribly apprehensive about what's going on
+# here."), closed with Enter. Back up to the door at the top left and west
+# into 47: the room change starts Act VIII (tick 280756).
+274600 key 13
+275000 move 80 135
+275002 down 80 135 0
+275006 up 80 135 0
+275500 move 255 132
+275502 down 255 132 0
+275506 up 255 132 0
+276500 text read the notebook
+278700 key 13
+279100 key 13
+279500 move 80 135
+279502 down 80 135 0
+279506 up 80 135 0
+280100 move 60 112
+280102 down 60 112 0
+280106 up 60 112 0
+280600 move 0 110
+280602 down 0 110 0
+280606 up 0 110 0

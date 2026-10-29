@@ -31,3 +31,8 @@ act-6-room-48 208000 VI 48
 act-6-room-10 216500 VI 10
 act-6-end 227000 VI 6
 act-7-start 230000 VII 12
+act-7-playhouse 239000 VII 63
+act-7-chapel 253500 VII 58
+act-7-room-44 270000 VII 44
+act-7-end 279000 VII 48
+act-8-start 281600 VIII 47
