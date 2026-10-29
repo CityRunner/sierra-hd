@@ -1210,8 +1210,9 @@ sierra-hd replay 1
 # timer 368, 3600 cycles), the derringer, the bullet and the skeleton key
 # from her body, "load the derringer", then up to the attic 74 and into 75
 # (region 290) before timer 368 runs out, where "shoot rudy" during the
-# fight gives the good ending. Room 47: the arrow keys take Laura along the landing
-# and down the left staircase into 37 (as in Act VI).
+# fight gives the good ending.
+# Room 47: the arrow keys take Laura along the landing and down the left
+# staircase into 37 (as in Act VI).
 281700 key 20480
 282100 move 60 125
 282102 down 60 125 0
