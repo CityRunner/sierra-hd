@@ -544,10 +544,15 @@ void Music::save_state(StateWriter& out) const {
 
 void Screen::save_state(StateWriter& out) const {
     // The 1x maps scripts draw into and read (kOnControl, kCanBeHere, the
-    // saved bits). What was shown and the HD bookkeeping are not state.
+    // saved bits), and the owner and priority source maps, which the saved
+    // bits keep beside the visual and priority maps (bits_save), so they
+    // come back into the screen and into later saved bits. What was shown
+    // and the rest of the HD bookkeeping are not state.
     out.bytes(visual_);
     out.bytes(priority_);
     out.bytes(control_);
+    out.bytes(owner_);
+    out.bytes(source_);
     out.i32(pic_not_valid_);
 }
 

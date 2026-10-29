@@ -804,6 +804,8 @@ void Screen::load_state(StateReader& in) {
     auto visual = read_map(in, "visual");
     auto priority = read_map(in, "priority");
     auto control = read_map(in, "control");
+    auto owner = read_map(in, "owner");
+    auto source = read_map(in, "priority source");
     const int pic_not_valid = in.i32();
     if (in.failed()) {
         return;
@@ -811,6 +813,8 @@ void Screen::load_state(StateReader& in) {
     visual_ = std::move(visual);
     priority_ = std::move(priority);
     control_ = std::move(control);
+    owner_ = std::move(owner);
+    source_ = std::move(source);
     pic_not_valid_ = pic_not_valid;
 }
 
