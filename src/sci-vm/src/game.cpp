@@ -7,6 +7,7 @@
 #include "graphics.hpp"
 #include "machine.hpp"
 #include "sound.hpp"
+#include "state.hpp"
 #include "subsystems.hpp"
 #include "timing.hpp"
 
@@ -101,6 +102,23 @@ void Game::pass_wait(std::uint32_t milliseconds) {
 
 void Game::quit() {
     state_->subsystems.events().request_quit();
+}
+
+std::uint32_t Game::ticks() const {
+    return state_->subsystems.clock().ticks();
+}
+
+std::vector<Reg> Game::globals() const {
+    const Machine& machine = state_->machine;
+    std::vector<Reg> globals(machine.global_count());
+    for (std::size_t i = 0; i < globals.size(); ++i) {
+        globals[i] = machine.global(i);
+    }
+    return globals;
+}
+
+StateHash Game::state_hash() {
+    return vm::state_hash(state_->machine);
 }
 
 } // namespace sci::vm

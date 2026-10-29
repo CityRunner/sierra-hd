@@ -13,13 +13,16 @@
 #include "sci/vm/events.hpp"
 #include "sci/vm/files.hpp"
 #include "sci/vm/local_time.hpp"
+#include "sci/vm/reg.hpp"
 #include "sci/vm/shown_screen.hpp"
+#include "sci/vm/state_hash.hpp"
 
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
+#include <vector>
 
 namespace sci::vm {
 
@@ -107,6 +110,14 @@ public:
     void pass_wait(std::uint32_t milliseconds);
     // Ends the game at its next event poll, as quitting ScummVM does.
     void quit();
+
+    // What the game holds now, for checks (milestone 9: the program's
+    // playthrough ends in the state of sci-vm-trace's run, which reports
+    // the same at a tick past the end): the virtual tick, every global
+    // variable and the hash of the VM state.
+    [[nodiscard]] std::uint32_t ticks() const;
+    [[nodiscard]] std::vector<Reg> globals() const;
+    [[nodiscard]] StateHash state_hash();
 
 private:
     struct State;

@@ -191,13 +191,16 @@ private:
     std::unique_ptr<audio::Mt32Driver> mt32_;
 };
 
-// The state hashes due at `tick`: those of the requested ticks reached.
-void report_state(Machine& machine, std::uint32_t tick, const RunOptions& options, std::size_t& next) {
+// The state hashes due at `tick`: those of the requested ticks reached,
+// reported as taken at `reached` (the tick itself, or the end of a run that
+// stopped before them).
+void report_state(Machine& machine, std::uint32_t tick, const RunOptions& options, std::size_t& next,
+                  std::optional<std::uint32_t> reached = std::nullopt) {
     if (!options.on_state_hash) {
         return;
     }
     for (; next < options.state_hash_ticks.size() && tick >= options.state_hash_ticks[next]; ++next) {
-        options.on_state_hash(options.state_hash_ticks[next], tick, state_hash(machine));
+        options.on_state_hash(options.state_hash_ticks[next], reached.value_or(tick), state_hash(machine));
     }
 }
 
@@ -430,7 +433,9 @@ RunResult run_deterministic(const resource::ResourceManager& resources, const Ru
         machine->resume_game();
     }
     // A game that ends before a requested tick (QUIT on the last screen):
-    // its globals as it ended, with the tick it ended at.
+    // its state hash and globals as it ended, with the tick it ended at.
+    report_state(*machine, std::numeric_limits<std::uint32_t>::max(), options, next_state_hash,
+                 subsystems->clock().ticks());
     report_globals(*machine, std::numeric_limits<std::uint32_t>::max(), options, next_globals,
                    subsystems->clock().ticks());
     RunResult result{.fault = std::nullopt, .ticks = subsystems->clock().ticks(), .calls = calls};

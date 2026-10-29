@@ -131,7 +131,10 @@ struct RunOptions {
     // 8: the VM state") at each of these ticks, in increasing order: when
     // virtual time first reaches the tick, on_state_hash is called with it,
     // the tick reached (a wait may pass several) and the hash. The state is
-    // taken in the kernel call that let the time pass.
+    // taken in the kernel call that let the time pass. A tick the run does
+    // not reach (the game quit before it) gets the state as the game ended,
+    // with the tick it ended at (milestone 9: the program's playthrough is
+    // compared with it).
     std::vector<std::uint32_t> state_hash_ticks;
     std::function<void(std::uint32_t requested, std::uint32_t tick, const StateHash&)> on_state_hash;
     // The game's global variables at each of these ticks, in increasing
