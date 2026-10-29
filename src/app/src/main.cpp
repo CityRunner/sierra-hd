@@ -713,10 +713,16 @@ private:
             last_fast_present_ = now;
         }
         game.pass_wait(milliseconds);
-        // Progress, every ten minutes of game time.
+        // Progress, every ten minutes of game time: the room (global 11) and
+        // the act (global 165, docs/playthrough.md).
         if (virtual_ / fast_progress_milliseconds != (virtual_ - milliseconds) / fast_progress_milliseconds) {
+            const std::vector<sci::vm::Reg> globals = game.globals();
+            constexpr std::size_t room = 11;
+            constexpr std::size_t act = 165;
             sci::core::log(sci::core::LogLevel::Info, sci::core::LogCategory::General,
-                           std::format("fast: tick {} after {} s", game.ticks(), (now - start_) / 1000));
+                           std::format("fast: tick {} room {} act {} after {} s", game.ticks(),
+                                       globals.size() > room ? globals[room].offset : 0,
+                                       globals.size() > act ? globals[act].offset : 0, (now - start_) / 1000));
         }
     }
 
@@ -1141,6 +1147,10 @@ int run(const Options& options) {
         host.set_audio(audio.get());
         host.set_fast(options.fast);
         running.schedule(replay);
+        // A replay plays as in sci-vm-trace: the time of day too.
+        if (options.replay) {
+            running.use_deterministic_time();
+        }
         if (const auto fault = running.run()) {
             show_error(window.get(), std::format("The interpreter stopped: {}", *fault));
             result = 1;

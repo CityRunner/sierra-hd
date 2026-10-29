@@ -104,6 +104,10 @@ void Game::quit() {
     state_->subsystems.events().request_quit();
 }
 
+void Game::use_deterministic_time() {
+    state_->subsystems.clock().set_local_time(nullptr);
+}
+
 std::uint32_t Game::ticks() const {
     return state_->subsystems.clock().ticks();
 }

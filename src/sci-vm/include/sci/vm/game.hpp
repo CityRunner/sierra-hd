@@ -111,6 +111,14 @@ public:
     // Ends the game at its next event poll, as quitting ScummVM does.
     void quit();
 
+    // The time of day (kGetTime) is the deterministic one from now on, as
+    // in sci-vm-trace (docs/formats/replay-and-trace.md): the day starts
+    // at Monday 1990-01-01, 12:00:00 and runs with the virtual clock, not
+    // the host's. A replay plays the same with it (milestone 9: the game
+    // reads the time of day, kGetTime(1), over 30000 times in the
+    // playthrough).
+    void use_deterministic_time();
+
     // What the game holds now, for checks (milestone 9: the program's
     // playthrough ends in the state of sci-vm-trace's run, which reports
     // the same at a tick past the end): the virtual tick, every global
