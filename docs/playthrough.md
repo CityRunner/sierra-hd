@@ -560,6 +560,29 @@ New risks found:
   repeats a way in (room 14's door with bit 2 set clears bit 4); go in
   once.
 
+## Act VIII (in progress)
+
+Found in the scripts (Act VIII is global 165 = 7):
+
+- Room 65 (the hedge garden) is reached from room 18 (east of 12); region
+  280's `handleEvent` takes "get the derringer" (Laura within 10 pixels of
+  the derringer by Lillian's feet), "get the bullet" (within 10 of the
+  bullet by her hand; picking up the derringer first says the bullet is
+  there) and "search lillian" or "look in the cape" (within 25 of her body:
+  the skeleton key, item 5).
+- "load the derringer" is answered anywhere by script 410 (the inventory's
+  handler) and in region 290: with the derringer (item 15) and the bullet
+  (item 14) it puts the bullet away and sets global 185 (loaded).
+- Room 74's `doit` enters 75 on control colour 2 at any time and on colour
+  8 when global 123 bit 64 is set.
+- Region 290's fight script: "shoot rudy" ("shoot , kill / rudy", "shoot /
+  derringer / rudy") with global 185 set works only while the script is in
+  state 1 (it then goes to state 7: Rudy shot); state 1 lasts 10 seconds
+  from the "fierce struggle" message. Without a loaded gun: "You have no
+  gun.", "You have no bullet.", "Click! ...". "shoot the colonel" in state
+  1 goes to state 25 (the bad ending); after state 1 the fight goes on to
+  "Too late!" and the bad ending.
+
 ## Images
 
 Two images per act for the customer, at ticks of the replay (one during a
