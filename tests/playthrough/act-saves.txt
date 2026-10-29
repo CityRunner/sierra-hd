@@ -4,3 +4,4 @@
 # under one). The act's other checkpoints are in checkpoints.txt.
 1 31120
 2 64000
+3 111200
