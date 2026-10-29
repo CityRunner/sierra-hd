@@ -6,8 +6,9 @@
 # kernel traces, screens and 1x maps, actors, parser, layout and OPL files
 # and their state hashes at the five ticks and at the end must be identical;
 # each round trip must give the same persistent and total state hash after
-# the save is read into a fresh machine as before it was written. When the outputs differ, each tick is run alone to name the round
-# trip that makes the difference.
+# the save is read into a fresh machine as before it was written. When the
+# outputs differ, each tick is run alone to name the round trip that makes
+# the difference. The screens and maps are compared by their SHA-256.
 #
 #   tools/vm-trace/run-round-trips.sh [<scenario list> [<results folder>]]
 #
@@ -55,12 +56,17 @@ one() {
             --layout "${out}/${dir}/layout.txt" --opl "${out}/${dir}/opl.txt" --saves "${out}/${dir}/saves" \
             --state-hash "${list},$((stop - 1))" "${out}/${dir}/state.txt" "$@" \
             2> "${out}/${dir}/log.txt"
+        local code=$?
+        # The screens and maps by their hashes, to keep the disk free.
+        (cd "${out}/${dir}/screens" && sha256sum -- *) > "${out}/${dir}/screens.txt"
+        rm -rf "${out}/${dir}/screens" "${out}/${dir}/saves"
+        return ${code}
     }
     # The first output that differs from the run without round trips, or
     # nothing.
     differs() {
         local dir=$1 f
-        for f in trace actors parser layout opl state; do
+        for f in trace actors parser layout opl state screens; do
             if ! cmp -s "${out}/base/${f}.txt" "${out}/${dir}/${f}.txt"; then
                 local line
                 line="$(cmp "${out}/base/${f}.txt" "${out}/${dir}/${f}.txt" 2>&1 | head -1)"
@@ -68,11 +74,6 @@ one() {
                 return
             fi
         done
-        local screen
-        screen="$(diff -rq "${out}/base/screens" "${out}/${dir}/screens" 2>&1 | head -1)"
-        if [[ -n "${screen}" ]]; then
-            echo "screens differ: ${screen}"
-        fi
     }
     local summary=() code=0
     run base
@@ -105,7 +106,7 @@ one() {
             summary+=("  round trip at ${t} alone: $(differs "alone-${t}")")
         done
     else
-        summary+=("continuation: identical ($(wc -l < "${out}/base/trace.txt") kernel calls, $(find "${out}/base/screens" -name '*.ppm' | wc -l) screens, $(wc -l < "${out}/base/opl.txt") OPL writes)")
+        summary+=("continuation: identical ($(wc -l < "${out}/base/trace.txt") kernel calls, $(grep -c '\.ppm$' "${out}/base/screens.txt") screens, $(wc -l < "${out}/base/opl.txt") OPL writes)")
     fi
     if [[ ${code} -eq 0 ]]; then
         printf '%s\n' "${summary[@]}" > "${results}/${name}.ok"

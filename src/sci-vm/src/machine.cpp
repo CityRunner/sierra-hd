@@ -842,6 +842,8 @@ void Machine::run_vm(bool resume) {
     Object* obj = nullptr;
     const Script* local_script = nullptr;
     ExecStack* xs_new = nullptr;
+    // Set by a kernel call at a resume point (set_suspend_hook).
+    bool resume_point = false;
 
     while (true) {
         if (abort_ != Abort::None || faults_.raised()) {
@@ -1095,14 +1097,7 @@ void Machine::run_vm(bool resume) {
             if (abort_ != Abort::None) {
                 return;
             }
-            if (execution_stack_base_ == 0 && suspend_hook_ && !faults_.raised()) {
-                // A resume point: the state as the next instruction sees it.
-                xs_ = xs_new;
-                if (suspend_hook_()) {
-                    suspended_ = true;
-                    return;
-                }
-            }
+            resume_point = execution_stack_base_ == 0 && suspend_hook_ && !faults_.raised();
             break;
         }
         case 0x22:   // callb
@@ -1325,6 +1320,14 @@ void Machine::run_vm(bool resume) {
             return;
         }
         ++steps_;
+        if (resume_point) {
+            // The state as the next instruction sees it.
+            resume_point = false;
+            if (suspend_hook_()) {
+                suspended_ = true;
+                return;
+            }
+        }
     }
 }
 
