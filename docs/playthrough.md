@@ -469,36 +469,92 @@ New risks found:
     exact preconditions were not all read; the route keeps away from these
     places and actions.
 
-## Act VII (in progress)
+## Act VII (done)
+
+Stop tick 281600 (Act VII starts at tick 229082 in room 12, 2:00 AM, with
+all timers 0; Act VIII at tick 280756 in the hallway 47).
 
 Found in the scripts (Act VII is global 165 = 6):
 
 - Region 281 (Rudy's walk) sets bit 1 only in Act IV (`lsg 165; ldi 3`
-  before the setter at 039f); in Act VII it only restarts timer 368 at 900
-  and walks Rudy, with no event.
-- Bit 1: room 48's `LookNote` (setter at 0726): "read the notebook"
-  (`examine , read / notebook`) with Laura inside the rectangle x 249 to
-  306, y 118 to 144 (by the desk), bit 1 clear.
-- Bit 2: the playhouse 63 loads region 282 in Act VII while bit 2 is
-  clear; its scene sets bit 2 (setter at 015b). Room 14's knock on the
-  playhouse door answers `comeIn` in Act VII while bit 2 is clear. Going
-  in again through the door after leaving 63 with bit 2 set clears bit 4
-  (room 14 at 062a): the route goes in once.
-- Bit 4: Laura's room 44 loads region 385 (Rudy searching the room) in
-  Act VII only when bit 2 is set and flag 36 is clear (room 43 sets flag
-  36); its `searching` script sets bit 4 (setter at 02c3).
-- Bit 8: the chapel 58 loads region 279 (Celie praying) in Act VII; its
-  `praying` script sets bit 8 (setter at 02b3) when clear. The chapel is
-  entered from room 9 (control colour 4).
+  before the setter at 039f). In Act VII it walks Rudy round the grounds
+  on timer 369 (set to 900 again when it has run out), with no event; he
+  did not cross this route.
+- Room 48's `init` in Act VII shows the overturned chair and the
+  bloodstain ("Uh, oh! A bad feeling comes over you ..."). Its notebook
+  answers "read the notebook" (`examine , read / notebook`) with Laura
+  inside the rectangle x 249 to 306, y 118 to 144 (game coordinates, by
+  the desk) by starting `LookNote`, which sets bit 1 (setter at 0726) and
+  prints Clarence's page; elsewhere it does not start.
+- The playhouse 63 loads region 282 in Act VII while bit 2 is clear; its
+  scene sets bit 2 (setter at 015b). Room 14's "knock on the door" (by
+  the door) starts `comeIn` in Act III and in Act VII (while bit 2 is
+  clear) ("You hear a muffled reply."); `noOneHome`
+  otherwise. Going in again through the door with bit 2 set and the
+  previous room 63 clears bit 4 (room 14 at 062a).
+- Laura's room 44 loads region 385 (Rudy searching) in Act VII only when
+  bit 2 is set and flag 36 is clear; its `searching` script sets bit 4
+  (setter at 02c3). Room 43 sets flag 36 when Laura leaves it for a room
+  other than 44 in Act VII with bit 4 set, so Rudy shows once.
+- The chapel 58 loads region 279 (Celie praying) in Act VII and sets global
+  121 to 69; its `praying` script sets bit 8 (setter at 02b3) when clear.
+  Room 9's `doit` enters the chapel from the porch at its door (another
+  control colour leads to room 2).
 
-- Checked so far with `--globals`: bit 2 in the playhouse at tick 238320
-  (12 by the back path into 4, round the statue into 10, the left arrow
-  key into 3, the down arrow key into 14, round the playhouse, "knock on
-  the door": "You hear a muffled reply.", Enter, and Laura goes in); bit 8
-  in the chapel at tick 250000 (out of 63, round the playhouse north into
-  3, west along the path into 9, Enter for its description, right of the
-  chapel steps, up them and in through the door; Enter for the chapel's
-  description starts the scene).
+The four events, checked with `--globals` (the tick is the clock's
+`ScriptID(406, 0)` in the trace):
+
+| Bit | Scene | Room: script | Precondition | Tick |
+|---|---|---|---|---|
+| 2 | Ethel and her dolls in the playhouse ("We have a visitor, darlings. Sit up straight now.") | 63: region 282 (setter at 015b) | bit 2 clear; in through room 14's door after a knock | 238320 |
+| 8 | Celie prays in a pew ("What're you doin' here, girl?! ... I think we're a'goin' to die before this night is over!!" to "talk to celie") | 58: region 279 (setter at 02b3) | bit 8 clear | 250000 |
+| 4 | Rudy frantically searches Laura's room | 44: region 385 (setter at 02c3) | bit 2 set, flag 36 clear | 268436 |
+| 1 | Clarence's notebook ("I'm terribly apprehensive about what's going on here.") | 48: `LookNote` (setter at 0726) | "read the notebook" by the desk, bit 1 clear | 276518 |
+
+Route:
+
+- 12: west along the back path ((240, 65), (200, 63)) into 4; the
+  fountain stops a walk west, so behind the statue ((175, 130), (60, 155))
+  and west ((0, 170)) into 10.
+- 10: the left arrow key west into 3, the down arrow key from 3's bottom
+  right south into 14, behind the playhouse; round its right side to the
+  door (as in Act III), "knock on the door": "You hear a muffled reply.";
+  Enter, and Laura goes into 63: bit 2. "Rock-a-bye, baby." comes back by
+  itself; a click at the door ((215, 199)) leaves.
+- 14: round the playhouse and north behind it into 3 (as in Act IV), west
+  along the path ((150, 185), (0, 185)) into 9; Enter closes its
+  description. Bushes block the left of the chapel steps (Laura's base
+  is 20 pixels wide): right of them ((296, 172)), up ((282, 150)) and to
+  the door ((240, 141)) into 58.
+- 58: Enter closes the description and the scene starts: bit 8 (the clock
+  closes by itself). "talk to celie", Enter twice; out on control colour 1
+  at the bottom ((236, 174)) into 9.
+- 9: down the steps ((266, 142), (280, 150), (296, 172)) and east ((319,
+  185)) into 3; along the path to its bottom right ((150, 185), (305,
+  197)), the right arrow key into 10; over its top left ((10, 70), (80,
+  55)) into 4, behind the statue and off its bottom edge into 33, on into
+  37 and up the left staircase into 47 (as in Act V); north into 43 and
+  through the upper door on the right into 44 (as in Act VI): bit 4 (the
+  clock closes by itself).
+- Out of 44 into 43, south into 47, east into 48 (as in Act VI). Enter
+  closes the description; round the dresser ((80, 135)) to the desk
+  ((255, 132)), "read the notebook": the clock (bit 1), the "Act VIII" card
+  and Clarence's page, closed with Enter twice. Back ((80, 135), (60,
+  112)) and out at the top left ((0, 110); a click at (2, 106) stops 2
+  pixels short of the edge) into 47: Act VIII (tick 280756).
+
+`tests/playthrough/act-saves.txt` saves Act VIII at tick 281200 (room 47,
+no message on screen).
+
+New risks found:
+
+- **Exits need the exact edge.** Clicks a few pixels inside an edge stop
+  there without a room change (48's west exit wants a click at x 0).
+- **Messages that come back.** Ethel's "Rock-a-bye, baby." in the
+  playhouse comes back by itself; clicks still walk Laura out.
+- **Doors that undo events.** Some rooms clear an event bit when Laura
+  repeats a way in (room 14's door with bit 2 set clears bit 4); go in
+  once.
 
 ## Images
 
@@ -515,6 +571,59 @@ tests/playthrough/playthrough.txt` (original | HD side by side):
 | IV | 166500: room 22, Clarence and Rudy fight by the statue | 161200: the study 31, Lillian ("Oh, Laura... you startled me!") |
 | V | 191200: the Colonel's room 42, the Colonel and Fifi ("But, Uncle Henri, I don't understand how you could...!") | 179800: through the holes of passage 50, Rudy in the dining room ("You see Rudy having dessert and coffee in the dining room.") |
 | VI | 227000: Celie's shack 6, Laura at the door ("What you doin' here, girl?! Can't you feel the evil in the air?!") | 216500: outside the study 10, Rudy with Beauregard on the steps |
+| VII | 253500: the chapel 58, Celie praying ("What're you doin' here, girl?! Somethin' mighty turrible is happenin'!") | 270000: Laura's room 44, Rudy searching it |
+
+## How the game ends (found in the scripts)
+
+Act VIII has no four events: no script sets a bit of global 118 in Act
+VIII, so global 165 stays at 7 (script 0's procedure at 1097 would add one
+to it on the next room change after 118 reaches 15, with no limit, but
+nothing gets there). The game ends through the attic instead:
+
+- **Lillian in the hedge garden.** Room 65 loads region 280 in Act VIII
+  (`lsg 165; ldi 7` at 0173). Its scene ("Oh, no!!! Someone has shot
+  Lillian to death in the hedge garden!!") sets global 123 bit 64 (at
+  069d) and shows the clock (script 406, which moves the quarter hour,
+  global 187, without an event bit). Lillian's body has the derringer by
+  her feet and a bullet by her hand ("As you stoop to pick up the
+  derringer your eye happens to fall upon a bullet"), and a skeleton key
+  in the cape's pocket.
+- **The attic 75.** Room 74 (up the stairs from the hallway 47; Fifi's
+  part of the attic) enters 75 on one control colour at any time and on
+  another only with global 123 bit 64 (its `doit` at 04f1; it clears flag
+  46 first). Room 75's `init` loads region 290 when global 123 bit 64 is
+  set: the Colonel and Rudy fight over a hypodermic needle ("Oh, no!!
+  Colonel Dijon and Rudy are in the midst of a fierce struggle!").
+- **Region 290 decides the ending**, by what Laura does during the fight
+  (it answers "You have no gun.", "You have no bullet.", "Click! Oh no!
+  It's not loaded!", "Too late!"):
+  - shooting Rudy with the loaded derringer ("You have shot and wounded
+    Rudy."): the Colonel's story, then (state 24) room 784, "The next
+    morning...": the Colonel leaves his money to Celie and lets Laura keep
+    the Civil War treasure she found on his estate;
+  - otherwise (shooting the Colonel: "He's dead! You have shot and killed
+    Colonel Dijon!", or too late: Rudy over the Colonel's body), Rudy's
+    version, then (state 45) room 785: "The next morning...", "Later that
+    same day...", at the wharf of New Orleans, "The End".
+  Region 290 is the only script that goes to 784 or 785.
+- **The last screen, room 786.** Both 784 (at 096d) and 785 (at 05ec) go
+  on to 786: the sleuth rating ("Super Sleuth" to "Barely Conscious") and
+  Laura's notebook of findings. It then waits for a button: HINTS,
+  RESTORE, RESTART or QUIT (another dialog has only RESTART and QUIT);
+  HINTS shows a hint and comes back to the buttons, QUIT sets global 4
+  (the game's quit flag) and the program ends; it never returns to a
+  title menu by itself. "Congratulations, you have attained the highest
+  possible sleuth rating. The curtain will now fall." is the text of the
+  top rating.
+
+So the playthrough's end is: room 65 in Act VIII (take the derringer and
+the bullet, load the derringer), up to the attic 74 and into 75, shoot
+Rudy, the 784 epilogue (Enter for its messages), the rating 786, and a
+click on QUIT (or a stop tick on the rating screen, with global 11 at
+786 as the last checkpoint). The exact commands ("shoot rudy", "load the
+derringer"), Laura's place in 75 and the timing of the fight are for the
+Act VIII task to read in region 290's `handleEvent` (0052 to 04e2) and
+check with frames.
 
 ## Planned route of the later acts
 
@@ -526,8 +635,8 @@ From the regions that set the bits of global 118 and the act each room's
 |---|---|
 | V | done (above) |
 | VI | done (above) |
-| VII | the grounds: region 281, Rudy walking (bit 1; loaded in Act VII by the outdoor rooms, for example 10, 13 and 14; scripts 3, 9, 15, 20, 21, 25 to 27, 57 and 73 load it too; a walk on timers like Act IV's); Laura's room 44: region 385, Rudy searching the room (bit 4, loaded in Act VII); the playhouse 63: region 282 (bit 2, loaded in Act VII while bit 2 is clear; "We have a visitor, darlings."); the chapel 58: region 279, Celie praying (bit 8, loaded in Act VII, sets global 121 to 69); room 69: region 256 (Wilbur dead, no bit). Act VII starts in room 12 with all timers 0. Deaths: see Act VI's risks (passages 49 and 50 by chance, the dark attic 76) |
-| VIII | room 65: region 280 (Lillian shot in the hedge garden); the chapel 58 (region 256; region 279 is Act VII's); bit 2 to find (region 261 in the attic is Act III's). Passages 49 and 50 are safe; the attic 76 is safe from `Strangle` |
+| VII | done (above) |
+| VIII | starts at tick 280756 in the hallway 47 (3:00 AM, global 186 at 2, timers 0). No event bits: the game ends through the attic (above, "How the game ends"). Room 65: region 280, Lillian shot in the hedge garden (sets global 123 bit 64; the derringer, a bullet and the skeleton key are on her body); then the attic 74 (up the stairs from 47) into 75, region 290, the Colonel and Rudy fighting. Other Act VIII scenes: the chapel 58 and room 69 (region 256, Wilbur dead), rooms 6, 16 and 73. Passages 49 and 50 are safe; the attic 76 is safe from `Strangle` |
 
 Other setters by room script: 6 (Act VI), 10 and 59 (bit 1), 22 (Act IV), 48
 (bit 1), and the 300 and 400 scripts of the scenes. The game ends after Act
