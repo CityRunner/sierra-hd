@@ -491,6 +491,15 @@ Found in the scripts (Act VII is global 165 = 6):
   `praying` script sets bit 8 (setter at 02b3) when clear. The chapel is
   entered from room 9 (control colour 4).
 
+- Checked so far with `--globals`: bit 2 in the playhouse at tick 238320
+  (12 by the back path into 4, round the statue into 10, the left arrow
+  key into 3, the down arrow key into 14, round the playhouse, "knock on
+  the door": "You hear a muffled reply.", Enter, and Laura goes in); bit 8
+  in the chapel at tick 250000 (out of 63, round the playhouse north into
+  3, west along the path into 9, Enter for its description, right of the
+  chapel steps, up them and in through the door; Enter for the chapel's
+  description starts the scene).
+
 ## Images
 
 Two images per act for the customer, at ticks of the replay (one during a
