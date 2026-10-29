@@ -688,7 +688,12 @@ public:
 
     // --fast: the waits do not wait for real time (milestone 9, the
     // playthrough in the program; docs/playthrough.md).
-    void set_fast(bool fast) { fast_ = fast; }
+    // Without vsync then, so that a presentation does not hold the game
+    // to the display's rate.
+    void set_fast(bool fast) {
+        fast_ = fast;
+        SDL_SetRenderVSync(renderer_, fast ? 0 : 1);
+    }
 
 private:
     // How often the fast waits present the screen, in real milliseconds.
