@@ -1,7 +1,16 @@
 # The playthrough (milestone 9)
 
 Milestone 9 completes the game from the start to the ending with scripted
-input in both engines (spec section 12). The input is one replay,
+input in both engines (spec section 12).
+
+**Done: the whole game, from the boot to QUIT on the last screen, in one
+replay.** `tests/playthrough/playthrough.txt` plays the opening, the eight
+acts and the good ending (Laura shoots Rudy in the attic, the Colonel's
+epilogue, the sleuth rating and her notebook), and clicks QUIT: the game
+ends by itself at tick 337613 in both engines. Every comparison matches
+over the whole run: traces 2448724 kernel calls, screens and maps 5627,
+actors 50061 frames, parser 21 parses (3812 said calls), layout 7253
+lines, OPL 215334 writes; 38 checkpoints hold, the last one the quit. The input is one replay,
 `tests/playthrough/playthrough.txt`, built one act per task. After each act
 the whole replay so far runs from the start in sci-vm and in the reference
 ScummVM, and every comparison of `tools/vm-trace/run-scenario.sh` must
@@ -658,7 +667,24 @@ has quit, the globals as the game ended with the tick it ended at, and
 `where.py` checks the last checkpoint, `ending 338000 quit 786`: global 4
 set before tick 338000, in room 786.
 
-COUNTS_PLACEHOLDER
+The whole replay, from the boot to the quit (tick 337613), matches in both
+engines: traces 2448724 calls, screens and maps 5627, actors 50061
+frames, parser 21 parses (3812 said calls), layout 7253 lines, OPL 215334
+writes; both engines end at tick 337613 with the same last call. No port
+bug found. `tests/playthrough/act-saves.txt` is unchanged (Act VIII's save
+at tick 281200).
+
+New risks found:
+
+- **Modal messages that come back.** "You hear scuffling upstairs." in
+  rooms 33, 37 and 47 returns about every 1450 ticks; a click or arrow key
+  while it is up only closes it.
+- **Facing matters.** Room 47 enters the attic stairs only with Laura
+  facing up; the arrow key is surer than a click.
+- **Illegal control colours that open.** The attic door's colour 3 blocks
+  Laura until the door is unlocked and opened.
+- **Timer 368 in Act VIII** gives about 21600 ticks from Lillian's scene
+  to the fight; the route reaches 75 with 800 cycles left.
 
 ## Images
 
