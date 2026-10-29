@@ -21,3 +21,8 @@ act-4-room-3 156000 IV 3
 act-4-study 161000 IV 31
 act-4-fight 166500 IV 22
 act-5-start 170800 V 21
+act-5-dining-room 180000 V 306
+act-5-parlor 182000 V 304
+act-5-colonel 191200 V 42
+act-5-end 199000 V 42
+act-6-start 202400 VI 43
