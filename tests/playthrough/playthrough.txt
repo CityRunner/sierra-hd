@@ -1205,3 +1205,152 @@ sierra-hd replay 1
 280600 move 0 110
 280602 down 0 110 0
 280606 up 0 110 0
+# Act VIII (3:00 AM, from tick 280756 in the hallway 47). No events: the
+# hedge garden 65 (region 280, Lillian shot dead; global 123 bit 64 and
+# timer 368, 3600 cycles), the derringer, the bullet and the skeleton key
+# from her body, "load the derringer", then up to the attic 74 and into 75
+# (region 290) before timer 368 runs out, where "shoot rudy" during the
+# fight gives the good ending. Room 47: the arrow keys take Laura along the landing
+# and down the left staircase into 37 (as in Act VI).
+281700 key 20480
+282100 move 60 125
+282102 down 60 125 0
+282106 up 60 125 0
+282700 key 20480
+282850 key 19200
+283200 key 20480
+# Room 37: to the door under the landing and north into 33, out of the
+# French doors into the garden 4, round the statue and east along the path
+# into 12.
+283900 move 58 163
+283902 down 58 163 0
+283906 up 58 163 0
+284500 move 150 150
+284502 down 150 150 0
+284506 up 150 150 0
+285000 move 160 98
+285002 down 160 98 0
+285006 up 160 98 0
+285500 move 160 85
+285502 down 160 85 0
+285506 up 160 85 0
+286000 move 160 95
+286002 down 160 95 0
+286006 up 160 95 0
+286600 move 60 155
+286602 down 60 155 0
+286606 up 60 155 0
+287200 move 250 158
+287202 down 250 158 0
+287206 up 250 158 0
+287800 move 300 176
+287802 down 300 176 0
+287806 up 300 176 0
+288300 move 319 176
+288302 down 319 176 0
+288306 up 319 176 0
+# Room 12: round the path at the top right (as in Act II) and off the
+# east edge below the back path (y 80 or more) into 18.
+289000 move 312 65
+289002 down 312 65 0
+289006 up 312 65 0
+289600 move 305 130
+289602 down 305 130 0
+289606 up 305 130 0
+290200 move 319 140
+290202 down 319 140 0
+290206 up 319 140 0
+# Room 18: Enter closes the description; through the archway (control
+# colour 4) into the hedge garden 65.
+291600 key 13
+292000 move 140 195
+292002 down 140 195 0
+292006 up 140 195 0
+292800 move 190 170
+292802 down 190 170 0
+292806 up 190 170 0
+293500 move 158 175
+293502 down 158 175 0
+293506 up 158 175 0
+294000 key 18432
+# Room 65: Enter closes the description; the scene ("Oh, no!!! Someone has
+# shot Lillian to death in the hedge garden!!", global 123 bit 64, the
+# clock at tick 295000) and Enter. To the derringer by her feet (within 10
+# pixels), "get the derringer" ("... your eye happens to fall upon a
+# bullet"), Enter; round her head to the bullet by her hand, "get the
+# bullet" ("Okay."), Enter; "search lillian" (within 25 pixels): her wound,
+# Enter, the skeleton key in the cape, Enter. "load the derringer" (script
+# 410): "Okay.", and global 185 is set when Enter closes it. Back round her
+# head and down out of the archway into 18.
+295000 key 13
+296600 key 13
+297200 move 61 134
+297202 down 61 134 0
+297206 up 61 134 0
+298400 text get the derringer
+299800 key 13
+300800 move 45 120
+300802 down 45 120 0
+300806 up 45 120 0
+301300 move 70 116
+301302 down 70 116 0
+301306 up 70 116 0
+302000 text get the bullet
+302600 key 13
+303000 move 76 110
+303002 down 76 110 0
+303006 up 76 110 0
+303800 text search lillian
+305200 key 13
+306700 key 13
+307100 text load the derringer
+307500 key 13
+307800 move 46 121
+307802 down 46 121 0
+307806 up 46 121 0
+308200 move 50 199
+308202 down 50 199 0
+308206 up 50 199 0
+# Room 18: west along the path into 12.
+308700 move 150 195
+308702 down 150 195 0
+308706 up 150 195 0
+309200 move 0 165
+309202 down 0 165 0
+309206 up 0 165 0
+# Room 12: up the path at the right onto the back path and west along it
+# into 4 (as in Act VII).
+309700 move 305 130
+309702 down 305 130 0
+309706 up 305 130 0
+310200 move 312 65
+310202 down 312 65 0
+310206 up 312 65 0
+310800 move 240 65
+310802 down 240 65 0
+310806 up 240 65 0
+311300 move 200 63
+311302 down 200 63 0
+311306 up 200 63 0
+# Room 4: off its bottom edge into 33 ("You hear scuffling upstairs.",
+# closed with Enter), off 33's bottom edge into 37, and up the left
+# staircase into 47 (as in Act I).
+311700 move 250 158
+311702 down 250 158 0
+311706 up 250 158 0
+312200 move 215 199
+312202 down 215 199 0
+312206 up 215 199 0
+313400 key 13
+313700 move 160 199
+313702 down 160 199 0
+313706 up 160 199 0
+314000 move 115 188
+314002 down 115 188 0
+314006 up 115 188 0
+314600 move 25 190
+314602 down 25 190 0
+314606 up 25 190 0
+315100 move 45 30
+315102 down 45 30 0
+315106 up 45 30 0
