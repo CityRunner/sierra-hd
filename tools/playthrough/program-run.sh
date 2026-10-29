@@ -121,11 +121,16 @@ wall=$(( $(date +%s) - start ))
 rm -f "${out}/audio.raw"
 
 # Log lines that count: every [<category>:error] or [<category>:warning]
-# line, an assertion, the interpreter's stop, anything else that names an
-# error. Accepted (not counted): SDL's or Xvfb's own lines about the X
-# server (xkbcomp, "XKEYBOARD"), which come from the headless display.
-errors="$(grep -E ':error\]|assertion failed|The interpreter stopped|Cannot |[Ee]rror' "${out}/log.txt" \
-    | grep -vE 'XKEYBOARD|xkbcomp|^> ' || true)"
+# line, an assertion, the interpreter's stop, "Cannot ..." (the program's
+# own failures), anything else that names an error. Accepted (not
+# counted): the lines of the headless display, not of the program, which
+# a desktop does not print: SDL's "XDG_RUNTIME_DIR is invalid", Mesa's
+# "ZINK: vkCreateInstance failed" and "glx: failed to create drisw screen"
+# (no GPU under Xvfb, so SDL's renderer falls back to software), Xvfb's
+# keyboard lines (xkbcomp, XKEYBOARD).
+errors="$(grep -E ':error\]|assertion failed|The interpreter stopped|Cannot |[Ee]rror|failed' "${out}/log.txt" \
+    | grep -vE 'XDG_RUNTIME_DIR is invalid|MESA: error: ZINK: vkCreateInstance failed|glx: failed to create drisw screen|XKEYBOARD|xkbcomp' \
+    || true)"
 warnings="$(grep -E ':warning\]' "${out}/log.txt" || true)"
 error_count="$(printf '%s' "${errors}" | grep -c . || true)"
 warning_count="$(printf '%s' "${warnings}" | grep -c . || true)"
