@@ -5,14 +5,15 @@ on its own SCI0 interpreter written in C++23. The vector backgrounds are
 re-rendered at high resolution; sprites stay original and are scaled by an
 integer factor. Game logic behaves exactly as in the original.
 
-**Status: milestone 4b (kernel coverage).**
-- The interpreter runs the game: every kernel function the game's scripts
-  use is implemented, with the menus, dialogs and the text parser.
-- Scenario recordings across the main areas give the same kernel calls and
-  the same screens as ScummVM, call by call and pixel for pixel.
-- In HD mode the backgrounds are vector art at any integer scale. Sprites
-  and text are still drawn as enlarged original pixels; HD sprites come
-  later. Sound is silent until milestone 7.
+**Status: milestone 9 (the playthrough); release candidate 0.9.**
+- The whole game plays from the start to the ending. A scripted
+  playthrough gives the same kernel calls, screens, actors, parser results
+  and music as ScummVM from the boot to the last screen.
+- In HD mode the backgrounds are vector art at any integer scale; sprites
+  and text are drawn as enlarged original pixels.
+- Music and sound on an emulated AdLib (Nuked OPL3) or Roland MT-32
+  (mt32emu, with your own ROMs).
+- The game's own dialogs save and restore, in a documented, versioned format.
 - The milestone reports are in `reports/`.
 
 You need your own copy of the game (English DOS EGA release; the GOG
@@ -63,6 +64,11 @@ From a Visual Studio developer prompt with LLVM 23.1.4 first on `PATH`, run
   (`sierra-hd-001.sav` to `sierra-hd-099.sav`,
   `docs/formats/save-format.md`), and the files the game itself writes to
   `files/`.
+- **Music:** `music = adlib` (default), `mt32` or `off` in
+  `sierra-hd.ini`. For the MT-32, put a control ROM and a PCM ROM of the
+  MT-32 or CM-32L (files ending in `.rom`, recognised by their contents) in
+  a folder and set `mt32_rom` to it; without usable ROMs the music plays
+  on the AdLib.
 - **Help:** `sierra-hd --help` lists the keys and options.
   `docs/USER-README.md` is the user guide that ships with the binaries.
 

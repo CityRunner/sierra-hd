@@ -254,7 +254,18 @@ over the frame by the presenter elsewhere (milestone 6b,
 `docs/hd-composition.md`, "The cursor"); the mouse reaches the game in 1x
 through one tested mapping (`game_screen.hpp`). Keys are translated as
 ScummVM translates them. The game's own files are
-kept in `files/` next to the configuration (`DirectoryFileStore`).
+kept in `files/` next to the configuration (`DirectoryFileStore`), the
+saves in `saves/` (milestone 8).
+
+`--replay <file>` schedules a replay's input into the run (milestone 9).
+A replay takes the deterministic time of day of sci-vm-trace instead of
+the host's, so the program plays it as `tools/vm-trace` does. `--fast`
+changes only the pacing: waits pass the virtual time at once, the screen is
+presented at most every 16 ms of real time, and the audio output makes no
+samples while its queue is full; the game sees the same time, input and
+timer calls. `--end-state` writes the tick, globals and state hash when the
+game ends, which `tools/playthrough/program-run.sh` compares with
+sci-vm-trace's for the whole playthrough.
 
 `Viewer` composes the 320N x 200N frame on the CPU: the status line, the
 background (cached per picture, mode, map and N) and a view cel or a font
