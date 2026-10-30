@@ -123,7 +123,29 @@ These files are local only, not committed:
 
 ## CI minutes
 
-To be filled in from the gate run of this pull request.
+**The gate is green** (run 41010700650, commit `4483735`). It ran:
+- style and static analysis;
+- Linux x86-64 and ARM64 in release, ASan+UBSan and TSan;
+- the fuzzers;
+- Windows x64 and ARM64.
+
+macOS is optional and was not run.
+
+Measured with `scripts/ci-minutes.py --branch milestone-9`:
+
+| Platform | Jobs | Minutes | Included minutes | List price |
+|---|---|---|---|---|
+| Linux x86-64 | 6 | 60 | 60 | $0.36 |
+| Linux ARM64 | 3 | 22 | 22 | $0.11 |
+| Windows x64 | 1 | 12 | 24 | $0.12 |
+| Windows ARM64 | 1 | 4 | 8 | $0.04 |
+| **Total** (1 run) | | **98** | **114** | **$0.63** |
+
+- **Cost:** none. The repository is public, so standard runners are free.
+- **Runs:** one, the gate run of this pull request.
+  - Every earlier push of `milestone-9` was checked locally first, and
+    pushes start no run.
+  - This report's commit changes only documentation and starts no run.
 
 ## Deviations from the spec
 
@@ -137,8 +159,9 @@ playthrough covers real-time play.
 
 ## What the customer needs to do
 
-1. Download the 0.9.0-rc.1 build for your system from the GitHub
-   pre-release.
+1. Push the tag `v0.9.0-rc.1` on commit `4483735` (this session may not
+   create tags); the release workflow then publishes the pre-release.
+   Download the build for your system from it.
 2. Play the game through in HD mode, with the act saves if you like.
 3. Spot-check some scenes in original mode with F12.
 4. Report anything that differs from the original, or approve.
