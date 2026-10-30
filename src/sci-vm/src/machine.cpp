@@ -195,6 +195,11 @@ void Machine::after_restore() {
     last_save_new_id_ = 0;
 }
 
+std::size_t Machine::global_count() const {
+    const Variables& globals = variables_[var_global];
+    return globals.store == nullptr ? 0 : static_cast<std::size_t>(globals.max);
+}
+
 Reg Machine::global(std::size_t index) const {
     const Variables& globals = variables_[var_global];
     if (globals.store == nullptr || std::cmp_greater_equal(index, globals.max)) {

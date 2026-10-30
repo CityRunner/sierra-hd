@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "music.hpp"
 #include "sci/vm/reg.hpp"
 #include "timing.hpp"
 
@@ -54,6 +55,8 @@ public:
         // kDoSound MasterVolume goes through it, so it is the master volume
         // before the restore.
         std::uint16_t master_volume = 0;
+        // The player's reverbs and the counter of its songs' ordering times.
+        Music::HostSettings music;
     };
 
     [[nodiscard]] HostState host_state();

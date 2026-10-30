@@ -86,6 +86,12 @@ public:
     // heard. Returns whether it topped up.
     bool recover();
 
+    // The program's --fast replay (milestone 9): while the queue is full,
+    // the synthesiser makes no samples (they would be dropped), so that the
+    // music does not hold the game to real time. The driver's timer calls
+    // run as before; only what is heard differs.
+    void set_fast(bool fast) { fast_ = fast; }
+
     // The output rate and the queue target, in frames.
     [[nodiscard]] std::uint32_t rate() const { return rate_; }
 
@@ -128,6 +134,7 @@ private:
     std::uint64_t recovery_frames_ = 0;
     // Dropping new audio until the queue is back at the target.
     bool dropping_ = false;
+    bool fast_ = false;
     // Written by SDL's audio thread: the bytes it found missing.
     std::atomic<std::uint64_t> starved_bytes_{0};
     std::vector<std::int16_t> synth_samples_;

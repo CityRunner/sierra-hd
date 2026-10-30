@@ -552,6 +552,18 @@ finish between limits, so that each limit costs at most one small task.
 - **Commit before checks.** Work is committed before a long check starts,
   so a stop or a restart of the session never leaves it only in the
   working tree.
+- **Save work before a limit can stop it** (the customer's rule,
+  2026-10-29, after the first Act III attempt lost an hour of findings):
+  usage limits come without warning, so every task commits from the
+  start, not only at the end.
+  - The first commit comes within 15 minutes, then at least every 20.
+  - Findings count as work: notes on what was found and tried (script
+    offsets, conditions, routes that failed) go into the docs and are
+    committed even when nothing else is finished.
+  - A task's worktree with no commits is removed when the task stops, so
+    an uncommitted finding is a lost finding.
+  - The main session commits merged work at once and pushes it after the
+    local checks, so nothing waits only in its working tree either.
 - **Unchanged:** the milestone gates, the checks they need and the CI cost
   policy. Splitting changes how the work is scheduled, not what is checked.
 
@@ -2715,10 +2727,98 @@ over every scenario of `tests/scenarios/scenarios.txt`.
 
 - The gate is approved as is and merged: the Linux and Windows matrix is
   green; macOS is optional.
-- Two details of a restore still follow the save rather than ScummVM's
+- Two details of a restore followed the save rather than ScummVM's
   restore: the MT-32's global reverb and the order numbers of restored
-  songs. Neither changes what the scripts see. They are fixed as the first
-  task of milestone 9.
+  songs. Fixed as the first task of milestone 9: see "Milestone 9: the
+  reverb and song order on a restore".
+
+## Milestone 9: the reverb and song order on a restore (2026-10-29)
+
+- **The global reverb** (ScummVM `engines/sci/engine/savegame.cpp`,
+  `SciMusic::saveLoadWithSerializer`, lines 624-650): the byte saved as
+  the reverb is the driver's (`_pMidiDrv->getReverb()`, line 629), not
+  `_globalReverb`, which is not saved; on loading, `setGlobalReverb` (line
+  649, `sound/music.cpp` 384-409) gets it, while the playlist is still the
+  game's before: a value other than 127 becomes the global reverb, and the
+  first song playing takes it on the driver if its own is 127; 127 sets
+  the reverb of that song. The driver's reverb itself is the host's (the
+  driver is not restored). sci-vm took both reverbs from its state. Now
+  `Music::after_restore` takes the driver's and the global reverb from
+  before the restore (`Subsystems::HostState::music`) and calls
+  `Music::set_global_reverb` with the saved driver reverb. For the saved
+  value to be ScummVM's, the driver's reverb in the state now also follows
+  `MidiPlayer_Midi::initTrack`, which sets it to the patch's default
+  before every SCI0 song (`PlayerChoices::default_reverb`; -1 on the
+  AdLib and the silent driver). **Decided.**
+- **The songs' order numbers** (`MusicEntry::time`, which
+  `musicEntryCompare`, `sound/music.cpp` 417-420, sorts by after the
+  priority): neither it nor `SciMusic::_timeCounter` is saved
+  (`MusicEntry::saveLoadWithSerializer`, savegame.cpp 674-713), so a
+  restored song's is 0 until `reconstructPlayList` (initSoundResource)
+  gives every song with a resource `++_timeCounter` in `soundInitSnd`
+  (music.cpp 449), in the order of the list, and the songs played again
+  another in `soundPlay` (613), from the counter of the game before the
+  restore. sci-vm kept the saved times and counter. Now the counter goes
+  on from before the restore, the restored times are 0, and
+  `Sound::reconstruct_play_list` numbers each song with a resource
+  (`Music::number_restored_song`). **Decided.**
+- **Unchanged:** `read_save` still loads the saved values (the persistent
+  hash after it equals the one before saving); only kRestoreGame's
+  sequence changes them, and the round trip, which resumes the execution,
+  keeps the state as saved.
+- **What shows it:** neither changes the scripts or, in this game, the
+  device: the restore dialog pauses every song (no song plays when
+  `setGlobalReverb` runs), no song of the game sets controller 0x50 to 127
+  (the global reverb), and the order numbers only decide between songs of
+  equal priority that are not playing. `two-songs-restore.txt` saves in
+  room 22 while the music and a sound effect are in the playlist, after
+  the effect's controller 0x50 set the reverb to 3, and restores in room
+  10. It matches the reference on all seven comparisons on the AdLib and
+  the MT-32, as it did before the change; there the change shows in the
+  state: on the AdLib the hashes at tick 10600 are the same before and
+  after the change, and from the restore on only the `sound` component
+  differs (the global reverb 3 in place of -1, the songs' new times). The
+  five other save scenarios still match on both devices, and its five
+  round trips give equal hashes and an identical continuation.
+
+## Milestone numbers after A4 (2026-10-29)
+
+Addendum A4 (`docs/SPEC_ADDENDA.md`) adds the mandatory milestone 10 "HD
+background quality" and renumbers the remaining milestones. This table maps
+the old numbers to the new ones, so older references stay unambiguous:
+
+| Old | New | Content | Status |
+|---|---|---|---|
+| 12 (optional: exact area coverage) | 10 | HD background quality: object-level reconstruction (A4 part A), mandatory; exact area coverage (spec section 6.6) as an optional part, approved or declined by the customer at the start of milestone 10 | mandatory, next after 9 |
+| 10 | 11 | ScummVM-compatible saves (spec section 9) | optional: approved or declined after milestone 10 |
+| 11 | 12 | Vectorised font glyphs (spec section 6.9) | optional: approved or declined after milestone 11 |
+| — | — | Audit and iteration 2 (`review/TASK.md`) | last, unchanged |
+
+- **Completed milestones** keep their numbers, and their reports are not
+  changed. A report or an entry dated before 2026-10-29 that names
+  "milestone 10", "11" or "12" uses the old numbers.
+- **The spec document** keeps its wording; "milestone 10", "11" or "12" there
+  is read through this table.
+- **Milestone 9** is finished as planned; its scope and exit criteria do not
+  change.
+- **Hint files:** frozen at milestone 3b, they are unfrozen at the start of
+  milestone 10 and frozen again at its gate.
+- **Golden hashes** are regenerated once, at the milestone 10 gate, for all
+  of its changes.
+- **Visual reviews** use the format of A4 part B from now on: the milestone
+  9 report if it shows pictures, milestone 10, the audit and iteration 2,
+  and any re-review. **Decided.**
+- **Reading of two details of A4** (to be confirmed when milestone 10
+  starts):
+  - The grid's row boundaries are at y = 0, 63, 127, 190 of the picture
+    area, that is screen rows 10, 73, 137, 200 with the menu bar. A
+    quarter boundary is the cell's midpoint rounded half up to a whole
+    original pixel: x = 32, 96, 160, 224, 288 and picture y = 32, 95, 159.
+    **Assumed.**
+  - The round-trip check of A.6 rasterises the reconstructed primitives
+    back to 1x with path-1's rules for lines and fills, and compares them
+    with the original pixels of the same commands (the owner and pair maps
+    of path 1 say which pixels those are). **Assumed.**
 
 ## Spec items carried forward
 
@@ -2736,3 +2836,37 @@ over every scenario of `tests/scenarios/scenarios.txt`.
   everything links. These functions are removed as soon as the library has
   real content (sci-resource: milestone 1; sci-pic, sci-view and sci-text: milestone 2;
   sci-core, sci-vector and sci-render: milestone 3).
+
+## Milestone 9: the playthrough in the program (2026-10-29)
+
+- **A replay uses the deterministic time of day.** With `--replay`, the
+  program's kGetTime(1) and the other times of day are those of
+  sci-vm-trace (Monday 1990-01-01, 12:00:00, running with the virtual
+  clock), not the host's: the game reads the time of day 32222 times in
+  the playthrough, and with the host's clock the replay went past the
+  quit. A game without a replay keeps the host's time, as ScummVM.
+  **Decided.**
+- **`--fast` only changes the pacing.** The waits pass the virtual time
+  without waiting for real time; the input is passed on, the music timer
+  calls of the whole wait run, the screen is presented at most every
+  16 ms of real time without vsync, and the audio output makes no samples
+  while its queue is full (the driver's timer calls still run; only what
+  is heard differs). The game sees the same virtual time, input and timer
+  calls, so it plays the same: every run of the playthrough ends in
+  sci-vm-trace's tick, globals and state hash. The whole game takes about
+  30 s instead of 94 minutes. Real-time presentation without `--fast` is
+  unchanged. **Decided.**
+- **The state hash at a tick past the end.** `sci-vm-trace --state-hash`
+  reports a requested tick the run does not reach with the state as the
+  game ended (as `--globals` did), so that `sierra-hd --end-state` can be
+  compared with it. **Decided.**
+- **The window opens at the configured N** (`scale` 1 to 16; at most what
+  the display's usable area holds), not at 3: the frame is never larger
+  than the window, so a window that is not resized showed N = 3 for
+  `scale = 4`. With `scale = auto` it still opens at 3. **Decided.**
+- **Log lines accepted in the headless runs**
+  (`tools/playthrough/program-run.sh`): only those of the headless
+  display, not of the program: SDL's "XDG_RUNTIME_DIR is invalid", Mesa's
+  "ZINK: vkCreateInstance failed" and "glx: failed to create drisw screen"
+  (Xvfb has no GPU, so SDL's renderer is software), Xvfb's keyboard lines.
+  Every warning or error of the program counts. **Decided.**

@@ -215,3 +215,43 @@ SCI_TEST(pause_all_counts_and_resumes_only_when_the_count_returns_to_zero) {
     SCI_CHECK(sound.status == SoundStatus::Playing);
     SCI_CHECK(!player.faults.raised());
 }
+
+SCI_TEST(a_restore_numbers_the_songs_from_the_running_counter) {
+    // MusicEntry::time and SciMusic::_timeCounter are not saved: a restored
+    // song's ordering time is 0 until soundInitSnd gives one with a
+    // resource the next of the host's counter, in the order of the list.
+    Player player;
+    MusicEntry& first = player.add(signal_and_cue_song, 1, 3, 1);
+    MusicEntry& second = player.add(signal_and_cue_song, 1, 3, 2);
+    SCI_CHECK(first.time == 1 && second.time == 2);
+    // Equal priorities: the newer first.
+    SCI_CHECK(&player.music.at(0) == &second && &player.music.at(1) == &first);
+    // These two songs as restored into a player whose counter is at 40.
+    player.music.after_restore({.driver_reverb = -1, .global_reverb = -1, .time_counter = 40});
+    SCI_CHECK(first.time == 0 && second.time == 0);
+    SCI_CHECK(player.music.host_settings().time_counter == 40);
+    for (std::size_t i = 0; i < player.music.size(); ++i) {
+        player.music.number_restored_song(player.music.at(i));
+    }
+    // The saved order stays; the times now make the first in it the older.
+    SCI_CHECK(second.time == 41 && first.time == 42);
+    SCI_CHECK(player.music.host_settings().time_counter == 42);
+    player.music.sound_play(second);
+    SCI_CHECK(second.time == 43);
+    SCI_CHECK(!player.faults.raised());
+}
+
+SCI_TEST(a_restore_takes_the_global_reverb_from_the_driver_reverb_at_the_save) {
+    // ScummVM saves MidiPlayer::getReverb and gives it to setGlobalReverb on
+    // a restore; the driver's own reverb is the host's.
+    Player player;
+    player.music.set_driver_reverb(3); // A song's controller 0x50 before the save.
+    SCI_CHECK(player.music.global_reverb() == -1);
+    player.music.after_restore({.driver_reverb = 0, .global_reverb = 7, .time_counter = 0});
+    SCI_CHECK(player.music.global_reverb() == 3);
+    SCI_CHECK(player.music.driver_reverb() == 0); // No song of the game before plays.
+    // 127 leaves the host's global reverb.
+    player.music.set_driver_reverb(127);
+    player.music.after_restore({.driver_reverb = 0, .global_reverb = 7, .time_counter = 0});
+    SCI_CHECK(player.music.global_reverb() == 7 && player.music.driver_reverb() == 0);
+}

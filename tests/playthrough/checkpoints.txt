@@ -1,0 +1,43 @@
+# Where the playthrough is at the end of each act (milestone 9,
+# docs/playthrough.md): <name> <tick> <act> <room>, the act as a Roman
+# numeral (global 165 plus one) and the room a number, or "-" for any
+# (global 11). tools/playthrough/check.sh runs the replay to the last tick
+# and checks each line with tools/playthrough/where.py.
+opening 26000 I -
+act-1-start 29000 I 44
+act-1-end 62800 I 46
+act-2-start 63600 II 47
+act-2-kitchen 73000 II 35
+act-2-study-door 85500 II 10
+act-2-billiards 98000 II 36
+act-2-end 109000 II 320
+act-3-start 111600 III 49
+act-3-room-48 119000 III 48
+act-3-billiards 126500 III 36
+act-3-attic 135000 III 74
+act-3-end 150000 III 63
+act-4-start 154400 IV 14
+act-4-room-3 156000 IV 3
+act-4-study 161000 IV 31
+act-4-fight 166500 IV 22
+act-5-start 170200 V 21
+act-5-dining-room 180000 V 306
+act-5-parlor 182000 V 304
+act-5-colonel 191200 V 42
+act-5-end 199000 V 42
+act-6-start 202400 VI 43
+act-6-room-44 205000 VI 44
+act-6-room-48 208000 VI 48
+act-6-room-10 216500 VI 10
+act-6-end 227000 VI 6
+act-7-start 230000 VII 12
+act-7-playhouse 239000 VII 63
+act-7-chapel 253500 VII 58
+act-7-room-44 270000 VII 44
+act-7-end 279000 VII 48
+act-8-start 281600 VIII 47
+act-8-hedge-garden 299000 VIII 65
+act-8-attic 322000 VIII 75
+act-8-epilogue 330000 VIII 784
+act-8-rating 334000 VIII 786
+ending 338000 quit 786

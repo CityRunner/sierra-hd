@@ -42,3 +42,4 @@ attic-restore.txt 14500 0
 outdoors-restore.txt 13600 0
 inventory-restore.txt 25000 0
 restart-restore.txt 9000 0
+two-songs-restore.txt 13600 0

@@ -14,6 +14,7 @@
 #include "music.hpp"
 #include "parser.hpp"
 #include "sci/resource/resource_manager.hpp"
+#include "sci/vm/game.hpp"
 #include "sci_test.hpp"
 #include "segments.hpp"
 #include "sound.hpp"
@@ -125,6 +126,28 @@ SCI_TEST(the_state_has_the_components_in_order) {
     }
     SCI_CHECK(names == (std::vector<std::string>{"execution", "segments", "machine", "clock", "random", "events",
                                                  "files", "parser", "sound", "graphics"}));
+}
+
+// What sierra-hd --end-state writes (milestone 9): a game's tick, globals
+// and state hash, as sci-vm-trace reports them from the machine.
+SCI_TEST(a_game_reports_the_state_of_its_machine) {
+    struct Host final : sci::vm::GameHost {
+        void wait(sci::vm::Game& /*game*/, std::uint32_t /*milliseconds*/) override {}
+
+        [[nodiscard]] sci::vm::LocalTime local_time() override { return {}; }
+    };
+
+    const ResourceManager resources = folder();
+    Host host;
+    sci::vm::Game game(resources, host, nullptr, 3);
+    Subsystems subsystems;
+    subsystems.set_seed(3);
+    Machine machine(resources, subsystems);
+    SCI_CHECK(game.ticks() == 0);
+    SCI_CHECK(game.globals().size() == machine.global_count());
+    const StateHash hash = game.state_hash();
+    SCI_CHECK(hash.components.size() == 10);
+    SCI_CHECK(hash.total == sci::vm::state_hash(machine).total);
 }
 
 SCI_TEST(equal_states_hash_equally_at_other_addresses) {

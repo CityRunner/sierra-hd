@@ -138,13 +138,39 @@ public:
     void clear_play_list();
     void stop_all();
 
+    // What ScummVM's player keeps across a restore and the state holds: the
+    // driver's reverb (MidiPlayer::_reverb), the global reverb (not saved)
+    // and the counter that numbers the songs' ordering times
+    // (SciMusic::_timeCounter, not saved).
+    struct HostSettings {
+        std::int8_t driver_reverb = -1;
+        std::int8_t global_reverb = -1;
+        int time_counter = 0;
+    };
+
+    [[nodiscard]] HostSettings host_settings() const {
+        return {.driver_reverb = driver_reverb_, .global_reverb = global_reverb_, .time_counter = time_counter_};
+    }
+
     // The rest of SciMusic::saveLoadWithSerializer when a game is restored
-    // in the game (kRestoreGame): with the restored settings, the play
+    // in the game (kRestoreGame): the driver's reverb, the global reverb and
+    // the counter go on from `host`; with the restored settings, the play
     // switch (MidiPlayer::playSwitch), the master volume of the songs of
-    // the game that ran before, the global reverb, then clearPlayList on
-    // those songs. The device sees what ScummVM's sees; on the MT-32 the
-    // play switch and the volumes are channel volume messages.
-    void after_restore();
+    // the game that ran before, setGlobalReverb with the driver's reverb at
+    // the save (what ScummVM saves as the reverb), then clearPlayList on
+    // those songs. The restored songs' ordering times are 0 until
+    // number_restored_song. The device sees what ScummVM's sees; on the
+    // MT-32 the play switch and the volumes are channel volume messages.
+    void after_restore(const HostSettings& host);
+
+    // SciMusic::soundInitSnd for a restored song with a resource
+    // (reconstructPlayList): a new ordering time from the counter.
+    void number_restored_song(MusicEntry& sound) { sound.time = ++time_counter_; }
+
+    // SciMusic::setGlobalReverb: 127 sets the reverb of the song playing,
+    // another value the global reverb, which the song playing takes if it
+    // has none.
+    void set_global_reverb(std::int8_t reverb);
     // The songs of the game that ran before a restore that resumes the
     // execution (the round trip): the playing ones are stopped and all are
     // dropped, with no other message to the device.
@@ -226,6 +252,9 @@ public:
     [[nodiscard]] const MusicEntry& at(std::size_t index) const { return *play_list_[index]; }
 
     [[nodiscard]] std::int8_t global_reverb() const { return global_reverb_; }
+
+    // MidiPlayer::getReverb.
+    [[nodiscard]] std::int8_t driver_reverb() const { return driver_reverb_; }
 
     // MidiPlayer::setReverb.
     void set_driver_reverb(std::int8_t reverb) {

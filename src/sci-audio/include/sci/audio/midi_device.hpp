@@ -28,6 +28,9 @@ struct PlayerChoices {
     int polyphony = 0;
     // Channel 9 plays whatever its play mask says.
     bool has_rhythm_channel = false;
+    // MidiPlayer_Midi::initTrack sets the driver's reverb to it before
+    // every SCI0 song; -1: none (the driver's reverb stays).
+    std::int8_t default_reverb = -1;
 
     friend bool operator==(const PlayerChoices&, const PlayerChoices&) = default;
 };

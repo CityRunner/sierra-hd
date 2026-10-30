@@ -51,11 +51,13 @@ void Subsystems::on_restart_game(Machine& /*machine*/) {
 }
 
 Subsystems::HostState Subsystems::host_state() {
+    const Music::HostSettings music = sound_->has_music() ? sound_->music().host_settings() : Music::HostSettings();
     return HostState{
         .time = clock_->host_time(),
         .random_seed = random_->seed(),
         .timer_calls = sound_->has_music() ? sound_->music().timer_calls() : 0,
         .master_volume = sound_->has_music() ? sound_->music().master_volume() : std::uint16_t{0},
+        .music = music,
     };
 }
 

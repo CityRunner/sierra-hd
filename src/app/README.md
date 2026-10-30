@@ -38,6 +38,19 @@ Without a folder argument, the folder comes from `sierra-hd.ini` next to the
 executable; on the first start, the program asks for it. The hint files are
 read from `hints/` next to the executable. `sierra-hd --help` lists the keys.
 
+    sierra-hd --replay <file> [--seed <n>] [--fast] [--end-state <file>] [game folder]
+
+plays the input of a replay file (`docs/formats/replay-and-trace.md`)
+with the seed given (default 0) and the deterministic time of day of
+sci-vm-trace, so that it plays as there. `--fast` passes the waits without
+waiting for real time (only the pacing changes: the screen is shown about
+every 16 ms without vsync and the music that cannot be played is not
+made); `--end-state` writes the game's tick, globals and state hash when it
+ends, as `sci-vm-trace --globals` and `--state-hash` do for a tick past the
+end. `tools/playthrough/program-run.sh` runs the playthrough this way
+(`docs/playthrough.md`, "The playthrough in the program"). The window opens
+at the configured N (`scale`), or 3 with `auto`.
+
 ## Configuration
 
 `sierra-hd.ini` (section `[sierra-hd]`, `format = 1`; the program writes

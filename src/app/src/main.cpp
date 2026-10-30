@@ -4,7 +4,7 @@
 // release v0.1 (milestone 3a) with --viewer.
 //
 //   sierra-hd [--viewer] [game folder]
-//   sierra-hd [--replay <file>] [--seed <n>] [game folder]
+//   sierra-hd [--replay <file>] [--seed <n>] [--fast] [--end-state <file>] [game folder]
 //   sierra-hd --version | --help
 //
 // The configuration file sierra-hd.ini and the hint files (hints/) are
@@ -20,6 +20,7 @@
 #include "sci/core/error.hpp"
 #include "sci/core/fp_profile.hpp"
 #include "sci/core/log.hpp"
+#include "sci/core/sha256.hpp"
 #include "sci/platform/analysis_cache.hpp"
 #include "sci/platform/config.hpp"
 #include "sci/platform/game_files.hpp"
@@ -32,6 +33,8 @@
 #include "sci/view/cursor.hpp"
 #include "sci/vm/events.hpp"
 #include "sci/vm/game.hpp"
+#include "sci/vm/reg.hpp"
+#include "sci/vm/state_hash.hpp"
 #include "viewer.hpp"
 
 #include <SDL3/SDL.h>
@@ -68,12 +71,19 @@ namespace fs = std::filesystem;
 using sci::app::Command;
 
 constexpr std::string_view help_text = "usage: sierra-hd [--viewer] [game folder]\n"
-                                       "       sierra-hd [--replay <file>] [--seed <n>] [game folder]\n"
+                                       "       sierra-hd [--replay <file>] [--seed <n>] [--fast] [--end-state <file>]\n"
+                                       "                 [game folder]\n"
                                        "       sierra-hd --version | --help\n"
                                        "\n"
                                        "--replay plays the input of a replay file\n"
                                        "(docs/formats/replay-and-trace.md) into the game, with the\n"
                                        "random seed of --seed (default 0); keyboard and mouse still work.\n"
+                                       "--fast runs the game as fast as it can instead of in real time\n"
+                                       "(the game plays the same; the screen is shown about 60 times a\n"
+                                       "second of real time and most of the music is dropped).\n"
+                                       "--end-state writes the game's tick, globals and state hash to\n"
+                                       "the file when it ends (as sci-vm-trace --globals and\n"
+                                       "--state-hash write them at a tick past the end).\n"
                                        "\n"
                                        "In the game:\n"
                                        "  F12               HD or original mode\n"
@@ -641,6 +651,10 @@ public:
     }
 
     void wait(sci::vm::Game& game, std::uint32_t milliseconds) override {
+        if (fast_) {
+            wait_fast(game, milliseconds);
+            return;
+        }
         const std::uint64_t wait_start = virtual_;
         virtual_ += milliseconds;
         while (true) {
@@ -672,7 +686,51 @@ public:
     // The music's output, told when the host is in time (nullptr: none).
     void set_audio(sci::app::AudioOutput* audio) { audio_ = audio; }
 
+    // --fast: the waits do not wait for real time (milestone 9, the
+    // playthrough in the program; docs/playthrough.md).
+    // Without vsync then, so that a presentation does not hold the game
+    // to the display's rate.
+    void set_fast(bool fast) {
+        fast_ = fast;
+        SDL_SetRenderVSync(renderer_, fast ? 0 : 1);
+    }
+
 private:
+    // How often the fast waits present the screen, in real milliseconds.
+    static constexpr std::uint64_t fast_frame_milliseconds = 16;
+    // How often they log the tick reached, in game milliseconds.
+    static constexpr std::uint64_t fast_progress_milliseconds = 600000;
+
+    // A wait that does not wait: the input is passed on, the music of the
+    // whole wait is made at once (the queue drops what does not fit,
+    // AudioOutput), and the screen is presented at most once per
+    // fast_frame_milliseconds. Only the pacing differs from wait: the game
+    // sees the same virtual time and the same music timer calls.
+    void wait_fast(sci::vm::Game& game, std::uint32_t milliseconds) {
+        virtual_ += milliseconds;
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            handle(game, event);
+        }
+        const std::uint64_t now = SDL_GetTicks();
+        if (redraw_ || now - last_fast_present_ >= fast_frame_milliseconds) {
+            present(game);
+            last_fast_present_ = now;
+        }
+        game.pass_wait(milliseconds);
+        // Progress, every ten minutes of game time: the room (global 11) and
+        // the act (global 165, docs/playthrough.md).
+        if (virtual_ / fast_progress_milliseconds != (virtual_ - milliseconds) / fast_progress_milliseconds) {
+            const std::vector<sci::vm::Reg> globals = game.globals();
+            constexpr std::size_t room = 11;
+            constexpr std::size_t act = 165;
+            sci::core::log(sci::core::LogLevel::Info, sci::core::LogCategory::General,
+                           std::format("fast: tick {} room {} act {} after {} s", game.ticks(),
+                                       globals.size() > room ? globals[room].offset : 0,
+                                       globals.size() > act ? globals[act].offset : 0, (now - start_) / 1000));
+        }
+    }
+
     [[nodiscard]] int scale_for_window() const {
         int width = 0;
         int height = 0;
@@ -873,6 +931,8 @@ private:
     sci::platform::GameFrame screen_;
     std::uint64_t start_;
     std::uint64_t virtual_ = 0;
+    bool fast_ = false;
+    std::uint64_t last_fast_present_ = 0;
     std::uint64_t hold_start_ = 0;
     sci::app::AudioOutput* audio_ = nullptr;
     std::uint64_t last_serial_ = ~std::uint64_t{0};
@@ -890,6 +950,8 @@ struct Options {
     std::optional<fs::path> game_folder;
     std::optional<fs::path> replay;
     std::optional<std::uint32_t> seed;
+    bool fast = false;
+    std::optional<fs::path> end_state;
 };
 
 // The command line, or nothing if it is not valid.
@@ -902,6 +964,10 @@ std::optional<Options> parse_options(std::span<char*> args) {
             options.viewer = true;
         } else if (arg == "--replay" && has_value) {
             options.replay = fs::path(args[++i]);
+        } else if (arg == "--fast") {
+            options.fast = true;
+        } else if (arg == "--end-state" && has_value) {
+            options.end_state = fs::path(args[++i]);
         } else if (arg == "--seed" && has_value) {
             const std::string_view value = args[++i];
             std::uint32_t seed = 0;
@@ -917,7 +983,7 @@ std::optional<Options> parse_options(std::span<char*> args) {
             return std::nullopt;
         }
     }
-    if (options.viewer && (options.replay || options.seed)) {
+    if (options.viewer && (options.replay || options.seed || options.fast || options.end_state)) {
         return std::nullopt;
     }
     return options;
@@ -961,6 +1027,50 @@ std::unique_ptr<sci::app::AudioOutput> open_audio(const sci::resource::ResourceM
                                        static_cast<double>(config.volume) / sci::platform::max_volume);
 }
 
+// --end-state: the game as it ended, in the lines of sci-vm-trace's
+// --globals and --state-hash files for a tick past the end (requested tick
+// 0 here): "<requested> <tick> <global>..." then the hashes, so the two can
+// be compared after the first field.
+bool write_end_state(const fs::path& path, sci::vm::Game& game) {
+    std::ofstream file(path);
+    const std::uint32_t ticks = game.ticks();
+    file << std::format("0 {}", ticks);
+    for (const sci::vm::Reg& value : game.globals()) {
+        if (value.is_number()) {
+            file << std::format(" {}", value.offset);
+        } else {
+            file << std::format(" {:04x}:{:04x}", value.segment, value.offset);
+        }
+    }
+    file << '\n';
+    const sci::vm::StateHash hash = game.state_hash();
+    file << std::format("0 {} total {}\n", ticks, sci::core::to_hex(hash.total));
+    file << std::format("0 {} persistent {}\n", ticks, sci::core::to_hex(hash.persistent));
+    for (const sci::vm::StateComponentHash& component : hash.components) {
+        file << std::format("0 {} {} {} {}\n", ticks, component.name, component.bytes,
+                            sci::core::to_hex(component.digest));
+    }
+    file.close();
+    return !file.fail();
+}
+
+// The size the window opens at, in multiples of 320 x 200 window
+// coordinates: the configured N, as far as the display has room for it
+// (the frame is never larger than the window, so a smaller window would
+// show a smaller N); 3 with `scale = auto`.
+int initial_window_scale(const sci::platform::Config& config) {
+    constexpr int auto_scale = 3;
+    if (config.scale <= 0) {
+        return auto_scale;
+    }
+    SDL_Rect bounds{};
+    if (!SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay(), &bounds)) {
+        return config.scale;
+    }
+    const int fit = std::max(1, std::min(bounds.w / sci::app::screen_width, bounds.h / sci::app::screen_height));
+    return std::min(config.scale, fit);
+}
+
 // The input events of a replay file; an error message if it cannot be read.
 sci::core::Result<std::vector<sci::vm::InputEvent>> read_replay(const fs::path& path) {
     const std::ifstream file(path, std::ios::binary);
@@ -992,8 +1102,9 @@ int run(const Options& options) {
         }
         replay = std::move(*events);
     }
+    const int window_scale = initial_window_scale(*config);
     const std::unique_ptr<SDL_Window, SdlDeleter> window(
-        SDL_CreateWindow("sierra-hd", sci::app::screen_width * 3, sci::app::screen_height * 3,
+        SDL_CreateWindow("sierra-hd", sci::app::screen_width * window_scale, sci::app::screen_height * window_scale,
                          SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY));
     if (!window) {
         show_error(nullptr, std::format("Cannot open a window: {}", SDL_GetError()));
@@ -1039,9 +1150,21 @@ int run(const Options& options) {
         running.set_saves(&saves, std::format("sierra-hd {}", SCI_VERSION));
         running.set_music_device(audio.get());
         host.set_audio(audio.get());
+        host.set_fast(options.fast);
+        if (audio != nullptr) {
+            audio->set_fast(options.fast);
+        }
         running.schedule(replay);
+        // A replay plays as in sci-vm-trace: the time of day too.
+        if (options.replay) {
+            running.use_deterministic_time();
+        }
         if (const auto fault = running.run()) {
             show_error(window.get(), std::format("The interpreter stopped: {}", *fault));
+            result = 1;
+        }
+        if (options.end_state && !write_end_state(*options.end_state, running)) {
+            std::println(stderr, "Cannot write {}", options.end_state->string());
             result = 1;
         }
     }

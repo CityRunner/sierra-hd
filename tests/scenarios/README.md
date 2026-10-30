@@ -40,6 +40,7 @@ end:
 | `outdoors-restore.txt` | 13600 | The route of `grounds.txt` to room 21, saved there while the music plays; walks into room 10, types "look", restores: back in room 21 with the songs played again from their saved position (the OPL log matches after the restore). |
 | `inventory-restore.txt` | 25000 | The route of `inventory-and-actions.txt` to the kitchen; saved with the soup bone in the inventory, the bone given to Beauregard (Tab: without it), restored (Tab: the bone is back). |
 | `restart-restore.txt` | 9000 | F7 on the title and on "Have you previously attended?" does nothing (the game offers no restore there); a save in the bedroom, F9 restart (straight to Act I), F7 during the "Act I" card ("You cannot restore a game right now."), F7 after it restores the save. |
+| `two-songs-restore.txt` | 13600 | The route of `outdoors-restore.txt` to room 22, saved there while the music and a sound effect are in the playlist and the effect has set the MT-32's reverb to 3; walks into rooms 21 and 10, restores: the global reverb comes from the driver's reverb at the save and the restored songs' ordering times from the player's running counter, as in ScummVM (milestone 9). |
 
 ## The parser corpus (milestone 6a)
 

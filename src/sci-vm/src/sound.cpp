@@ -158,8 +158,12 @@ void Sound::reconstruct_play_list(Machine& machine) {
             continue;
         }
         // initSoundResource: ScummVM gives every song with a resource a new
-        // parser (soundInitSnd); the state keeps the parser, which takes the
-        // new one's volumes, and the device gets the volume as in ScummVM.
+        // parser and ordering time (soundInitSnd); the state keeps the
+        // parser, which takes the new one's volumes, and the device gets the
+        // volume as in ScummVM.
+        if (entry->resource) {
+            music_->number_restored_song(*entry);
+        }
         if (entry->parser) {
             entry->parser->reset_volumes(static_cast<std::uint8_t>(music_->master_volume()));
         }
